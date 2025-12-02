@@ -1,0 +1,51 @@
+@startuml
+actor "User" as user
+box "Central Server"
+participant "Cental Service" as api
+database postgres
+database redis
+queue "Main" as mainq
+queue "Network Routines" as networkq
+queue "Host Short Running Routines" as directq
+queue "Host Long Running Routines" as longq
+end box
+
+
+autonumber "<b>[00]"
+user -> api : initiate type:QUEUED run
+api -> postgres : store run details
+
+alt is Network 
+api -> networkq : publishConfig()
+api -> mainq : publishHostAndType()
+api --> user : return run config
+end
+
+alt is HTTP
+
+alt is HTTP Direct
+api -> directq : publishConfig()
+else is HTTP Long
+api -> longq : publishConfig()
+end
+api -> redis : GetRoutinesRateAndUpcoming("HOST")
+redis --> api : return current rates
+api -> redis : GetRoutinesRateAndUpcoming("PROGRAM")
+redis --> api : return current rates
+
+alt canRunNow()
+api -> mainq : publishHostAndType()
+note right
+canRunNow():
+-checks (host-current-rate)+(program-current-rate) < host-max-rate
+-long running ? checks (host-current-long-running-rate) < (host-max-long-running-rate)
+-short ? checks (host-current-short-rate) < (host-max-short-rate)
+-checks program-upcoming is empty
+-checks host-upcoming is empty
+<b> upcoming routines are updated by other operations
+end note
+end
+
+api --> user : return run config
+end
+@enduml
