@@ -3,7 +3,6 @@ actor "User" as user
 box "Central Server"
 participant "Cental Service" as api
 database postgres
-database redis
 queue "Main Global" as mainq
 queue "Global Network Routines" as networkq
 queue "Global Misc HTTP Routines" as miscq
