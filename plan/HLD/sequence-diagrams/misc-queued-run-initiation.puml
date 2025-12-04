@@ -1,0 +1,33 @@
+@startuml
+actor "User" as user
+box "Central Server"
+participant "Cental Service" as api
+database postgres
+database redis
+queue "Main Global" as mainq
+queue "Global Network Routines" as networkq
+queue "Global Misc HTTP Routines" as miscq
+end box
+
+autonumber "<b>[00]"
+user -> api : initiate type:QUEUED run
+api -> postgres : store run details
+
+alt isEagerRun
+alt isNetwork
+api -> networkq : publishConfigWithHighPriority()
+else isHTTP
+api -> miscq : publishConfigWithHighPriority()
+end
+api -> mainq : publishPointerWithHighPriority()
+else isLazyRun
+alt isNetwork
+api -> networkq : publishConfig()
+else isHTTP
+api -> miscq : publishConfig()
+end
+api -> mainq : publishPointer()
+end
+api --> user : return run config
+
+@enduml
