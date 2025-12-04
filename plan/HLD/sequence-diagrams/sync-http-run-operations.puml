@@ -1,0 +1,119 @@
+
+@startuml
+actor "User" as user
+box "Central Server"
+participant "Cental Service" as api
+database postgres
+database redis
+queue "Main Global" as mainq
+end box
+
+
+
+api -> postgres : GetHighPriorityIfFoundElseOldestRoutine
+postgres --> api: return routine details
+
+api -> redis : GetWideRoutinesRate("PROGRAM")
+note right #LightGreen
+<b>VERY IMP NOTE
+When calculating current narrow running rate to determine whether we are able to run a new routine:
+rate of constant mode routines = constant x
+rate of free mode routines = 1
+rate of max-at routines = 1
+rate of lowest-at routines = constant lowest-at
+
+end note
+redis --> api : return wide routines current rates
+note right #LightBlue
+<b>IMP NOTE
+Current rates are not stored in redis, but the rate limit modes are instead stored with their respective constants.
+Routines get their rate dynamically when they ask for it by a specific calculation algorithm.
+
+end note
+alt isWide
+loop for each HOST in PROGRAM
+api -> redis : GetNarrowRoutinesRate("HOST")
+
+redis --> api : return current rates
+api -> api: TotalNarrowRoutinesRateInAProgram += (HOST current rate)
+api -> api : checkAbidesToEachHostRateLimit()
+note right
+Condition 1: (Abide to all hosts rate limit)
+Program routines always have constant rate limit mode
+Suppose the program routine is X, we have to <b>check for every host:
+<b>(HostMaxRate)-(TotalNarrowRoutinesRateInHost+TotalWideRoutinesRateInAProgram) >= X constant rate
+end note
+end
+api -> api : checkAbidesToProgramRateLimit()
+note right
+Condition 2: (abide to program rate limit)
+After calculation of Total we have to check for:
+<b>(ProgramMaxRate)-(TotalNarrowRoutinesRateInAProgram + TotalWideRoutinesRateInAProgram) >= X constant rate
+end note
+
+alt CONDITIONS 1 && 2
+api -> postgres: updateRunStateFromToQueueToQueued
+api -> redis : addWideRoutineRateToProgram("PROGRAM")
+alt isEagerRun
+api -> mainq: publishWithHighPriority()
+else isLazyRun
+api -> mainq: publish()
+end
+
+end
+else isNarrow
+api -> redis : GetNarrowRoutinesRate("HOST")
+
+redis --> api : return current rates
+
+api -> api : checkAbidesToHostRateLimit
+note right
+Condition 1: (Abide to host max rate limit)
+Suppose the narrow routine is X, we have to <b>check for target host:
+<b>(HostMaxRate)-(TotalNarrowRoutinesRateInHost+TotalWideRoutinesRateInAProgram) >= :
+(X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
+end note
+alt isShort
+api -> api : checkAbidesToShortRateLimit
+note right
+Condition 2.a: (Abide to short rate limits)
+Suppose the program routine is X, we have to <b>check for target host:
+<b>(ShortMaxRate)-(TotalShortRoutinesRateInHost) >= :
+(X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
+end note
+else isLong
+api -> api : checkAbidesToLongRateLimit
+note right
+Condition 2.b: (Abide to long rate limits)
+Suppose the program routine is X, we have to <b>check for target host:
+<b>(LongMaxRate)-(TotalLongRoutinesRateInHost) >= :
+(X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
+end note
+end
+
+loop for each HOST in PROGRAM
+api -> redis : GetNarrowRoutinesRate("HOST")
+redis --> api : return current rates
+api -> api: TotalNarrowRoutinesRateInAProgram += (HOST current rate)
+
+end
+api -> api : checkAbidesToProgramRateLimit()
+note right
+Condition 3: (abide to program rate limit)
+After calculation of Total we have to check for:
+<b>(ProgramMaxRate)-(TotalNarrowRoutinesRateInAProgram + TotalWideRoutinesRateInAProgram) >= :
+(X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
+end note
+alt CONDITIONS 1 && 2 && 3
+
+api -> postgres: updateRunStateFromToQueueToQueued
+api -> redis : addNarrowRoutineRateToHost("HOST")
+alt isEagerRun
+api -> mainq: publishWithHighPriority()
+else isLazyRun
+api -> mainq: publish()
+end
+end
+end
+
+@enduml
