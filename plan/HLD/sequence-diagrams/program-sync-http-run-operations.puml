@@ -10,8 +10,12 @@ end box
 
 
 
-api -> postgres : GetHighPriorityIfFoundElseOldestRoutine
-postgres --> api: return routine details
+api -> postgres : GetHighPriorityIfFoundElseOldestRoutineToQueue("PROGRAM")
+note right
+Here "PROGRAM" is the program which is relative to the action which has caused the sync
+So if for example a routine finished in the program X then "X" will be the "PROGRAM" here
+end note
+postgres --> api: return routine run details
 
 api -> redis : GetWideRoutinesRate("PROGRAM")
 note right #LightGreen
