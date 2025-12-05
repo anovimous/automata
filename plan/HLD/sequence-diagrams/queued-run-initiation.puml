@@ -11,6 +11,7 @@ autonumber "<b>[00]"
 user -> api : initiate type:QUEUED run
 note right
 This sequence diagram describes queued-run-initation regardless of whether the routine is:
+- HTTP or Network
 - narrow or wide
 - eager or lazy
 end note
