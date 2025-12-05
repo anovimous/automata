@@ -1,7 +1,7 @@
 @startuml
 actor "User" as user
 box "Central Server"
-participant "<b>Cental Service" as api
+participant "<b>Central Service" as api
 participant "Quartz Scheduler" as scheduler
 database postgres
 
@@ -10,16 +10,11 @@ user -> api : initiate type:SCHEDULED run
 api -> postgres : store run details
 
 api --> user: return run details
-api -> scheduler : scheduleEnqueue(date, routineContext)
+api -> scheduler : scheduleEnqueueOperation(date, routineContext)
 scheduler --> api : scheduled
 ... Some time later:...
 scheduler -> api : executeEnqueueJob(routineContext)
 
-alt isProgramRoutine
-ref over api : PROGRAM_QUEUED_RUN_INITATION
-else isHostRoutine
-ref over api : HOST_QUEUED_RUN_INITATION
-end
-
+ref over api : QUEUED_RUN_INITATION
 
 @enduml
