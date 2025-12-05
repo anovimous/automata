@@ -7,7 +7,8 @@ database postgres
 
 autonumber "<b>[00]"
 user -> api : initiate type:SCHEDULED run
-api -> postgres : store run details
+api -> postgres : store run config
+api -> postgres : store run args
 
 api --> user: return run details
 api -> scheduler : scheduleEnqueueOperation(date, routineContext)
