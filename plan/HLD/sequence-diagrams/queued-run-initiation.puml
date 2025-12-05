@@ -1,0 +1,36 @@
+@startuml
+actor "User" as user
+box "Central Server"
+participant "Central Service" as api
+database postgres
+queue "Main Global" as mainq
+end box
+
+
+autonumber "<b>[00]"
+user -> api : initiate type:QUEUED run
+note right
+This sequence diagram describes queued-run-initation regardless of whether the routine is:
+- narrow or wide
+- eager or lazy
+end note
+api -> postgres : store run config
+api -> postgres : store run args
+
+alt is Network
+alt isEagerRun
+api -> mainq : publishPointerWithHighPriority()
+else isLazyRun
+api -> mainq : publishPointer()
+end
+api --> user : return run config
+end
+
+alt is HTTP
+
+api --> user : return run config
+
+ref over api: PROGRAM_SYNC_HTTP_RUN_OPERATIONS
+
+end
+@enduml
