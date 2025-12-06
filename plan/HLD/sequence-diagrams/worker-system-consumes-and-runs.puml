@@ -1,0 +1,80 @@
+@startuml
+box "Worker Server"
+participant "Execution Worker" as worker
+participant "Supervisor Service" as supervisor
+end box
+box "Central Server"
+participant "Central Service" as api
+database postgres
+database redis
+queue "Main Global" as mainq
+queue "DLQ" as dlq
+end box
+
+supervisor -> supervisor : checkAverageSystemResources()
+note right
+Checks if avg allows consuming a job of lowest consumption type
+end note
+note left
+When system resources don't allow consumption,
+the rate will still be present in redis,
+with a state of queued instead of running.
+end note
+supervisor -> mainq : consume pointer
+mainq --> supervisor : return message X
+supervisor -> mainq : ack
+note left
+Priorities used will be:
+5:MAX
+4:EAGER
+1-2-3:LAZY
+Lazy Routines priority can be maximum raised to 3,
+eager routines priority is raised to MAX upon enqueing to DLQ
+end note
+alt #LightBlue SystemResourcesSufficientForJobConsumptionLevel
+
+supervisor -> worker : init with args
+worker -> supervisor : ok 
+... <b>10 sec wait ...
+worker -> api : getRate("RUN")
+alt isNarrow
+api -> redis : GetNarrowRoutinesRate("HOST")
+redis --> api : return current narrow rates
+else isWide
+api -> redis : GetWideRoutinesRate("PROGRAM")
+redis --> api : return current wide rates
+else isGlobal
+api -> redis : GetRate("id")
+redis --> api : return run rate
+end
+opt isStateQueued
+api -> redis : update state to running
+api -> postgres : update state to running
+end
+api --> worker : return single rate
+
+else SystemResourcesNOTSufficientForJobConsumptionLevel
+
+alt isMAX
+
+supervisor -> dlq : enqueue with ttl Z
+
+ref over supervisor : <b>SELF
+
+else isEager
+
+supervisor -> mainq : enqueue with priority + 1
+... Cooldown 20 sec ...
+ref over supervisor : <b>SELF
+else isLazy
+
+supervisor -> mainq : enqueue with priority + 1
+
+... Cooldown 20 sec ...
+
+ref over supervisor : <b>SELF
+
+end
+
+end
+@enduml
