@@ -57,7 +57,7 @@ end note
 
 alt CONDITIONS 1 && 2
 api -> postgres: updateRunStateFromToQueueToQueued
-api -> redis : addWideRoutineRateToProgram("PROGRAM")
+api -> redis : addWideRoutineRateToProgramWithStateQueued("PROGRAM")
 alt isEagerRun
 api -> mainq: publishPointerWithHighPriority()
 else isLazyRun
@@ -111,7 +111,7 @@ end note
 alt CONDITIONS 1 && 2 && 3
 
 api -> postgres: updateRunStateFromToQueueToQueued
-api -> redis : addNarrowRoutineRateToHost("HOST")
+api -> redis : addNarrowRoutineRateToHostWithStateQueued("HOST")
 alt isEagerRun
 api -> mainq: publishPointerWithHighPriority()
 else isLazyRun
