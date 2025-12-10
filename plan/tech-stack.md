@@ -20,9 +20,9 @@
 
 **Technologies**:
 - REST API: Java Spring Boot
-- ORM: JPA
+- ORM: JPA (Hibernate)
 - Entities DB: Postgresql
-- Fast Storage for high read endpoints needed for routines states and rate limits orchestration: REDIS
+- Fast Storage for high read endpoints: REDIS
 - Queue: RabbitMQ
 - Routine Results DB: MongoDB
 
