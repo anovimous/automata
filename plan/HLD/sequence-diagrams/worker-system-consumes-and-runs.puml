@@ -17,8 +17,7 @@ Checks if avg allows consuming a job of lowest consumption type
 end note
 note left
 When system resources don't allow consumption,
-the rate will still be present in redis,
-with a state of queued instead of running.
+the rate will still be taking its place and is taken into consideration.
 end note
 supervisor -> mainq : consume pointer
 mainq --> supervisor : return message X
@@ -36,22 +35,7 @@ alt #LightBlue SystemResourcesSufficientForJobConsumptionLevel
 supervisor -> worker : init with args
 worker -> supervisor : ok 
 ... <b>10 sec wait ...
-worker -> api : getRate("RUN")
-alt isNarrow
-api -> redis : GetNarrowRoutinesRate("HOST")
-redis --> api : return current narrow rates
-else isWide
-api -> redis : GetWideRoutinesRate("PROGRAM")
-redis --> api : return current wide rates
-else isGlobal
-api -> redis : GetRate("id")
-redis --> api : return run rate
-end
-opt isStateQueued
-api -> redis : update state to running
-api -> postgres : update state to running
-end
-api --> worker : return single rate
+ref over worker: RUNNING_ROUTINE_QUERIES_STATE_A_RATE
 
 else SystemResourcesNOTSufficientForJobConsumptionLevel
 
