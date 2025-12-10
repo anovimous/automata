@@ -1,8 +1,7 @@
 
 @startuml
-actor "User" as user
 box "Central Server"
-participant "Cental Service" as api
+participant "Central Service" as api
 database postgres
 database redis
 queue "Main Global" as mainq
@@ -17,7 +16,7 @@ So if for example a routine finished in the program X then "X" will be the "PROG
 end note
 postgres --> api: return routine run details
 
-api -> redis : GetWideRoutinesRate("PROGRAM")
+api -> postgres : GetWideRoutinesRate("PROGRAM")
 note right #LightGreen
 <b>VERY IMP NOTE
 When calculating current narrow running rate to determine whether we are able to run a new routine:
@@ -27,7 +26,7 @@ rate of max-at routines = 1
 rate of lowest-at routines = constant lowest-at
 
 end note
-redis --> api : return wide routines current rates
+postgres --> api : return wide routines current rates
 note right #LightBlue
 <b>IMP NOTE
 Current rates are not stored in redis, but the rate limit modes are instead stored with their respective constants.
@@ -35,12 +34,12 @@ Routines get their rate dynamically when they ask for it by a specific calculati
 
 end note
 alt isWide
-loop for each HOST in PROGRAM
-api -> redis : GetNarrowRoutinesRate("HOST")
+api -> postgres : GetNarrowRoutinesRateInEachHostInTheProgram("PROGRAM")
 
-redis --> api : return current rates
-api -> api: TotalNarrowRoutinesRateInAProgram += (HOST current rate)
+postgres --> api : return current narrow rates in all hosts
+loop for each HOST in PROGRAM
 api -> api : checkAbidesToEachHostRateLimit()
+api -> api: TotalNarrowRoutinesRateInAProgram += (Each HOST current rate)
 note right
 Condition 1: (Abide to all hosts rate limit)
 Program routines always have constant rate limit mode
@@ -56,8 +55,7 @@ After calculation of Total we have to check for:
 end note
 
 alt CONDITIONS 1 && 2
-api -> postgres: updateRunStateFromToQueueToQueued
-api -> redis : addWideRoutineRateToProgramWithStateQueued("PROGRAM")
+api -> postgres: updateRunStateFromToQueueToQueued("ROUTINE")
 alt isEagerRun
 api -> mainq: publishPointerWithHighPriority()
 else isLazyRun
@@ -66,9 +64,9 @@ end
 
 end
 else isNarrow
-api -> redis : GetNarrowRoutinesRate("HOST")
+api -> postgres : GetNarrowRoutinesRate("HOST")
 
-redis --> api : return current rates
+postgres --> api : return current narrow rates in host
 
 api -> api : checkAbidesToHostRateLimit()
 note right
@@ -94,11 +92,11 @@ Suppose the program routine is X, we have to <b>check for target host:
 (X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
 end note
 end
+api -> postgres : GetNarrowRoutinesRateInEachHostInTheProgram("PROGRAM")
+postgres --> api : return current narrow rates in all hosts
 
 loop for each HOST in PROGRAM
-api -> redis : GetNarrowRoutinesRate("HOST")
-redis --> api : return current rates
-api -> api: TotalNarrowRoutinesRateInAProgram += (HOST current rate)
+api -> api: TotalNarrowRoutinesRateInAProgram += (Each HOST current rate)
 
 end
 api -> api : checkAbidesToProgramRateLimit()
@@ -111,7 +109,6 @@ end note
 alt CONDITIONS 1 && 2 && 3
 
 api -> postgres: updateRunStateFromToQueueToQueued
-api -> redis : addNarrowRoutineRateToHostWithStateQueued("HOST")
 alt isEagerRun
 api -> mainq: publishPointerWithHighPriority()
 else isLazyRun
