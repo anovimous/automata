@@ -1,0 +1,127 @@
+
+@startuml
+box "Central Server"
+participant "Central Service" as api
+database postgres
+queue "Main Global" as mainq
+end box
+
+api -> postgres : GetShortAndLongAndWideRunsToQueueSortByPriorityThenDateLimit10Each("HOST")
+note right
+<b>The logic of this diagram gets executed when an action relative to a host gets executed
+end note
+postgres --> api: return routine run details
+note  right #LightBlue
+<b>ALGORITHM: using (multilevel linked list)
+We get short,long, and wide runs.
+We seperate shorts and longs and wides as seperate 3 sorted lists.
+We assume each list is one parent and sort these 3 parents based on the first run in each
+If the run in the first list cannot be ran the whole list gets removed from the algorithm
+If the run in the first list is queued successfully then the 3 parents get re-sorted
+Then the algorithm is retried
+end note
+
+
+
+loop for each run choosed based on algorithm
+
+api -> postgres : GetWideRoutinesRate("PROGRAM")
+note right #LightGreen
+<b>NOTE
+Rate modes implementation delayed for now.
+The only rate mode in work is CONSTANT.
+
+end note
+postgres --> api : return wide routines current rates
+note right
+This implementation is a general one and may contain many performance deficencies
+In-code implementation may differ in some implementation details
+end note
+alt isWide
+api -> postgres : GetNarrowRoutinesRateInEachHostInTheProgram("PROGRAM")
+
+postgres --> api : return current narrow rates in all hosts
+loop for each HOST in PROGRAM
+api -> api : checkAbidesToEachHostRateLimit()
+api -> api: TotalNarrowRoutinesRateInAProgram += (Each HOST current rate)
+note right
+Condition 1: (Abide to all hosts rate limit)
+Program routines always have constant rate limit mode
+Suppose the program routine is X, we have to <b>check for every host:
+<b>(HostMaxRate)-(TotalNarrowRoutinesRateInHost+TotalWideRoutinesRateInAProgram) >= X constant rate
+end note
+end
+api -> api : checkAbidesToProgramRateLimit()
+note right
+Condition 2: (abide to program rate limit)
+After calculation of Total we have to check for:
+<b>(ProgramMaxRate)-(TotalNarrowRoutinesRateInAProgram + TotalWideRoutinesRateInAProgram) >= X constant rate
+end note
+
+alt CONDITIONS 1 && 2
+api -> postgres: updateRunStateFromToQueueToQueued("ROUTINE")
+alt isEagerRun
+api -> mainq: publishPointerWithHighPriority()
+else isLazyRun
+api -> mainq: publishPointer()
+end
+
+end
+else isNarrow
+api -> postgres : GetNarrowRoutinesRate("HOST")
+
+postgres --> api : return current narrow rates in host
+
+api -> api : checkAbidesToHostRateLimit()
+note right
+Condition 1: (Abide to host max rate limit)
+Suppose the narrow routine is X, we have to <b>check for target host:
+<b>(HostMaxRate)-(TotalNarrowRoutinesRateInHost+TotalWideRoutinesRateInAProgram) >= :
+X constant rate
+end note
+alt isShort
+api -> api : checkAbidesToShortRateLimit()
+note right
+Condition 2.a: (Abide to short rate limits)
+Suppose the program routine is X, we have to <b>check for target host:
+<b>(ShortMaxRate)-(TotalShortRoutinesRateInHost) >= :
+X constant rate
+end note
+else isLong
+api -> api : checkAbidesToLongRateLimit()
+note right
+Condition 2.b: (Abide to long rate limits)
+Suppose the program routine is X, we have to <b>check for target host:
+<b>(LongMaxRate)-(TotalLongRoutinesRateInHost) >= :
+X constant rate
+end note
+end
+api -> postgres : GetNarrowRoutinesRateInEachHostInTheProgram("PROGRAM")
+postgres --> api : return current narrow rates in all hosts
+
+loop for each HOST in PROGRAM
+api -> api: TotalNarrowRoutinesRateInAProgram += (Each HOST current rate)
+
+end
+api -> api : checkAbidesToProgramRateLimit()
+note right
+Condition 3: (abide to program rate limit)
+After calculation of Total we have to check for:
+<b>(ProgramMaxRate)-(TotalNarrowRoutinesRateInAProgram + TotalWideRoutinesRateInAProgram) >= :
+X constant rate
+end note
+alt CONDITIONS 1 && 2 && 3
+
+api -> postgres: updateRunStateFromToQueueToQueued
+alt isEagerRun
+api -> mainq: publishPointerWithHighPriority()
+else isLazyRun
+api -> mainq: publishPointer()
+end
+end
+end
+opt run can't be ran
+api -> api : remove List from algorithm
+end
+end
+@enduml
