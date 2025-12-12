@@ -1,0 +1,33 @@
+@startuml
+box "Worker Server"
+participant "Execution Worker" as worker
+end box
+box "Central Server"
+participant "Central Service" as api
+database postgres
+database redis
+end box
+
+autonumber "<b>[00]"
+
+worker -> api : getRateAndStatus("RUN")
+note right
+In the current version,
+all rates are constant
+and immutable
+end note
+api -> postgres : getRateDetails("RUN")
+postgres --> api : return run details
+activate api
+
+opt isStateQueued
+api -> postgres : updateStateToRunning("RUN")
+end
+api -> redis : insertHeartbeatDate("RUN")
+api --> worker : return rate and status
+
+
+deactivate api
+
+
+@enduml
