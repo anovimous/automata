@@ -8,30 +8,67 @@ end box
 
 
 
-api -> postgres : GetHighPriorityIfFoundElseOldestRoutineToQueueForAllPrograms()
-note right
-Here "PROGRAM" is the program which is relative to the action which has caused the sync
-So if for example a routine finished in the program X then "X" will be the "PROGRAM" here
-end note
-postgres --> api: return list of routine run details
+api -> postgres: GetAllToQueueRuns()
 
-loop For Each routine run in list
+note right
+<b>ALGORITHM:
+TODO: Add logic for wide routines
+<b>PART 1:
+Get all toQueue runs
+Sort them based on the following comparator:
+1. When both jobs have a host (non-null)
+  Same host:
+     Sort by priority (desc)
+     If equal, sort by creation date (asc)
+  Different hosts:
+     If either priority ≥ 4 → sort by priority (desc)
+     Otherwise (both < 4) → sort by creation date (asc)
+2. When both jobs have null host
+  Same program:
+     Sort by priority (desc)
+     If equal, sort by creation date (asc)
+  Different programs:
+     If either priority ≥ 4 → sort by priority (desc)
+     Otherwise → sort by creation date (asc)
+3. When one host is null and the other is not
+  Same program:
+     Sort by priority (desc)
+     If equal, sort by creation date (asc)
+  Different programs:
+     If either priority ≥ 4 → sort by priority (desc)
+     Otherwise → sort by creation date (asc)
+<b>PART 2:
+Check rate limit capabilities for each job
+If conditions are met:
+  if EAGER (p=4):
+     enqueue with p=4
+  if LAZY (p=1-3):
+     enqueue with p=1
+  remove from list then restart part 2
+If conditions fail:
+  If wide:
+     remove all wides in the same program
+  If narrow:
+     if short:
+        remove all shorts of the same host
+     if long:
+        remove all longs of the same host
+end note
+api -> api : sortRuns()
+
+loop for each run choosed based on algorithm
+
 api -> postgres : GetWideRoutinesRate("PROGRAM")
 note right #LightGreen
-<b>VERY IMP NOTE
-When calculating current narrow running rate to determine whether we are able to run a new routine:
-rate of constant mode routines = constant x
-rate of free mode routines = 1
-rate of max-at routines = 1
-rate of lowest-at routines = constant lowest-at
+<b>NOTE
+Rate modes implementation delayed for now.
+The only rate mode in work is CONSTANT.
 
 end note
 postgres --> api : return wide routines current rates
-note right #LightBlue
-<b>IMP NOTE
-Current rates are not stored in redis, but the rate limit modes are instead stored with their respective constants.
-Routines get their rate dynamically when they ask for it by a specific calculation algorithm.
-
+note right
+This implementation is a general one and may contain many performance deficencies
+In-code implementation may differ in some implementation details
 end note
 alt isWide
 api -> postgres : GetNarrowRoutinesRateInEachHostInTheProgram("PROGRAM")
@@ -73,7 +110,7 @@ note right
 Condition 1: (Abide to host max rate limit)
 Suppose the narrow routine is X, we have to <b>check for target host:
 <b>(HostMaxRate)-(TotalNarrowRoutinesRateInHost+TotalWideRoutinesRateInAProgram) >= :
-(X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
+X constant rate
 end note
 alt isShort
 api -> api : checkAbidesToShortRateLimit()
@@ -81,7 +118,7 @@ note right
 Condition 2.a: (Abide to short rate limits)
 Suppose the program routine is X, we have to <b>check for target host:
 <b>(ShortMaxRate)-(TotalShortRoutinesRateInHost) >= :
-(X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
+X constant rate
 end note
 else isLong
 api -> api : checkAbidesToLongRateLimit()
@@ -89,7 +126,7 @@ note right
 Condition 2.b: (Abide to long rate limits)
 Suppose the program routine is X, we have to <b>check for target host:
 <b>(LongMaxRate)-(TotalLongRoutinesRateInHost) >= :
-(X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
+X constant rate
 end note
 end
 api -> postgres : GetNarrowRoutinesRateInEachHostInTheProgram("PROGRAM")
@@ -104,7 +141,7 @@ note right
 Condition 3: (abide to program rate limit)
 After calculation of Total we have to check for:
 <b>(ProgramMaxRate)-(TotalNarrowRoutinesRateInAProgram + TotalWideRoutinesRateInAProgram) >= :
-(X constant rate | X max-at constant | X lowest-at constant | 1 if X is free)
+X constant rate
 end note
 alt CONDITIONS 1 && 2 && 3
 
@@ -115,6 +152,9 @@ else isLazyRun
 api -> mainq: publishPointer()
 end
 end
+end
+opt run can't be ran
+api -> api : remove all with same criteria from algorithm
 end
 end
 @enduml
