@@ -1,0 +1,19 @@
+@startuml
+box "Worker Server"
+participant "Execution Worker" as worker
+end box
+box "Central Server"
+participant "Central Service" as api
+database postgres
+database redis
+end box
+
+worker -> api : finish()
+api -> redis : removeHeartbeat()
+api -> postgres : updateStateToFinished()
+api -> postgres : updateEndDate()
+api --> worker : 204
+worker -> worker : terminate()
+
+
+@enduml
