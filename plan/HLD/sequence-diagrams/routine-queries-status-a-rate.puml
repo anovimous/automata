@@ -16,14 +16,19 @@ In the current version,
 all rates are constant
 and immutable
 end note
-api -> postgres : getRateDetails("RUN")
+api -> postgres : getRunDetails("RUN")
 postgres --> api : return run details
 activate api
 
 opt isStateQueued
-api -> postgres : updateStateToRunning("RUN")
+api -> postgres : updateCurrentStateToRunning("RUN")
 end
+opt is current state other than requested
+api -> postgres : updateCurrentToRequested("RUN")
+end
+opt isCurrentStateRunning
 api -> redis : insertHeartbeatDate("RUN")
+end
 api --> worker : return rate and status
 
 
