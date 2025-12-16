@@ -1,0 +1,17 @@
+@startuml
+box "Worker Server"
+database "redis" as wredis
+participant "Execution Worker" as worker
+participant "Supervisor Service" as supervisor
+end box
+
+loop each interval of time
+supervisor -> wredis : getHeartbeatTimestamps()
+loop for each unresponsive run X
+opt isProcessInMemory
+supervisor -> worker : terminate()
+end
+supervisor -> wredis : removeHeartbeat(X)
+end
+end
+@enduml
