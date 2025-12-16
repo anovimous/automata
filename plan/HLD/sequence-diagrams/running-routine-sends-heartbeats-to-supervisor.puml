@@ -1,0 +1,13 @@
+@startuml
+box "Worker Server"
+participant "Execution Worker" as worker
+participant "Supervisor Service" as supervisor
+database redis
+end box
+
+loop each interval of time
+worker -> supervisor : heartbeat()
+supervisor -> redis : storeHeartbeatTimestamp()
+end
+
+@enduml
