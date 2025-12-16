@@ -1,0 +1,31 @@
+@startuml
+participant target
+box "Worker Server"
+participant "Execution Worker" as worker
+end box
+box "Central Server"
+participant "Central Service" as api
+database postgres
+database redis
+end box
+
+worker -> target : test()
+target --> worker : HTTP response
+opt isSatisfiesPauseConditions
+worker -> api : updateCurrentStateToPaused()
+api -> postgres : updateCurrentStateToPaused()
+api --> worker : 204
+loop each 10 sec
+ref over worker : routine-queries-status-a-rate 
+ref over worker : running-routine-sends-heartbeats-to-supervisor
+end
+end
+opt isSatisfiesFailConditions
+worker -> api : updateCurrentStateToFailed()
+api -> postgres : updateCurrentStateToFailed()
+api -> redis : removeHeartbeat()
+api --> worker : 204
+worker -> worker : terminate()
+end
+
+@enduml
