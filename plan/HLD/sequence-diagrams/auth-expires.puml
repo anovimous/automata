@@ -1,0 +1,36 @@
+@startuml
+participant target
+box "Worker Server"
+participant "Execution Worker" as worker
+end box
+box "Central Server"
+participant "Central Service" as api
+database postgres
+participant "Dynamic Auth Service" as auth
+end box
+
+worker -> target : send request
+target --> worker : 401 or what matches auth conditions
+
+worker -> api : getAuthCredentials()
+api -> postgres : get auth config
+postgres --> api : return auth config
+
+alt isAuthStatic
+api --> worker : 200 Ok with auth credentials
+worker -> target : resume testing
+
+else isAuthDynamic
+api -> postgres : getPythonMethodBody()
+postgres --> api : return body
+api -> auth : execute body
+auth --> api : return auth credentials
+api --> worker : 200 Ok with auth credentials
+worker -> target : resume testing
+end
+
+opt authStillFails
+... 5 min cooldown ...
+ref over worker : self
+end
+@enduml
