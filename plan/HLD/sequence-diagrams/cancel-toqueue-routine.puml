@@ -1,0 +1,13 @@
+@startuml
+actor "User" as user
+box "Central Server"
+participant "Central Service" as api
+database postgres
+end box
+
+user -> api : cancel(X)
+api -> postgres : updateCurrentStateToCanceled()
+api --> user : 204
+
+
+@enduml

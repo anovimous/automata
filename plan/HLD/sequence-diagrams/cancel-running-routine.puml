@@ -1,0 +1,20 @@
+@startuml
+actor "User" as user
+box "Central Server"
+participant "Central Service" as api
+database postgres
+database redis
+end box
+box "Worker Server"
+participant "Execution Worker" as worker
+end box
+
+user -> api : cancel(X)
+api -> postgres : updateRequestedStateToCanceled()
+api -> redis : removeHeartbeat(X)
+api --> user : 204
+... few seconds ...
+ref over worker : routine-queries-status-a-rate
+
+
+@enduml

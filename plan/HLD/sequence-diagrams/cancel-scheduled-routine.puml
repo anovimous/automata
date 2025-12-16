@@ -1,0 +1,15 @@
+@startuml
+actor "User" as user
+box "Central Server"
+participant "Central Service" as api
+database postgres
+participant "Quartz Scheduler" as scheduler
+end box
+
+user -> api : cancel(X)
+api -> postgres : updateCurrentStateToCanceled()
+api -> scheduler : deleteJob(X)
+api --> user : 204
+
+
+@enduml
