@@ -1,0 +1,26 @@
+@startuml
+participant target
+box "Worker Server"
+database redis
+participant "Execution Worker" as worker
+end box
+box "Central Server"
+participant "Central Service" as api
+database postgres
+end box
+
+worker -> target : testRequest()
+target --> worker : HTTP response
+
+opt isResponseMatches
+worker -> redis : store result
+opt isResultsLimitReached
+worker -> api : store batch of results
+api -> postgres : storeBatch()
+api --> worker : 204
+worker -> redis : emptyResults()
+end
+end
+
+
+@enduml
