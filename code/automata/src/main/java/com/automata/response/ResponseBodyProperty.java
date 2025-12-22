@@ -1,4 +1,4 @@
-package com.automata.Response;
+package com.automata.response;
 
 import com.automata.host.Host;
 

@@ -1,4 +1,4 @@
-package com.automata.Response;
+package com.automata.response;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
