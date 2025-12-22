@@ -1,13 +1,11 @@
-package com.automata.program;
+package com.automata.host;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
 
 import org.hibernate.annotations.CreationTimestamp;
 
-import com.automata.program.enums.Platform;
-import com.automata.vulnerability.Vulnerability;
+import com.automata.host.enums.Scope;
+import com.automata.program.Program;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,7 +14,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -25,7 +23,7 @@ import lombok.Setter;
 @RequiredArgsConstructor
 @Getter
 @Setter
-public class Program {
+public class Host {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,21 +33,25 @@ public class Program {
 	@Column(nullable = false, updatable = false)
 	private LocalDate insertionDate;
 	
-	@Column(nullable = false)
-	private String name;
+	@Column(nullable = false, unique=true)
+	private String host;
 	
-	private String link;
-	
-	private int programRateLimit;
+	// 0 for root domains, incremental for others
+	private int level;
 	
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
-	private Platform platform;
+	private Scope scope;
 	
-	@ManyToMany
-	private Set<Vulnerability> outOfScopeVulns = new HashSet<>();
+	private boolean outOfScope;
 	
+	private int hostRateLimit;
 	
+	private int shortRateLimit;
 	
+	private int longRateLimit;
+	
+	@ManyToOne
+	private Program program;
 	
 }

@@ -1,13 +1,15 @@
-package com.automata.program;
+package com.automata.job.authentication;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Map;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 
-import com.automata.program.enums.Platform;
-import com.automata.vulnerability.Vulnerability;
+import com.automata.host.Host;
+import com.automata.job.enums.AuthenticationType;
+import com.automata.request.tenant.Tenant;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,7 +18,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -25,7 +27,7 @@ import lombok.Setter;
 @RequiredArgsConstructor
 @Getter
 @Setter
-public class Program {
+public class Authentication {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,23 +35,21 @@ public class Program {
 	
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
-	private LocalDate insertionDate;
-	
-	@Column(nullable = false)
-	private String name;
-	
-	private String link;
-	
-	private int programRateLimit;
+	private LocalDate creationDate;
 	
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
-	private Platform platform;
+	private AuthenticationType authType;
 	
-	@ManyToMany
-	private Set<Vulnerability> outOfScopeVulns = new HashSet<>();
+	@JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> config;
 	
+	@Column(nullable = false)
+	@ManyToOne
+	private Host host;
 	
-	
+	@ManyToOne
+	private Tenant tenant;
 	
 }
