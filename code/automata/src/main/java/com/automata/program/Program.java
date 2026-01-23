@@ -5,8 +5,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.lang.Nullable;
 
-import com.automata.program.enums.Platform;
+import com.automata.program.common.enums.Platform;
 import com.automata.vulnerability.Vulnerability;
 
 import jakarta.persistence.Column;
@@ -29,7 +30,7 @@ public class Program {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
+	private Long id;
 	
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
@@ -38,11 +39,12 @@ public class Program {
 	@Column(nullable = false)
 	private String name;
 	
+	@Nullable
 	private String link;
 	
 	private int programRateLimit;
 	
-	@Column(nullable = false)
+	@Nullable
 	@Enumerated(EnumType.STRING)
 	private Platform platform;
 	
