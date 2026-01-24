@@ -4,7 +4,7 @@ import java.time.LocalDate;
 
 import org.hibernate.annotations.CreationTimestamp;
 
-import com.automata.host.enums.Scope;
+import com.automata.host.common.enums.Scope;
 import com.automata.program.Program;
 
 import jakarta.persistence.Column;
@@ -15,6 +15,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -27,18 +28,21 @@ public class Host {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
+	private Long id;
 	
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
 	private LocalDate insertionDate;
 	
+	@NotNull
 	@Column(nullable = false, unique=true)
 	private String host;
 	
 	// 0 for root domains, incremental for others
-	private int level;
+	@NotNull
+	private Integer level;
 	
+	@NotNull
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private Scope scope;
