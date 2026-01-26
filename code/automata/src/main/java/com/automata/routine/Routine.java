@@ -1,13 +1,15 @@
 package com.automata.routine;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.lang.Nullable;
 
-import com.automata.routine.enums.Duration;
-import com.automata.routine.enums.Overhead;
-import com.automata.routine.enums.PermittedScope;
-import com.automata.routine.enums.Protocol;
+import com.automata.routine.common.enums.Overhead;
+import com.automata.routine.common.enums.PermittedScope;
+import com.automata.routine.common.enums.Protocol;
 import com.automata.vulnerability.Vulnerability;
 
 import jakarta.persistence.Column;
@@ -19,11 +21,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@RequiredArgsConstructor
+@NoArgsConstructor
 @Getter
 @Setter
 public class Routine {
@@ -31,33 +33,36 @@ public class Routine {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
-	
+
+	@CreationTimestamp
+	@Column(nullable = false, updatable = false)
+	private LocalDate creationDate;
+
 	@Column(nullable = false)
 	private String name;
-	
+
+	@Nullable
 	private String description;
-	
+
 	@UpdateTimestamp
 	private Instant updatedAt;
-	
+
 	private boolean isAvailableAtConsumer;
-	
+
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private Overhead overhead;
-	
+
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private Protocol protocol;
-	
+
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private PermittedScope scope;
-	
-	@Enumerated(EnumType.STRING)
-	private Duration duration;
-	
+
+	@Nullable
 	@ManyToOne
 	private Vulnerability vulnerability;
-	
+
 }
