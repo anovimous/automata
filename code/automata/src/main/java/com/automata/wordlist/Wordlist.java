@@ -3,6 +3,8 @@ package com.automata.wordlist;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.springframework.lang.Nullable;
+
 import com.automata.vulnerability.Vulnerability;
 
 import jakarta.persistence.Column;
@@ -23,14 +25,19 @@ public class Wordlist {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
+	private Long id;
 	
 	@Column(nullable = false)
 	private String path;
 	
+	@Nullable
+	String name;
+	
+	@Nullable
 	private Integer numberOfLines;
 	
 	//Optional
+	@Nullable
 	@ManyToMany
 	private Set<Vulnerability> vulnerabilities = new HashSet<>();
 }
