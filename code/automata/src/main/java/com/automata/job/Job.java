@@ -10,6 +10,7 @@ import com.automata.job.enums.JobState;
 import com.automata.job.enums.ResultsVerbosity;
 import com.automata.program.Program;
 import com.automata.routine.Routine;
+import com.automata.routine.common.enums.Duration;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -53,6 +54,9 @@ public class Job {
 	private Integer rate;
 	
 	// Config will be in a seperate config file, including targets
+	
+	@Enumerated(EnumType.STRING)
+	private Duration duration;
 	
 	@ManyToOne
 	private Routine routine;
