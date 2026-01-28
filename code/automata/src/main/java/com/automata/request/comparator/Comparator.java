@@ -1,18 +1,19 @@
-package com.automata.comparator;
+package com.automata.request.comparator;
 
 import java.util.HashSet;
 import java.util.Set;
 
-import com.automata.comparator.enums.Modifier;
-import com.automata.comparator.enums.Schema;
+import org.springframework.lang.Nullable;
+
 import com.automata.host.Host;
 import com.automata.program.Program;
+import com.automata.request.comparator.common.enums.Schema;
 
-import jakarta.persistence.CollectionTable;
-import jakarta.persistence.Column;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -28,32 +29,31 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Comparator {
-	
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
-	
+	private Long id;
+
 	@Column(nullable = false)
+	private String name;
+
+	@Nullable
 	@Enumerated(EnumType.STRING)
 	private Schema schema;
-	
-	@ElementCollection(targetClass = Modifier.class)
-    @CollectionTable(
-        name = "comparator_modifiers",
-        joinColumns = @JoinColumn(name = "comparator_id")
-    )
-    @Enumerated(EnumType.STRING)
-    @Column(name = "modifier")
-	private Set<Modifier> modifiers =  new HashSet<>();;
-	
-	//If both program and host are null then it is global
-	//They can only be specified on creation, not allowed on update
-	
-	//nullable
+
+	@ManyToMany
+	@JoinTable(name = "comparator_modifier", joinColumns = @JoinColumn(name = "comparator_id"), inverseJoinColumns = @JoinColumn(name = "modifier_id"))
+	private Set<Modifier> modifiers = new HashSet<>();
+
+	// NOTE: If both program and host are null then it is global and can be used
+	// globally and is not tied to a specific entity
+	// They can only be specified on creation, not allowed on update
+
+	@Nullable
 	@ManyToOne
 	private Program program;
-	
-	//nullable
+
+	@Nullable
 	@ManyToOne
 	private Host host;
 }
