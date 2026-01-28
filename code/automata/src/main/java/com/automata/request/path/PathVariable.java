@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.automata.request.Request;
-import com.automata.request.enums.PathVariableValueType;
+import com.automata.request.common.enums.PathVariableValueType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
