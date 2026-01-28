@@ -1,4 +1,4 @@
-package com.automata.request.enums;
+package com.automata.request.common.enums;
 
 public enum PathVariableValueType {
 INT, GUID
