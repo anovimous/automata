@@ -8,7 +8,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 
 import com.automata.host.Host;
 import com.automata.job.enums.AuthenticationType;
-import com.automata.request.tenant.Tenant;
+import com.automata.tenant.Tenant;
+
 import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
