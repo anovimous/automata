@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import com.automata.host.Host;
 import com.automata.job.enums.JobState;
 import com.automata.program.Program;
+import com.automata.request.Request;
 import com.automata.routine.Routine;
 
 @Repository
@@ -33,6 +34,8 @@ public interface JobRepository extends JpaRepository<Job, Long> {
 		);
 
 	boolean existsByRoutine(Routine routine);
+
+	boolean existsByRequest(Request request);
 
 
 }

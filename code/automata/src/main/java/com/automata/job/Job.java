@@ -9,6 +9,7 @@ import com.automata.job.authentication.Authentication;
 import com.automata.job.enums.JobState;
 import com.automata.job.enums.ResultsVerbosity;
 import com.automata.program.Program;
+import com.automata.request.Request;
 import com.automata.routine.Routine;
 import com.automata.routine.common.enums.Duration;
 
@@ -33,7 +34,7 @@ public class Job {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
-	
+
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
 	private LocalDate creationDate;
@@ -41,32 +42,35 @@ public class Job {
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private JobState state;
-	
+
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private ResultsVerbosity verbosity;
-	
-	//1->3:Lazy prioritized,4:Eager (5: reserved for retried eager runs)
+
+	// 1->3:Lazy prioritized,4:Eager (5: reserved for retried eager runs)
 	@Column(nullable = false)
 	private Integer priority;
-	
-	//Nullable for non-HTTP
+
+	// Nullable for non-HTTP
 	private Integer rate;
-	
+
 	// Config will be in a seperate config file, including targets
-	
+
 	@Enumerated(EnumType.STRING)
 	private Duration duration;
-	
+
 	@ManyToOne
 	private Routine routine;
-	
+
 	@ManyToOne
 	private Authentication authentication;
-	
+
+	@ManyToOne
+	private Request request;
+
 	@ManyToOne
 	private Program program;
-	
+
 	@ManyToOne
 	private Host host;
 }

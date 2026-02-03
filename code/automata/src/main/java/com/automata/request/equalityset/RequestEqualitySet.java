@@ -1,8 +1,7 @@
-package com.automata.request.path;
+package com.automata.request.equalityset;
 
-import com.automata.request.valueversion.RequestValuesVersion;
+import com.automata.request.comparator.Comparator;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -16,21 +15,15 @@ import lombok.Setter;
 @RequiredArgsConstructor
 @Getter
 @Setter
-public class PathVariableValue {
+public class RequestEqualitySet {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
+	private Long id;
 	
-	@Column(nullable = false)
-	private String value;
+	private Long currentNumberOfRequests;
 	
-	@Column(nullable = false)
 	@ManyToOne
-	private PathVariable pathVariable;
-	
-	@Column(nullable = false)
-	@ManyToOne
-	private RequestValuesVersion requestValuesVersion;
+	private Comparator comparator;
 	
 }

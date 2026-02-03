@@ -1,0 +1,10 @@
+package com.automata.request.comparator;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface ComparatorRepository extends JpaRepository<Comparator, Long>, JpaSpecificationExecutor<Comparator> {
+
+}
