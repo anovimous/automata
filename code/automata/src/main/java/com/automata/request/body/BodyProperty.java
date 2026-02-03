@@ -1,7 +1,6 @@
 package com.automata.request.body;
 
-import java.util.ArrayList;
-import java.util.List;
+import org.springframework.lang.Nullable;
 
 import com.automata.request.Request;
 import com.automata.request.common.enums.PropertyValueType;
@@ -14,34 +13,47 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@RequiredArgsConstructor
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Getter
 @Setter
 public class BodyProperty {
 
+	public static BodyProperty of(String property, String value, PropertyValueType type, Long parentId) {
+		BodyProperty bodyProperty = new BodyProperty();
+		bodyProperty.setProperty(property);
+		bodyProperty.setValue(value);
+		bodyProperty.setPropertyValueType(type);
+		bodyProperty.setParentId(parentId);
+		return bodyProperty;
+
+	}
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
-	
-	@Column(nullable = false)
+	private Long id;
+
+	@Nullable
 	private String property;
-	
+
+	@Nullable
+	private String value;
+
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private PropertyValueType propertyValueType;
-	
+
 	private Long parentId;
-	
+
 	@ManyToOne
 	private Request request;
-	
-	@OneToMany(mappedBy = "bodyProperty")
-	private List<BodyPropertyValue> bodyPropertyValues = new ArrayList<>();
-	
+
 }
