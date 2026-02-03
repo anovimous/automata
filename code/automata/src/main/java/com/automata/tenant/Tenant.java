@@ -1,4 +1,4 @@
-package com.automata.request.tenant;
+package com.automata.tenant;
 
 import java.time.LocalDate;
 
