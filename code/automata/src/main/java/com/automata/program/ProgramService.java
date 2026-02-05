@@ -8,7 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import com.automata.job.JobRepository;
+import com.automata.job.RunJobRepository;
 import com.automata.job.enums.JobState;
 import com.automata.program.common.dto.PatchProgramRequest;
 import com.automata.vulnerability.Vulnerability;
@@ -25,7 +25,7 @@ public class ProgramService {
 	
 	private final VulnerabilityRepository vulnerabilityRepo;
 	
-	private final JobRepository jobRepo;
+	private final RunJobRepository jobRepo;
 	
 	public Program getProgramById(Long programId) {
 		
