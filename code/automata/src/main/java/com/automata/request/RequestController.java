@@ -56,13 +56,15 @@ public class RequestController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<RequestResponse> addRequest(@RequestBody RequestAdditionDto dto) {
+	public ResponseEntity<RequestResponse> addRequestViaComponents(@RequestBody RequestAdditionDto dto) {
 
-		Request request = requestService.addRequest(dto);
+		return ResponseEntity.status(503).build();
 
-		RequestResponse response = RequestMapper.toRequestResponse(request);
-
-		return ResponseEntity.status(201).body(response);
+//		Request request = requestService.addRequestViaComponents(dto);
+//
+//		RequestResponse response = RequestMapper.toRequestResponse(request);
+//
+//		return ResponseEntity.status(201).body(response);
 
 	}
 
@@ -75,7 +77,7 @@ public class RequestController {
 
 		return ResponseEntity.status(201).body(response);
 	}
-
+	
 	@PatchMapping("/{requestId}")
 	public ResponseEntity<RequestResponse> patchRequestProperties(@PathVariable Long requestId,
 			@RequestBody RequestPatchDto dto) {
