@@ -29,12 +29,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@RequiredArgsConstructor
+@NoArgsConstructor
 @Getter
 @Setter
 public class Request {
@@ -57,12 +58,14 @@ public class Request {
 	@Nullable
 	private String extension;
 
-	// This is automatically set, equals bodyProperties.length()
+	// Includes the Protocol
+	private String version;
+
+	// This is automatically set, equals bodyProperties.length()-1
 	private int numberOfProperties;
 
 	// For now, request will only support JSON and POST form data
 
-	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private ContentType contentType;
 
@@ -70,11 +73,9 @@ public class Request {
 	@Enumerated(EnumType.STRING)
 	private Source source;
 
-	@Column(nullable = false)
 	@ManyToOne
 	private Program program;
 
-	@Column(nullable = false)
 	@ManyToOne
 	private Host host;
 
