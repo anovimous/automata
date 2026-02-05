@@ -40,4 +40,10 @@ public class PathService {
 
 	}
 
+	public List<PathVariable> persistPathVariables(List<PathVariable> pathVariables) {
+
+		return pathVariableRepo.saveAll(pathVariables);
+
+	}
+
 }
