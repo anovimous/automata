@@ -1,5 +1,8 @@
 package com.automata.request.body;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,19 +18,33 @@ public class BodyPropertyService {
 	private final BodyPropertyRepository bodyRepo;
 
 	@Transactional
-	public void updateBodyProvidedRaw(Request request, ContentType contentType, String body) {
+	public void updateBodyProvidedRaw(Request request, String body) {
 
 		BodyParseResult parseResult;
 
-		if (contentType == ContentType.JSON)
+		if (request.getContentType() == ContentType.JSON)
 			parseResult = BodyUtils.parseJsonBody(body);
-		else if (contentType == ContentType.FORM)
+		else if (request.getContentType() == ContentType.FORM)
 			parseResult = BodyUtils.parseFormBody(body);
 		else
 			parseResult = new BodyParseResult();
 
+		List<Long> toDeleteBodyProperties = parseResult.getBodyProperties().stream().map(BodyProperty::getId)
+				.collect(Collectors.toList());
+
+		bodyRepo.deleteAllByIdInBatch(toDeleteBodyProperties);
+
+		List<BodyProperty> toSetBodyProperties = parseResult.getBodyProperties();
+
+		bodyRepo.saveAll(toSetBodyProperties);
+
 		request.setBodyProperties(parseResult.getBodyProperties());
 
+	}
+
+	public List<BodyProperty> persistBodyProperties(List<BodyProperty> bodyProperties) {
+
+		return bodyRepo.saveAll(bodyProperties);
 	}
 
 }
