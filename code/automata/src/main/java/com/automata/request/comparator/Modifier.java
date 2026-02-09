@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.automata.request.comparator.common.enums.Schema;
+import com.automata.request.comparator.hash.HashTarget;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -32,13 +33,17 @@ public class Modifier {
 	private LocalDate creationDate;
 
 	@Column(nullable = false)
-	private String key;
+	@Enumerated(EnumType.STRING)
+	private HashTarget target;
 
 	@Column(nullable = false)
 	private String description;
-	
+
+	@Column(nullable = false)
+	private Long priority;
+
 	private boolean isAvailable;
-	
+
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private Schema schema;
