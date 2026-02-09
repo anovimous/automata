@@ -10,7 +10,7 @@ public abstract class HeaderUtils {
 
 		return switch (lower) {
 		case "application/json" -> ContentType.JSON;
-		case "application/x-www-form-urlencoded" -> ContentType.JSON;
+		case "application/x-www-form-urlencoded" -> ContentType.FORM;
 		// case "multipart/form-data" -> ContentType.MULTIPART;
 		default -> ContentType.UNSUPPORTED;
 		};
