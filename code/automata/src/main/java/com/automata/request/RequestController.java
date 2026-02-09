@@ -20,6 +20,7 @@ import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.dto.RequestAdditionDto;
 import com.automata.request.common.dto.RequestPatchDto;
 import com.automata.request.common.dto.RequestResponse;
+import com.automata.request.common.dto.RequestsEqualizationDto;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +30,8 @@ import lombok.RequiredArgsConstructor;
 public class RequestController {
 
 	private final RequestService requestService;
+
+	private final RequestEqualityService requestEqualityService;
 
 	@GetMapping("/{requestId}")
 	public ResponseEntity<RequestResponse> getRequest(@PathVariable Long requestId) {
@@ -55,6 +58,15 @@ public class RequestController {
 
 	}
 
+	@PostMapping("/equalize")
+	public ResponseEntity<Void> equalizeRequests(RequestsEqualizationDto dto) {
+
+		requestEqualityService.equalizeRequestsIntoEqualityGroups(dto);
+
+		return ResponseEntity.status(204).build();
+
+	}
+
 	@PostMapping("")
 	public ResponseEntity<RequestResponse> addRequestViaComponents(@RequestBody RequestAdditionDto dto) {
 
@@ -77,7 +89,7 @@ public class RequestController {
 
 		return ResponseEntity.status(201).body(response);
 	}
-	
+
 	@PatchMapping("/{requestId}")
 	public ResponseEntity<RequestResponse> patchRequestProperties(@PathVariable Long requestId,
 			@RequestBody RequestPatchDto dto) {
