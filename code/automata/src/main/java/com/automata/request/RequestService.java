@@ -18,6 +18,7 @@ import com.automata.request.common.dto.InternalRequestPersistanceDto;
 import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.dto.RequestAdditionDto;
 import com.automata.request.common.dto.RequestPatchDto;
+import com.automata.request.comparator.ComparatorRepository;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.automata.request.header.HeaderService;
 import com.automata.request.parameter.QueryParameter;
@@ -43,6 +44,8 @@ public class RequestService {
 	private final RunJobRepository jobRepo;
 
 	private final HostRepository hostRepo;
+
+	private final ComparatorRepository comparatorRepo;
 
 	private final PathService pathService;
 
@@ -70,15 +73,12 @@ public class RequestService {
 	}
 
 	public Request addRequestViaComponents(RequestAdditionDto dto) {
-
+		// DELAYED
 		return null;
 
 	}
 
 	public Request addRawRequest(RawRequestAdditionDto dto) {
-
-		// add request to its own equality set if added with comparator but no equality
-		// with something found
 
 		Host host = hostRepo.findById(dto.hostId()).orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
@@ -101,6 +101,8 @@ public class RequestService {
 		Request persistedRequest = this.internalPersistRequest(internalDto);
 
 		persistedRequest.setHost(host);
+
+		persistedRequest.setProgram(host.getProgram());
 
 		persistedRequest.setTenant(tenant);
 
