@@ -22,7 +22,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -73,17 +72,16 @@ public class Request {
 	@Enumerated(EnumType.STRING)
 	private Source source;
 
-	@ManyToOne
+	@ManyToOne(optional = false)
 	private Program program;
 
-	@ManyToOne
+	@ManyToOne(optional = false)
 	private Host host;
 
-	@Nullable
 	@ManyToOne
 	private Tenant tenant;
 
-	@OneToMany(fetch = FetchType.EAGER, mappedBy = "request")
+	@OneToMany(mappedBy = "request")
 	private List<PathVariable> pathVariables = new ArrayList<>();
 
 	@OneToMany(mappedBy = "request")
@@ -92,7 +90,7 @@ public class Request {
 	@OneToMany(mappedBy = "request")
 	private List<QueryParameter> parameters = new ArrayList<>();
 
-	@ManyToMany
+	@ManyToMany(mappedBy = "requests")
 	private List<RequestEqualitySet> equalitySet = new ArrayList<>();
 
 }
