@@ -1,6 +1,7 @@
 package com.automata.request.header;
 
 import com.automata.request.common.enums.ContentType;
+import com.automata.response.ResponseContentType;
 
 public abstract class HeaderUtils {
 
@@ -15,6 +16,17 @@ public abstract class HeaderUtils {
 		default -> ContentType.UNSUPPORTED;
 		};
 
+	}
+
+	public static ResponseContentType detectResponseContentType(String mimeType) {
+
+		String lower = mimeType.toLowerCase().replace(" ", "");
+
+		return switch (lower) {
+		case "application/json" -> ResponseContentType.JSON;
+
+		default -> ResponseContentType.UNSUPPORTED;
+		};
 	}
 
 }
