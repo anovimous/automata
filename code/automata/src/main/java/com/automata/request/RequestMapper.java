@@ -20,8 +20,12 @@ public abstract class RequestMapper {
 		builder.method(request.getMethod()).computatedPath(request.getComputatedPath())
 				.extension(request.getExtension()).version(request.getVersion())
 				.numberOfProperties(request.getNumberOfProperties()).contentType(request.getContentType())
-				.source(request.getSource()).hostId(request.getHost().getId()).tenantId(request.getTenant().getId())
-				.programId(request.getProgram().getId());
+				.source(request.getSource()).hostId(request.getHost().getId()).programId(request.getProgram().getId());
+
+		if (request.getTenant() != null)
+			builder.tenantId(request.getTenant().getId());
+		if (request.getResponse() != null)
+			builder.responseId(request.getResponse().getId());
 
 		return builder.build();
 
