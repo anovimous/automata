@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.request.Request;
 import com.automata.request.common.enums.ContentType;
+import com.automata.response.Response;
 
 import lombok.RequiredArgsConstructor;
 
@@ -42,7 +43,18 @@ public class BodyPropertyService {
 
 	}
 
-	public List<BodyProperty> persistBodyProperties(List<BodyProperty> bodyProperties) {
+	public List<BodyProperty> persistRequestBodyProperties(List<BodyProperty> bodyProperties,
+			Request persistedRequest) {
+
+		bodyProperties.forEach(property -> property.setRequest(persistedRequest));
+
+		return bodyRepo.saveAll(bodyProperties);
+	}
+
+	public List<BodyProperty> persistResponseBodyProperties(List<BodyProperty> bodyProperties,
+			Response persistedResponse) {
+
+		bodyProperties.forEach(property -> property.setResponse(persistedResponse));
 
 		return bodyRepo.saveAll(bodyProperties);
 	}
