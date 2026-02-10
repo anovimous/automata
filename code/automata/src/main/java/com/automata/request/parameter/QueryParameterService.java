@@ -33,4 +33,10 @@ public class QueryParameterService {
 		request.setParameters(toSetQueryParameters);
 	}
 
+	public List<QueryParameter> persistQueryParameters(List<QueryParameter> queryParameters) {
+
+		return queryParamRepo.saveAll(queryParameters);
+
+	}
+
 }

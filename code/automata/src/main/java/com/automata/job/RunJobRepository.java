@@ -14,7 +14,7 @@ import com.automata.request.Request;
 import com.automata.routine.Routine;
 
 @Repository
-public interface JobRepository extends JpaRepository<Job, Long> {
+public interface RunJobRepository extends JpaRepository<RunJob, Long> {
 
 	boolean ExistsByProgramAndStateNotIn(Program program, List<JobState> states);
 

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import com.automata.program.Program;
 import com.automata.program.ProgramRepository;
 import com.automata.host.common.dto.PatchHostRequest;
-import com.automata.job.JobRepository;
+import com.automata.job.RunJobRepository;
 import com.automata.job.enums.JobState;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -23,7 +23,7 @@ public class HostService {
 
 	private final ProgramRepository programRepo;
 
-	private final JobRepository jobRepo;
+	private final RunJobRepository jobRepo;
 
 	public Host getHostById(Long hostId) {
 

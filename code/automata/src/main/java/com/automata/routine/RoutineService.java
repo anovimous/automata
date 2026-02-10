@@ -4,7 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import com.automata.job.JobRepository;
+import com.automata.job.RunJobRepository;
 import com.automata.routine.common.dto.RoutinePatchRequest;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;
@@ -20,7 +20,7 @@ public class RoutineService {
 
 	private final VulnerabilityRepository vulnRepo;
 
-	private final JobRepository jobRepo;
+	private final RunJobRepository jobRepo;
 
 	public Routine getRoutineById(Long routineId) {
 

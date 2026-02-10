@@ -20,6 +20,9 @@ import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.dto.RequestAdditionDto;
 import com.automata.request.common.dto.RequestPatchDto;
 import com.automata.request.common.dto.RequestResponse;
+import com.automata.request.common.dto.RequestsEqualizationDto;
+import com.automata.response.RawResponseAdditionDto;
+import com.automata.response.ResponseService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +32,10 @@ import lombok.RequiredArgsConstructor;
 public class RequestController {
 
 	private final RequestService requestService;
+
+	private final RequestEqualityService requestEqualityService;
+
+	private final ResponseService responseService;
 
 	@GetMapping("/{requestId}")
 	public ResponseEntity<RequestResponse> getRequest(@PathVariable Long requestId) {
@@ -47,33 +54,58 @@ public class RequestController {
 
 		Page<Request> requests = requestService.getRequestsFilteredAndPaged(filter, pageable);
 
-		// TODO: map requests to Page<RequestResponse>
-
 		Page<RequestResponse> cleanedRequests = RequestMapper.toRequestResponseList(requests);
 
 		return ResponseEntity.ok(new PageHolderResponse<>(cleanedRequests));
 
 	}
 
+	@PostMapping("/equalize")
+	public ResponseEntity<Void> equalizeRequests(RequestsEqualizationDto dto) {
+
+		requestEqualityService.equalizeRequestsIntoEqualityGroups(dto);
+
+		return ResponseEntity.status(204).build();
+
+	}
+
 	@PostMapping("")
-	public ResponseEntity<RequestResponse> addRequest(@RequestBody RequestAdditionDto dto) {
+	public ResponseEntity<RequestResponse> addRequestViaComponents(@RequestBody RequestAdditionDto dto) {
 
-		Request request = requestService.addRequest(dto);
+		return ResponseEntity.status(503).build();
 
-		RequestResponse response = RequestMapper.toRequestResponse(request);
-
-		return ResponseEntity.status(201).body(response);
+//		Request request = requestService.addRequestViaComponents(dto);
+//
+//		RequestResponse response = RequestMapper.toRequestResponse(request);
+//
+//		return ResponseEntity.status(201).body(response);
 
 	}
 
 	@PostMapping("/raw")
-	public ResponseEntity<RequestResponse> addRawRequest(@RequestBody RawRequestAdditionDto dto) {
+	public ResponseEntity<RequestResponse> addRawRequestWithResponse(@RequestBody RawRequestAdditionDto dto) {
 
 		Request request = requestService.addRawRequest(dto);
 
-		RequestResponse response = RequestMapper.toRequestResponse(request);
+		responseService.addResponseToRequest(dto.responseBase64(), request);
 
-		return ResponseEntity.status(201).body(response);
+		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
+
+		return ResponseEntity.status(201).body(requestResponse);
+	}
+
+	@PostMapping("/{requestId}/response")
+	public ResponseEntity<RequestResponse> associateExistingRequestToNewRawResponse(@PathVariable Long requestId,
+			@RequestBody RawResponseAdditionDto dto) {
+
+		Request request = requestService.getRequestById(requestId);
+
+		responseService.addResponseToRequest(dto.responseBase64(), request);
+
+		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
+
+		return ResponseEntity.ok(requestResponse);
+
 	}
 
 	@PatchMapping("/{requestId}")
@@ -82,9 +114,9 @@ public class RequestController {
 
 		Request request = requestService.patchRequest(requestId, dto);
 
-		RequestResponse response = RequestMapper.toRequestResponse(request);
+		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
 
-		return ResponseEntity.status(204).body(response);
+		return ResponseEntity.status(204).body(requestResponse);
 
 	}
 

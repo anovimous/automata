@@ -29,7 +29,7 @@ import lombok.Setter;
 @RequiredArgsConstructor
 @Getter
 @Setter
-public class Job {
+public class RunJob {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

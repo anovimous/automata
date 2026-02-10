@@ -4,6 +4,7 @@ import org.springframework.lang.Nullable;
 
 import com.automata.request.Request;
 import com.automata.request.common.enums.PropertyValueType;
+import com.automata.response.Response;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -55,5 +56,8 @@ public class BodyProperty {
 
 	@ManyToOne
 	private Request request;
+	
+	@ManyToOne
+	private Response response;
 
 }

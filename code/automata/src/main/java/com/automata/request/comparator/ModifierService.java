@@ -46,8 +46,6 @@ public class ModifierService {
 		Modifier modifier = modifierRepo.findById(modifierId)
 				.orElseThrow(() -> new EntityNotFoundException("Modifier not found"));
 
-		patchRequest.key().ifPresent(modifier::setKey);
-
 		patchRequest.description().ifPresent(modifier::setDescription);
 
 		patchRequest.isAvailable().ifPresent(modifier::setAvailable);

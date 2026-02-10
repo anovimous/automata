@@ -16,25 +16,26 @@ import com.automata.request.common.enums.Source;
 import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.parameter.QueryParameter;
 import com.automata.request.path.PathVariable;
+import com.automata.response.Response;
 import com.automata.tenant.Tenant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@RequiredArgsConstructor
+@NoArgsConstructor
 @Getter
 @Setter
 public class Request {
@@ -57,12 +58,14 @@ public class Request {
 	@Nullable
 	private String extension;
 
-	// This is automatically set, equals bodyProperties.length()
+	// Includes the Protocol
+	private String version;
+
+	// This is automatically set, equals bodyProperties.length()-1
 	private int numberOfProperties;
 
 	// For now, request will only support JSON and POST form data
 
-	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private ContentType contentType;
 
@@ -70,19 +73,19 @@ public class Request {
 	@Enumerated(EnumType.STRING)
 	private Source source;
 
-	@Column(nullable = false)
-	@ManyToOne
+	@ManyToOne(optional = false)
 	private Program program;
 
-	@Column(nullable = false)
-	@ManyToOne
+	@ManyToOne(optional = false)
 	private Host host;
 
-	@Nullable
 	@ManyToOne
 	private Tenant tenant;
 
-	@OneToMany(fetch = FetchType.EAGER, mappedBy = "request")
+	@OneToOne
+	private Response response;
+
+	@OneToMany(mappedBy = "request")
 	private List<PathVariable> pathVariables = new ArrayList<>();
 
 	@OneToMany(mappedBy = "request")
@@ -91,7 +94,7 @@ public class Request {
 	@OneToMany(mappedBy = "request")
 	private List<QueryParameter> parameters = new ArrayList<>();
 
-	@ManyToMany
+	@ManyToMany(mappedBy = "requests")
 	private List<RequestEqualitySet> equalitySet = new ArrayList<>();
 
 }
