@@ -24,10 +24,12 @@ public class Header {
 
 	@EmbeddedId
 	private HeaderCompositePK primaryKey;
-	
+
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
-	private LocalDate insertionDate;	
+	private LocalDate insertionDate;
+
+	private Location location;
 
 	@MapsId("hostId")
 	@ManyToOne(optional = false, fetch = FetchType.LAZY)
