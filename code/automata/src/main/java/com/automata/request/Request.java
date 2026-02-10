@@ -16,6 +16,7 @@ import com.automata.request.common.enums.Source;
 import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.parameter.QueryParameter;
 import com.automata.request.path.PathVariable;
+import com.automata.response.Response;
 import com.automata.tenant.Tenant;
 
 import jakarta.persistence.Column;
@@ -28,7 +29,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-
+import jakarta.persistence.OneToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -80,6 +81,9 @@ public class Request {
 
 	@ManyToOne
 	private Tenant tenant;
+
+	@OneToOne
+	private Response response;
 
 	@OneToMany(mappedBy = "request")
 	private List<PathVariable> pathVariables = new ArrayList<>();
