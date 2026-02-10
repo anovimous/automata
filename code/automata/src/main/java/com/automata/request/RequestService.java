@@ -175,22 +175,22 @@ public class RequestService {
 
 		request.setExtension(internalDto.getRequestParseResult().getPathParseResult().getExtension());
 
+		requestRepo.save(request);
+
 		List<PathVariable> persistedPathVariables = pathService
 				.persistPathVariables(internalDto.getRequestParseResult().getPathParseResult().getPathVariables());
 
 		List<QueryParameter> persistedQueryParameters = queryParameterService.persistQueryParameters(
 				internalDto.getRequestParseResult().getQueryStringParseResult().getQueryParameters());
 
-		List<BodyProperty> persistedBodyProperties = bodyService
-				.persistBodyProperties(internalDto.getRequestParseResult().getBodyParseResult().getBodyProperties());
+		List<BodyProperty> persistedBodyProperties = bodyService.persistRequestBodyProperties(
+				internalDto.getRequestParseResult().getBodyParseResult().getBodyProperties(), request);
 
 		request.setPathVariables(persistedPathVariables);
 
 		request.setParameters(persistedQueryParameters);
 
 		request.setBodyProperties(persistedBodyProperties);
-
-		requestRepo.save(request);
 
 		return request;
 
