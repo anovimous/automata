@@ -8,6 +8,7 @@ import lombok.Builder;
 
 @Builder
 public record RequestResponse(Method method, String computatedPath, String extension, String version,
-		int numberOfProperties, ContentType contentType, Source source, Long hostId, Long tenantId, Long programId) {
+		int numberOfProperties, ContentType contentType, Source source, Long hostId, Long tenantId, Long programId,
+		Long responseId) {
 
 }
