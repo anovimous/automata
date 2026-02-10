@@ -21,6 +21,8 @@ import com.automata.request.common.dto.RequestAdditionDto;
 import com.automata.request.common.dto.RequestPatchDto;
 import com.automata.request.common.dto.RequestResponse;
 import com.automata.request.common.dto.RequestsEqualizationDto;
+import com.automata.response.RawResponseAdditionDto;
+import com.automata.response.ResponseService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +34,8 @@ public class RequestController {
 	private final RequestService requestService;
 
 	private final RequestEqualityService requestEqualityService;
+
+	private final ResponseService responseService;
 
 	@GetMapping("/{requestId}")
 	public ResponseEntity<RequestResponse> getRequest(@PathVariable Long requestId) {
@@ -49,8 +53,6 @@ public class RequestController {
 			@PageableDefault(size = 40, sort = "insertionDate", direction = Sort.Direction.ASC) Pageable pageable) {
 
 		Page<Request> requests = requestService.getRequestsFilteredAndPaged(filter, pageable);
-
-		// TODO: map requests to Page<RequestResponse>
 
 		Page<RequestResponse> cleanedRequests = RequestMapper.toRequestResponseList(requests);
 
@@ -81,13 +83,29 @@ public class RequestController {
 	}
 
 	@PostMapping("/raw")
-	public ResponseEntity<RequestResponse> addRawRequest(@RequestBody RawRequestAdditionDto dto) {
+	public ResponseEntity<RequestResponse> addRawRequestWithResponse(@RequestBody RawRequestAdditionDto dto) {
 
 		Request request = requestService.addRawRequest(dto);
 
-		RequestResponse response = RequestMapper.toRequestResponse(request);
+		responseService.addResponseToRequest(dto.responseBase64(), request);
 
-		return ResponseEntity.status(201).body(response);
+		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
+
+		return ResponseEntity.status(201).body(requestResponse);
+	}
+
+	@PostMapping("/{requestId}/response")
+	public ResponseEntity<RequestResponse> associateExistingRequestToNewRawResponse(@PathVariable Long requestId,
+			@RequestBody RawResponseAdditionDto dto) {
+
+		Request request = requestService.getRequestById(requestId);
+
+		responseService.addResponseToRequest(dto.responseBase64(), request);
+
+		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
+
+		return ResponseEntity.ok(requestResponse);
+
 	}
 
 	@PatchMapping("/{requestId}")
@@ -96,9 +114,9 @@ public class RequestController {
 
 		Request request = requestService.patchRequest(requestId, dto);
 
-		RequestResponse response = RequestMapper.toRequestResponse(request);
+		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
 
-		return ResponseEntity.status(204).body(response);
+		return ResponseEntity.status(204).body(requestResponse);
 
 	}
 
