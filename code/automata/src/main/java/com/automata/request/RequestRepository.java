@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import com.automata.host.Host;
+import com.automata.tenant.Tenant;
 
 @Repository
 public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpecificationExecutor<Request> {
@@ -22,5 +23,7 @@ public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpec
 	Page<Request> findByHost(Host host, Pageable ofSize);
 
 	Page<Request> findByIds(List<Long> requestsIds, Pageable ofSize);
+
+	boolean existsByTenant(Tenant tenant);
 
 }
