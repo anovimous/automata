@@ -5,13 +5,13 @@ import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.automata.host.Host;
-import com.automata.job.authentication.Authentication;
 import com.automata.job.enums.JobState;
 import com.automata.job.enums.ResultsVerbosity;
 import com.automata.program.Program;
 import com.automata.request.Request;
 import com.automata.routine.Routine;
 import com.automata.routine.common.enums.Duration;
+import com.automata.tenant.authentication.Authentication;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
