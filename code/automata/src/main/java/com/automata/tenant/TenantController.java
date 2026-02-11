@@ -16,6 +16,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.automata.common.dto.response.PageHolderResponse;
+import com.automata.tenant.authentication.Authentication;
+import com.automata.tenant.authentication.AuthenticationCreationRequest;
+import com.automata.tenant.authentication.AuthenticationDto;
+import com.automata.tenant.authentication.AuthenticationMapper;
+import com.automata.tenant.authentication.AuthenticationPatchRequest;
+import com.automata.tenant.authentication.AuthenticationService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +31,10 @@ import lombok.RequiredArgsConstructor;
 public class TenantController {
 
 	private final TenantService tenantService;
+
+	private final AuthenticationService authService;
+
+	// Tenant specific endpoints ->:
 
 	@GetMapping("/{tenantId}")
 	public ResponseEntity<TenantResponse> getTenant(@PathVariable Long tenantId) {
@@ -79,6 +89,68 @@ public class TenantController {
 	public ResponseEntity<Void> deleteTenant(@PathVariable Long tenantId) {
 
 		tenantService.deleteTenant(tenantId);
+
+		return ResponseEntity.status(204).build();
+
+	}
+
+	// Tenant authentication specific endpoints ->:
+
+	@GetMapping("/{tenantId}/authentications/{authenticationId}")
+
+	public ResponseEntity<AuthenticationDto> getAuthentication(@PathVariable Long tenantId,
+			@PathVariable Long authenticationId) {
+
+		Authentication authentication = authService.getAuthenticationById(authenticationId, tenantId);
+
+		AuthenticationDto authenticationResponse = AuthenticationMapper.toAuthenticationDto(authentication);
+
+		return ResponseEntity.ok(authenticationResponse);
+
+	}
+
+	@GetMapping("/{tenantId}/authentications")
+	public ResponseEntity<PageHolderResponse<AuthenticationDto>> getAuthentications(@PathVariable Long tenantId,
+			@PageableDefault(size = 10, sort = "creationDate", direction = Sort.Direction.ASC) Pageable pageable) {
+
+		Page<Authentication> authentications = authService.getTenantAuthenticationsPage(tenantId, pageable);
+
+		Page<AuthenticationDto> authenticationResponses = authentications
+				.map(AuthenticationMapper::toAuthenticationDto);
+
+		return ResponseEntity.ok(new PageHolderResponse<>(authenticationResponses));
+
+	}
+
+	@PostMapping("/{tenantId}/authentications")
+	public ResponseEntity<AuthenticationDto> createAuthentication(@PathVariable Long tenantId,
+			@RequestBody AuthenticationCreationRequest request) {
+
+		Authentication toBeCreatedAuthentication = AuthenticationMapper.toAuthentication(request);
+
+		Authentication createdAuthentication = authService.createAuthentication(toBeCreatedAuthentication, tenantId);
+
+		AuthenticationDto authenticationResponse = AuthenticationMapper.toAuthenticationDto(createdAuthentication);
+
+		return ResponseEntity.status(201).body(authenticationResponse);
+
+	}
+
+	@PatchMapping("/{tenantId}/authentications/{authenticationId}")
+	public ResponseEntity<AuthenticationDto> patchAuthentication(@PathVariable Long tenantId,
+			@PathVariable Long authenticationId, @RequestBody AuthenticationPatchRequest patchRequest) {
+
+		Authentication authentication = authService.patchAuthentication(authenticationId, patchRequest, tenantId);
+
+		AuthenticationDto authenticationResponse = AuthenticationMapper.toAuthenticationDto(authentication);
+
+		return ResponseEntity.ok(authenticationResponse);
+	}
+
+	@DeleteMapping("/{tenantId}/authentications/{authenticationId}")
+	public ResponseEntity<Void> deleteAuthentication(@PathVariable Long tenantId, @PathVariable Long authenticationId) {
+
+		authService.deleteAuthentication(authenticationId, tenantId);
 
 		return ResponseEntity.status(204).build();
 
