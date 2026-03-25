@@ -4,9 +4,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.automata.common.utils.UUIDUtils;
 import com.automata.common.utils.ValidationResult;
+import com.automata.request.common.dto.PathVariableInternalDto;
 import com.automata.request.common.enums.PathVariableValueType;
 
 public abstract class PathUtils {
@@ -69,6 +72,29 @@ public abstract class PathUtils {
 		}
 
 		return ValidationResult.valid();
+
+	}
+
+	public static String composeRawPath(String computatedPath, List<PathVariableInternalDto> pathVariableDtos) {
+
+		List<String> computatedUriSplits = Arrays.asList(computatedPath.split("/"));
+
+		Map<Integer, PathVariableInternalDto> dtosMap = pathVariableDtos.stream()
+				.collect(Collectors.toMap(PathVariableInternalDto::index, dto -> dto));
+
+		List<String> originalUriSplits = computatedUriSplits.stream().map((part) -> {
+
+			if (part.matches("[0-9]+@(INT|GUID)")) {
+				int pathIndex = Integer.parseInt(part.substring(0, part.indexOf('@')));
+				return dtosMap.get(pathIndex).value();
+			} else
+				return part;
+
+		}).toList();
+
+		String originalPath = String.join("/", originalUriSplits);
+
+		return originalPath;
 
 	}
 
