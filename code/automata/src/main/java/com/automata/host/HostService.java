@@ -1,7 +1,5 @@
 package com.automata.host;
 
-import java.util.List;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -9,8 +7,6 @@ import org.springframework.stereotype.Service;
 import com.automata.program.Program;
 import com.automata.program.ProgramRepository;
 import com.automata.host.common.dto.PatchHostRequest;
-import com.automata.job.RunJobRepository;
-import com.automata.job.enums.JobState;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -22,8 +18,6 @@ public class HostService {
 	private final HostRepository hostRepo;
 
 	private final ProgramRepository programRepo;
-
-	private final RunJobRepository jobRepo;
 
 	public Host getHostById(Long hostId) {
 
@@ -82,16 +76,16 @@ public class HostService {
 		HostUtils.validateRateLimits(hostRateLimit, longRateLimit, shortRateLimit)
 				.ifNotValidThrow(() -> new IllegalArgumentException("Rate limit values are not compatible"));
 
-		if (jobRepo.checkExistenceOfJobsThatAffectHostCurrentRate(host.getProgram().getId(), host,
-				List.of(JobState.FINISHED, JobState.CANCELED, JobState.FAILED))) {
-
-			host.setHostRateLimit(hostRateLimit);
-
-			host.setLongRateLimit(longRateLimit);
-
-			host.setShortRateLimit(shortRateLimit);
-
-		}
+//		if (jobRepo.checkExistenceOfJobsThatAffectHostCurrentRate(host.getProgram().getId(), host,
+//				List.of(JobState.FINISHED, JobState.CANCELED, JobState.FAILED))) {
+//
+//			host.setHostRateLimit(hostRateLimit);
+//
+//			host.setLongRateLimit(longRateLimit);
+//
+//			host.setShortRateLimit(shortRateLimit);
+//
+//		}
 
 		if (patchRequest.scope() != null)
 			host.setScope(patchRequest.scope());

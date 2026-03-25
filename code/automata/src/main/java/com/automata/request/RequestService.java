@@ -11,7 +11,6 @@ import com.automata.common.utils.Base64Utils;
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.host.common.dto.RequestFilter;
-import com.automata.job.RunJobRepository;
 import com.automata.request.body.BodyProperty;
 import com.automata.request.body.BodyPropertyService;
 import com.automata.request.common.dto.InternalRequestPersistanceDto;
@@ -40,8 +39,6 @@ public class RequestService {
 	private final RequestEqualitySetRepository equalitySetRepo;
 
 	private final TenantRepository tenantRepo;
-
-	private final RunJobRepository jobRepo;
 
 	private final HostRepository hostRepo;
 
@@ -115,8 +112,8 @@ public class RequestService {
 		Request request = requestRepo.findById(requestId)
 				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
 
-		if (jobRepo.existsByRequest(request))
-			throw new RuntimeException("Request can't be modified if it is related to any job");
+//		if (jobRepo.existsByRequest(request))
+//			throw new RuntimeException("Request can't be modified if it is related to any job");
 
 		if (equalitySetRepo.existsByRequests_Id(requestId))
 			throw new RuntimeException("Request can't be modified if it exists in an equalityset");

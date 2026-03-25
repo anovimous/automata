@@ -40,6 +40,12 @@ import lombok.Setter;
 @Setter
 public class Request {
 
+	public static Request of(Long id) {
+		Request req = new Request();
+		req.setId(id);
+		return req;
+	}
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -95,6 +101,6 @@ public class Request {
 	private List<QueryParameter> parameters = new ArrayList<>();
 
 	@ManyToMany(mappedBy = "requests")
-	private List<RequestEqualitySet> equalitySet = new ArrayList<>();
+	private List<RequestEqualitySet> equalitySets = new ArrayList<>();
 
 }

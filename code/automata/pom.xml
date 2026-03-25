@@ -5,30 +5,42 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.5.8</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<version>3.5.11</version>
+		<relativePath /> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.automata</groupId>
 	<artifactId>automata</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>automata</name>
 	<description>Automation Framework</description>
-	<url/>
+	<url />
 	<licenses>
-		<license/>
+		<license />
 	</licenses>
 	<developers>
-		<developer/>
+		<developer />
 	</developers>
 	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
+		<connection />
+		<developerConnection />
+		<tag />
+		<url />
 	</scm>
 	<properties>
 		<java.version>21</java.version>
 	</properties>
+	<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>io.awspring.cloud</groupId>
+            <artifactId>spring-cloud-aws-dependencies</artifactId>
+            <version>3.4.2</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -66,6 +78,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
+		
+		<dependency>
+    <groupId>io.awspring.cloud</groupId>
+    <artifactId>spring-cloud-aws-starter-s3</artifactId>
+</dependency>
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -108,6 +125,11 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+    <groupId>com.h2database</groupId>
+    <artifactId>h2</artifactId>
+    <scope>runtime</scope>
+</dependency>
 		<!-- My Dependancies: -->
 		<dependency>
     <groupId>com.vladmihalcea</groupId>
@@ -119,25 +141,31 @@
     <artifactId>commons-validator</artifactId>
     <version>1.10.1</version>
 </dependency>
-<!-- Source: https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
+		<!-- Source: https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
 <dependency>
     <groupId>org.apache.httpcomponents.client5</groupId>
     <artifactId>httpclient5</artifactId>
     <scope>compile</scope>
 </dependency>
-<!-- Source: https://mvnrepository.com/artifact/org.apache.httpcomponents.core5/httpcore5 -->
+		<!-- Source: https://mvnrepository.com/artifact/org.apache.httpcomponents.core5/httpcore5 -->
 <dependency>
     <groupId>org.apache.httpcomponents.core5</groupId>
     <artifactId>httpcore5</artifactId>
     <scope>compile</scope>
 </dependency>
-<!-- Source: https://mvnrepository.com/artifact/com.google.guava/guava -->
+		<!-- Source: https://mvnrepository.com/artifact/com.google.guava/guava -->
 <dependency>
     <groupId>com.google.guava</groupId>
     <artifactId>guava</artifactId>
     <version>33.5.0-jre</version>
     <scope>compile</scope>
 </dependency>
+		<dependency>
+<groupId>com.github.wnameless.json</groupId>
+	<artifactId>json-flattener</artifactId>
+	<version>0.18.0</version>
+	</dependency>
+	
 	</dependencies>
 
 	<build>

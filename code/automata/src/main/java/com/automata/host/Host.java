@@ -26,36 +26,42 @@ import lombok.Setter;
 @Setter
 public class Host {
 
+	public static Host of(Long hostId) {
+		Host host = new Host();
+		host.setId(hostId);
+		return host;
+	}
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
+
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
 	private LocalDate insertionDate;
-	
+
 	@NotNull
-	@Column(nullable = false, unique=true)
+	@Column(nullable = false, unique = true)
 	private String host;
-	
+
 	// 0 for root domains, incremental for others
 	@NotNull
 	private Integer level;
-	
+
 	@NotNull
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private Scope scope;
-	
+
 	private boolean outOfScope;
-	
+
 	private int hostRateLimit;
-	
+
 	private int shortRateLimit;
-	
+
 	private int longRateLimit;
-	
+
 	@ManyToOne
 	private Program program;
-	
+
 }

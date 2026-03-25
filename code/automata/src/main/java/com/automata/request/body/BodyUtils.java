@@ -1,16 +1,26 @@
 package com.automata.request.body;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.hc.core5.http.NameValuePair;
+import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.hc.core5.net.URIBuilder;
+import org.apache.hc.core5.net.WWWFormCodec;
 
+import com.automata.request.body.BodyProperty.BodyPropertyBuilder;
+import com.automata.request.common.dto.BodyPropertyInternalDto;
+import com.automata.request.common.enums.ContentType;
 import com.automata.request.common.enums.PropertyValueType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.github.wnameless.json.flattener.JsonFlattener;
+import com.github.wnameless.json.unflattener.JsonUnflattener;
 
 public abstract class BodyUtils {
 
@@ -25,76 +35,26 @@ public abstract class BodyUtils {
 			throw new IllegalArgumentException("Json body malformed");
 		}
 
-		List<TemporaryTraversalProperty> temporaryProperties = new ArrayList<>();
+		Map<String, Object> flattenedJsonMap = JsonFlattener.flattenAsMap(root.toString());
 
-		PropertyValueType type = root.isObject() ? PropertyValueType.OBJECT : PropertyValueType.ARRAY;
+		List<BodyProperty> properties = new ArrayList<>();
 
-		TemporaryTraversalProperty rootProperty = TemporaryTraversalProperty.builder().id(0).node(root).property(null)
-				.value(null).type(type).parentId(null).build();
+		for (Map.Entry<String, Object> entry : flattenedJsonMap.entrySet()) {
 
-		temporaryProperties.add(rootProperty);
+			String value = Objects.toString(entry.getValue(), null);
 
-		flattenJsonIntoBodyProperties(rootProperty, temporaryProperties);
+			BodyPropertyBuilder builder = BodyProperty.builder().fullPath(entry.getKey()).value(value);
 
-		List<BodyProperty> bodyProperties = temporaryProperties.stream()
-				.map((tempProp) -> mapper.convertValue(tempProp, BodyProperty.class)).collect(Collectors.toList());
+			builder.isArrayElement(entry.getKey().endsWith("]"));
 
-		BodyParseResult result = new BodyParseResult();
+			builder.propertyValueType(BodyUtils.detectPropertyValueTypeFromValue(value));
 
-		result.setBodyProperties(bodyProperties);
+			properties.add(builder.build());
 
-		return result;
-
-	}
-
-	private static void flattenJsonIntoBodyProperties(TemporaryTraversalProperty addedProperty,
-			List<TemporaryTraversalProperty> list) {
-
-		if (addedProperty.getType() == PropertyValueType.OBJECT)
-			addedProperty.getNode().properties().forEach((entry) -> {
-
-				PropertyValueType type = detectPropertyValueTypeFromJsonNode(entry.getValue());
-
-				TemporaryTraversalProperty newProperty = TemporaryTraversalProperty.builder().id(list.size())
-						.property(entry.getKey()).value(null).type(type).parentId(addedProperty.getId()).build();
-
-				list.add(newProperty);
-
-				flattenJsonIntoBodyProperties(newProperty, list);
-
-			});
-		else if (addedProperty.getType() == PropertyValueType.OBJECT)
-			for (JsonNode element : addedProperty.getNode()) {
-
-				PropertyValueType type = detectPropertyValueTypeFromJsonNode(element);
-
-				TemporaryTraversalProperty newProperty = TemporaryTraversalProperty.builder().id(list.size())
-						.property(null).value(null).type(type).parentId(addedProperty.getId()).build();
-
-				list.add(newProperty);
-
-				flattenJsonIntoBodyProperties(newProperty, list);
-
-			}
-		else {
-			addedProperty.setValue(addedProperty.getNode().asText());
 		}
 
-	}
+		return new BodyParseResult(properties);
 
-	private static PropertyValueType detectPropertyValueTypeFromJsonNode(JsonNode node) {
-
-		return switch (node.getNodeType()) {
-
-		case JsonNodeType.ARRAY -> PropertyValueType.ARRAY;
-		case JsonNodeType.NUMBER -> node.isFloatingPointNumber() ? PropertyValueType.INT : PropertyValueType.FLOAT;
-		case JsonNodeType.OBJECT -> PropertyValueType.OBJECT;
-		case JsonNodeType.STRING -> PropertyValueType.STRING;
-		case JsonNodeType.BOOLEAN -> PropertyValueType.BOOLEAN;
-		case JsonNodeType.NULL -> PropertyValueType.NULL;
-
-		default -> throw new IllegalArgumentException();
-		};
 	}
 
 	public static BodyParseResult parseFormBody(String body) {
@@ -104,8 +64,8 @@ public abstract class BodyUtils {
 		List<NameValuePair> pairs = builder.getQueryParams();
 
 		List<BodyProperty> bodyProperties = pairs.stream()
-				.map((pair) -> BodyProperty.of(pair.getName(), pair.getValue(),
-						detectPropertyValueTypeFromFormParameterValue(pair.getValue()), null))
+				.map((pair) -> BodyProperty.builder().fullPath(pair.getName()).value(pair.getValue())
+						.propertyValueType(BodyUtils.detectPropertyValueTypeFromValue(pair.getValue())).build())
 				.collect(Collectors.toList());
 
 		BodyParseResult result = new BodyParseResult();
@@ -116,9 +76,16 @@ public abstract class BodyUtils {
 
 	}
 
-	private static PropertyValueType detectPropertyValueTypeFromFormParameterValue(String value) {
+	private static PropertyValueType detectPropertyValueTypeFromValue(String value) {
 
 		// Note that in FORM body the only options are STRING, INT, DOUBLE, BOOLEAN
+
+		if (value == null) {
+			return PropertyValueType.NULL;
+		}
+
+		if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false"))
+			return PropertyValueType.BOOLEAN;
 
 		try {
 			Integer.parseInt(value);
@@ -132,10 +99,35 @@ public abstract class BodyUtils {
 		} catch (Exception e) {
 		}
 
-		if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false"))
-			return PropertyValueType.BOOLEAN;
-
 		return PropertyValueType.STRING;
+
+	}
+
+	public static Optional<String> composeRawBody(ContentType contentType,
+			List<BodyPropertyInternalDto> bodyPropertyDtos) {
+
+		if (contentType.equals(ContentType.JSON))
+			return Optional.of(composeRawJsonBody(bodyPropertyDtos));
+		else
+			return Optional.of(composeRawFormBody(bodyPropertyDtos));
+
+	}
+
+	private static String composeRawJsonBody(List<BodyPropertyInternalDto> bodyPropertyDtos) {
+
+		Map<String, Object> flattenedMap = bodyPropertyDtos.stream()
+				.collect(Collectors.toMap(dto -> dto.fullPath(), dto -> dto.value()));
+
+		return JsonUnflattener.unflatten(flattenedMap);
+
+	}
+
+	private static String composeRawFormBody(List<BodyPropertyInternalDto> bodyPropertyDtos) {
+
+		List<BasicNameValuePair> apachePairs = bodyPropertyDtos.stream()
+				.map(dto -> new BasicNameValuePair(dto.fullPath(), dto.value())).toList();
+
+		return WWWFormCodec.format(apachePairs, StandardCharsets.UTF_8);
 
 	}
 

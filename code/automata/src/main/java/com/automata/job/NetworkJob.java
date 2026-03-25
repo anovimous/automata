@@ -5,13 +5,9 @@ import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.automata.host.Host;
-import com.automata.job.enums.JobState;
-import com.automata.job.enums.ResultsVerbosity;
+import com.automata.job.common.enums.JobState;
 import com.automata.program.Program;
-import com.automata.request.Request;
 import com.automata.routine.Routine;
-import com.automata.routine.common.enums.Duration;
-import com.automata.tenant.authentication.Authentication;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -22,18 +18,18 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@RequiredArgsConstructor
+@NoArgsConstructor
 @Getter
 @Setter
-public class RunJob {
+public class NetworkJob {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
+	private Long id;
 
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
@@ -43,34 +39,13 @@ public class RunJob {
 	@Enumerated(EnumType.STRING)
 	private JobState state;
 
-	@Column(nullable = false)
-	@Enumerated(EnumType.STRING)
-	private ResultsVerbosity verbosity;
-
-	// 1->3:Lazy prioritized,4:Eager (5: reserved for retried eager runs)
-	@Column(nullable = false)
-	private Integer priority;
-
-	// Nullable for non-HTTP
-	private Integer rate;
-
-	// Config will be in a seperate config file, including targets
-
-	@Enumerated(EnumType.STRING)
-	private Duration duration;
-
-	@ManyToOne
+	@ManyToOne(optional = false)
 	private Routine routine;
 
-	@ManyToOne
-	private Authentication authentication;
-
-	@ManyToOne
-	private Request request;
-
-	@ManyToOne
+	@ManyToOne(optional = false)
 	private Program program;
 
-	@ManyToOne
+	@ManyToOne(optional = false)
 	private Host host;
+
 }
