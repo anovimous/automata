@@ -1,6 +1,7 @@
 package com.automata.request;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -12,14 +13,20 @@ import java.util.stream.Collectors;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 
 import org.apache.hc.core5.http.HttpEntity;
-
+import org.apache.hc.core5.http.ProtocolVersion;
 import org.apache.hc.core5.http.impl.BasicHttpTransportMetrics;
 import org.apache.hc.core5.http.impl.io.SessionInputBufferImpl;
+import org.apache.hc.core5.http.impl.io.SessionOutputBufferImpl;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.BasicClassicHttpRequest;
+import org.apache.hc.core5.net.URIAuthority;
 import org.apache.hc.core5.http.impl.io.DefaultHttpRequestParser;
+import org.apache.hc.core5.http.impl.io.DefaultHttpRequestWriter;
 import org.springframework.data.jpa.domain.Specification;
 
 import com.automata.common.utils.ValidationResult;
 import com.automata.host.common.dto.RequestFilter;
+import com.automata.job.common.dto.RequestInternalDto;
 import com.automata.request.body.BodyParseResult;
 import com.automata.request.body.BodyUtils;
 import com.automata.request.common.enums.ContentType;
@@ -170,6 +177,84 @@ public abstract class RequestUtils {
 				.bodyParseResult(bodyParseResult).headers(headers).build();
 
 		return finalParseResult;
+
+	}
+
+	public static ClassicHttpRequest composeApacheCoreRequest(RequestInternalDto internalDto, String host) {
+
+		String method = internalDto.getMethod().toString();
+
+		String rawPath = PathUtils.composeRawPath(internalDto.getComputatedPath(), internalDto.getPathVariableDtos());
+
+		Optional<String> queryString = QueryParameterUtils.composeRawQueryString(internalDto.getQueryParameterDtos());
+
+		StringBuilder stringUriBuilder = new StringBuilder().append(rawPath);
+
+		String uri;
+
+		if (queryString.isPresent())
+			uri = stringUriBuilder.append('?').append(queryString.get()).toString();
+		else
+			uri = stringUriBuilder.toString();
+
+		String version = internalDto.getVersion();
+
+		Optional<String> rawBody = BodyUtils.composeRawBody(internalDto.getContentType(),
+				internalDto.getBodyPropertyDtos());
+
+		ClassicHttpRequest apacheRequest = new BasicClassicHttpRequest(method, URI.create(uri));
+
+		apacheRequest.setAuthority(new URIAuthority(host));
+
+		apacheRequest.setVersion(new ProtocolVersion("HTTP", Character.getNumericValue(version.charAt(5)),
+				Character.getNumericValue(version.charAt(7))));
+
+		rawBody.ifPresent((body) -> {
+
+			org.apache.hc.core5.http.ContentType apacheContentType;
+
+			if (internalDto.getContentType() == ContentType.JSON)
+				apacheContentType = org.apache.hc.core5.http.ContentType.APPLICATION_JSON;
+			else
+				apacheContentType = org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED;
+
+			HttpEntity bodyEntity = new StringEntity(body, apacheContentType);
+
+			apacheRequest.setEntity(bodyEntity);
+		});
+
+		return apacheRequest;
+
+	}
+
+	public static String composeRawRequest(ClassicHttpRequest apacheCoreRequest) {
+
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		SessionOutputBufferImpl buffer = new SessionOutputBufferImpl(8192);
+
+		DefaultHttpRequestWriter writer = new DefaultHttpRequestWriter();
+
+		try {
+
+			writer.write(apacheCoreRequest, buffer, baos);
+
+			buffer.flush(baos);
+
+			if (apacheCoreRequest.getEntity() != null) {
+
+				baos.write('\r');
+				baos.write('\n');
+
+				apacheCoreRequest.getEntity().writeTo(baos);
+			}
+
+		} catch (Exception e) {
+			throw new RuntimeException("Error composing raw request from Apache ClassicHttpRequest");
+		}
+
+		String rawRequest = baos.toString(StandardCharsets.UTF_8);
+
+		return rawRequest;
 
 	}
 
