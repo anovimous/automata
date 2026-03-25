@@ -1,7 +1,5 @@
 package com.automata.request.body;
 
-import org.springframework.lang.Nullable;
-
 import com.automata.request.Request;
 import com.automata.request.common.enums.PropertyValueType;
 import com.automata.response.Response;
@@ -28,35 +26,23 @@ import lombok.Setter;
 @Setter
 public class BodyProperty {
 
-	public static BodyProperty of(String property, String value, PropertyValueType type, Long parentId) {
-		BodyProperty bodyProperty = new BodyProperty();
-		bodyProperty.setProperty(property);
-		bodyProperty.setValue(value);
-		bodyProperty.setPropertyValueType(type);
-		bodyProperty.setParentId(parentId);
-		return bodyProperty;
-
-	}
-
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Nullable
-	private String property;
+	private String fullPath;
 
-	@Nullable
 	private String value;
+
+	private Boolean isArrayElement;
 
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private PropertyValueType propertyValueType;
 
-	private Long parentId;
-
 	@ManyToOne
 	private Request request;
-	
+
 	@ManyToOne
 	private Response response;
 
