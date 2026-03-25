@@ -8,8 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import com.automata.job.RunJobRepository;
-import com.automata.job.enums.JobState;
+import com.automata.job.common.enums.JobState;
 import com.automata.program.common.dto.PatchProgramRequest;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;
@@ -20,29 +19,27 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class ProgramService {
-	
+
 	private final ProgramRepository programRepo;
-	
+
 	private final VulnerabilityRepository vulnerabilityRepo;
-	
-	private final RunJobRepository jobRepo;
-	
+
 	public Program getProgramById(Long programId) {
-		
-		return programRepo.findById(programId).orElseThrow(()-> new EntityNotFoundException("Program not found"));
-		
-	}
-	
-	public Program createProgram(Program program) {
-		
-		return programRepo.save(program);
-		
+
+		return programRepo.findById(programId).orElseThrow(() -> new EntityNotFoundException("Program not found"));
+
 	}
 
-	public Page<Program> getProgramsPagedAndFilteredOnQueryString(String query , Pageable pageable) {
-		
+	public Program createProgram(Program program) {
+
+		return programRepo.save(program);
+
+	}
+
+	public Page<Program> getProgramsPagedAndFilteredOnQueryString(String query, Pageable pageable) {
+
 		return programRepo.findByNameContainingIgnoreCase(query, pageable);
-		
+
 	}
 
 	public Program patchProgram(Long programId, PatchProgramRequest patchRequest) {
@@ -53,8 +50,9 @@ public class ProgramService {
 		if (patchRequest.name() != null)
 			program.setName(patchRequest.name());
 
-		if (patchRequest.programRateLimit() != null && !jobRepo.ExistsByProgramAndStateNotIn(program, List.of(JobState.FINISHED,JobState.CANCELED, JobState.FAILED)))
-			program.setProgramRateLimit(patchRequest.programRateLimit());
+//		if (patchRequest.programRateLimit() != null && !jobRepo.ExistsByProgramAndStateNotIn(program,
+//				List.of(JobState.FINISHED, JobState.CANCELED, JobState.FAILED)))
+//			program.setProgramRateLimit(patchRequest.programRateLimit());
 
 		if (patchRequest.outOfScopeVulnIds() != null) {
 			Set<Vulnerability> vulns = vulnerabilityRepo.findAllById(patchRequest.outOfScopeVulnIds()).stream()
@@ -67,14 +65,14 @@ public class ProgramService {
 			program.setLink(null);
 		else if (patchRequest.link() != null)
 			program.setLink(patchRequest.link());
-		
+
 		if (patchRequest.setPlatformNull())
 			program.setPlatform(null);
 		else if (patchRequest.platform() != null)
 			program.setPlatform(patchRequest.platform());
 
 		programRepo.save(program);
-		
+
 		return program;
 
 	}
@@ -82,7 +80,7 @@ public class ProgramService {
 	public void deleteProgram(Long programId) {
 		// TODO Later
 		// lower priority
-		
+
 	}
 
 }

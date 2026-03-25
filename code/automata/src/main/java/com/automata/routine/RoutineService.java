@@ -4,7 +4,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import com.automata.job.RunJobRepository;
 import com.automata.routine.common.dto.RoutinePatchRequest;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;
@@ -19,8 +18,6 @@ public class RoutineService {
 	private final RoutineRepository routineRepo;
 
 	private final VulnerabilityRepository vulnRepo;
-
-	private final RunJobRepository jobRepo;
 
 	public Routine getRoutineById(Long routineId) {
 
@@ -92,8 +89,8 @@ public class RoutineService {
 		Routine routine = routineRepo.findById(routineId)
 				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
 
-		if (jobRepo.existsByRoutine(routine))
-			throw new RuntimeException("Routine can't be deleted if any job is tied to it");
+//		IF (JOBREPO.EXISTSBYROUTINE(ROUTINE))
+//			THROW NEW RUNTIMEEXCEPTION("ROUTINE CAN'T BE DELETED IF ANY JOB IS TIED TO IT");
 
 		routineRepo.delete(routine);
 
