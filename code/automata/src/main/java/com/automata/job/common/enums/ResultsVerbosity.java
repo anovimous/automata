@@ -1,4 +1,4 @@
-package com.automata.job.enums;
+package com.automata.job.common.enums;
 
 public enum ResultsVerbosity {
 VERBOSE, SUMMARIZED
