@@ -44,7 +44,6 @@ public class PathVariable {
 	@Column(nullable = false)
 	private String value;
 
-	@Column(nullable = false)
 	@ManyToOne
 	private Request request;
 

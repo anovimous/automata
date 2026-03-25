@@ -26,12 +26,10 @@ public class ResponseBodyProperty {
 	private String property;
 	
 	private int parentId;
-	
-	@Column(nullable = false)
+
 	@ManyToOne
 	private Response response;
-	
-	@Column(nullable = false)
+
 	@ManyToOne
 	private Host host;
 	
