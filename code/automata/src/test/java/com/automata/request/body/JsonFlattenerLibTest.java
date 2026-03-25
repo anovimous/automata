@@ -1,0 +1,27 @@
+package com.automata.request.body;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+
+import com.automata.common.utils.Base64Utils;
+import com.github.wnameless.json.flattener.JsonFlattener;
+import com.github.wnameless.json.unflattener.JsonUnflattener;
+
+public class JsonFlattenerLibTest {
+
+	@Test
+	public void test() {
+
+		String base64json = "W3siaWQiOjEyMywibmFtZSI6Ik9yZGVyLUEiLCJhY3RpdmUiOnRydWUsImNyZWF0ZWRBdCI6IjIwMjYtMDItMTRUMTA6MTU6MzBaIiwiY3VzdG9tZXIiOnsiaWQiOiJjLTc4OSIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsInJvbGVzIjpbIlVTRVIiLCJBRE1JTiJdfSwiaXRlbXMiOlt7InNrdSI6InNrdS0xIiwicXR5IjoyLCJwcmljZSI6MTkuOTl9LHsic2t1Ijoic2t1LTIiLCJxdHkiOjEsInByaWNlIjo1LjV9XSwibWV0YWRhdGEiOnsidGFncyI6WyJwcmlvcml0eSIsImV4cG9ydCJdLCJhdHRlbXB0cyI6WzEsMiwzXSwiZmxhZ3MiOnsicGFpZCI6dHJ1ZSwic2hpcHBlZCI6ZmFsc2V9fX0seyJpZCI6NDU2LCJuYW1lIjoiT3JkZXItQiIsImFjdGl2ZSI6ZmFsc2UsImNyZWF0ZWRBdCI6IjIwMjYtMDItMTNUMDg6MDE6MDBaIiwiY3VzdG9tZXIiOnsiaWQiOiJjLTQ1NiIsImVtYWlsIjoib3RoZXJAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJVU0VSIl19LCJpdGVtcyI6W10sIm1ldGFkYXRhIjpudWxsfV0=";
+
+		Map<String, Object> flattenJson = JsonFlattener.flattenAsMap(Base64Utils.decode(base64json));
+		System.out.println(flattenJson);
+
+		assertEquals(Base64Utils.decode(base64json), JsonUnflattener.unflatten(flattenJson));
+
+	}
+
+}
