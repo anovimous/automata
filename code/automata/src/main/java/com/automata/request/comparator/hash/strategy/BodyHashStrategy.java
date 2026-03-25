@@ -36,25 +36,31 @@ public class BodyHashStrategy implements HashStrategy {
 
 	private String normalize(List<BodyProperty> properties) {
 
-		Map<Long, List<BodyProperty>> propertiesGroupedOnParentId = properties.stream()
-				.collect(Collectors.groupingBy(BodyProperty::getParentId));
+		Map<String, List<BodyProperty>> propertiesGroupedOnParentId = properties.stream().collect(Collectors.groupingBy(
+				(property) -> this.computeLastObjectParent(property.getFullPath(), property.getIsArrayElement())));
 
 		List<List<BodyProperty>> groupedPropertiesInnerSorted = propertiesGroupedOnParentId.values().stream()
-				.map((list) -> list.stream()
-						.sorted((prop1, prop2) -> prop1.getProperty().compareToIgnoreCase(prop1.getProperty()))
+				.map((list) -> list.stream().sorted((prop1, prop2) -> this
+						.computeLastObjectParent(prop1.getFullPath(), prop1.getIsArrayElement()).compareToIgnoreCase(
+								this.computeLastObjectParent(prop2.getFullPath(), prop2.getIsArrayElement())))
 						.toList())
 				.toList();
 
-		List<String> stringsOfEachGroupLowercase = groupedPropertiesInnerSorted.stream()
-				.filter((list) -> list.getFirst().getProperty() != null).map((list) -> {
+		List<String> stringsOfEachGroupLowercase = groupedPropertiesInnerSorted.stream().map((list) -> {
 
-					StringBuilder builder = new StringBuilder();
+			StringBuilder builder = new StringBuilder();
 
-					list.forEach((bodyProperty) -> builder.append(bodyProperty.getProperty().toLowerCase()));
+			list.forEach((bodyProperty) -> {
+				String fullPath = bodyProperty.getFullPath();
+				if (bodyProperty.getIsArrayElement())
+					builder.append(fullPath.substring(0, fullPath.lastIndexOf("[")).toLowerCase());
+				else
+					builder.append(fullPath.toLowerCase());
+			});
 
-					return builder.toString();
+			return builder.toString();
 
-				}).sorted(String::compareTo).toList();
+		}).sorted(String::compareTo).toList();
 
 		;
 		StringBuilder builder = new StringBuilder();
@@ -63,6 +69,24 @@ public class BodyHashStrategy implements HashStrategy {
 
 		return builder.toString();
 
+	}
+
+	private String computeLastObjectParent(String fullPath, Boolean isArrayElement) {
+
+		if (!fullPath.contains("."))
+			return "";
+
+		if (isArrayElement) {
+
+			int firstBracketIndex = fullPath.indexOf("[");
+
+			int lastPointBeforeBracket = fullPath.substring(0, firstBracketIndex).lastIndexOf(".");
+			return fullPath.substring(0, lastPointBeforeBracket);
+
+		} else {
+			int lastPointIndex = fullPath.lastIndexOf(".");
+			return fullPath.substring(0, lastPointIndex);
+		}
 	}
 
 }
