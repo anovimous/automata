@@ -21,7 +21,7 @@ public class S3Service {
 
 	public void storeJobDetailsObject(JobDetailsFileContainer container) {
 
-		s3Template.store(JOB_CONFIG_BUCKET, String.format("details/%d.json", container.getJobId()), container);
+		s3Template.store(JOB_CONFIG_BUCKET, String.format("details/%d.json", container.jobId()), container);
 
 	}
 

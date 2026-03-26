@@ -7,20 +7,8 @@ import com.automata.job.domain.model.enums.ResultsVerbosity;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import lombok.Builder;
-import lombok.Data;
 
-@Data
 @Builder
-public class JobDetailsFileContainer {
-
-	private Long jobId;
-
-	private Instant creationDate;
-
-	private ResultsVerbosity verbosity;
-
-	private GenericConfig genericConfig;
-
-	private JsonNode customConfig;
-
+public record JobDetailsFileContainer(Long jobId, Instant creationDate, ResultsVerbosity verbosity,
+		GenericConfig genericConfig, JsonNode customConfig) {
 }
