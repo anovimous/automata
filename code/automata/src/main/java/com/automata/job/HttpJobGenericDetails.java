@@ -30,7 +30,11 @@ public class HttpJobGenericDetails {
 
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
-	private JobState state;
+	private JobState currentState;
+
+	@Column(nullable = false)
+	@Enumerated(EnumType.STRING)
+	private JobState requestedState;
 
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
