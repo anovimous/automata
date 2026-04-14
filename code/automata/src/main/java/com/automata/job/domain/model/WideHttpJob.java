@@ -1,11 +1,10 @@
 package com.automata.job.domain.model;
 
 import com.automata.job.domain.model.embedded.WideTargetConfig;
-import com.automata.program.Program;
+import com.automata.tenant.Tenant;
 
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
-import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,7 +21,6 @@ public class WideHttpJob extends HttpJob {
 	@Embedded
 	private WideTargetConfig targetConfig;
 
-	@ManyToOne(optional = false)
-	private Program program;
+	private Tenant tenant;
 
 }

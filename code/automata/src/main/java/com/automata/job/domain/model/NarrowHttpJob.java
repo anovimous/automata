@@ -2,7 +2,6 @@ package com.automata.job.domain.model;
 
 import com.automata.host.Host;
 import com.automata.job.domain.model.embedded.NarrowTargetConfig;
-import com.automata.program.Program;
 import com.automata.routine.common.enums.Duration;
 import com.automata.tenant.Tenant;
 
@@ -33,9 +32,6 @@ public class NarrowHttpJob extends HttpJob {
 	// Result of target selection:
 	@Embedded
 	private NarrowTargetConfig targetConfig;
-
-	@ManyToOne(optional = false)
-	private Program program;
 
 	@ManyToOne(optional = false)
 	private Host host;

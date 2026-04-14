@@ -5,6 +5,7 @@ import java.time.Instant;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
+import com.automata.program.Program;
 import com.automata.routine.Routine;
 
 import jakarta.persistence.Column;
@@ -41,6 +42,9 @@ public abstract class HttpJob {
 
 	@Embedded
 	private HttpJobGenericDetails genericDetails;
+
+	@ManyToOne
+	private Program program;
 
 	@ManyToOne(optional = false)
 	private Routine routine;
