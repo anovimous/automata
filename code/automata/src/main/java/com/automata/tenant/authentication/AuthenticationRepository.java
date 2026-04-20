@@ -12,4 +12,6 @@ public interface AuthenticationRepository extends JpaRepository<Authentication, 
 
 	Page<Authentication> findByTenant(Tenant tenant, Pageable pageable);
 
+	Authentication findByTenant(Tenant tenant);
+
 }

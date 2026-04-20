@@ -53,12 +53,10 @@ public class RoutineService {
 		Routine routine = routineRepo.findById(routineId)
 				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
 
-		patchRequest.name().ifPresent(routine::setName);
-
 		if (patchRequest.setDescriptionNull())
 			routine.setDescription(null);
 		else
-			patchRequest.description().ifPresent(routine::setName);
+			patchRequest.description().ifPresent(routine::setDescription);
 
 		patchRequest.isAvailableAtConsumer().ifPresent(routine::setAvailableAtConsumer);
 

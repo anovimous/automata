@@ -8,7 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import com.automata.job.common.enums.JobState;
+import com.automata.job.domain.model.enums.JobState;
 import com.automata.program.common.dto.PatchProgramRequest;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;

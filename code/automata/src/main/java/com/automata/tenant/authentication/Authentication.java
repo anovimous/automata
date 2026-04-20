@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 
-import com.automata.host.Host;
 import com.automata.tenant.Tenant;
 
 import org.hibernate.type.SqlTypes;
@@ -16,7 +15,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -50,10 +49,7 @@ public class Authentication {
 	@Column(columnDefinition = "jsonb")
 	private DynamicCode code;
 
-	@ManyToOne(optional = false)
-	private Host host;
-
-	@ManyToOne(optional = false)
+	@OneToOne(optional = false)
 	private Tenant tenant;
 
 }

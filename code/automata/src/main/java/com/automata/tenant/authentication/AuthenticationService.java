@@ -40,8 +40,6 @@ public class AuthenticationService {
 
 		authentication.setTenant(tenant);
 
-		authentication.setHost(tenant.getHost());
-
 		return authRepo.save(authentication);
 
 	}

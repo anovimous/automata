@@ -26,7 +26,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import com.automata.common.utils.ValidationResult;
 import com.automata.host.common.dto.RequestFilter;
-import com.automata.job.common.dto.RequestInternalDto;
+import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.request.body.BodyParseResult;
 import com.automata.request.body.BodyUtils;
 import com.automata.request.common.enums.ContentType;
