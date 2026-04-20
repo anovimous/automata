@@ -9,5 +9,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ProgramRepository extends JpaRepository<Program, Long> {
 
 	Page<Program> findByNameContainingIgnoreCase(String query, Pageable pageable);
-	
+
 }
