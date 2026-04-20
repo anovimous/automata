@@ -1,7 +1,6 @@
 package com.automata.job.domain.model;
 
 import com.automata.job.domain.model.embedded.WideTargetConfig;
-import com.automata.tenant.Tenant;
 
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -20,7 +19,5 @@ public class WideHttpJob extends HttpJob {
 	// Result of target selection:
 	@Embedded
 	private WideTargetConfig targetConfig;
-
-	private Tenant tenant;
 
 }
