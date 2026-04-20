@@ -1,5 +1,6 @@
 package com.automata.job.service;
 
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -210,12 +211,17 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
-		// Jobs only with states of TOQUEUE, SCHEDULED, QUEUED, PAUSED can be canceled
+		if (job.getGenericDetails().getCurrentState() != JobState.SCHEDULED)
+			throw new RuntimeException("Canceling scheduled jobs not implemented is yet");
 
-		// DELAYED: TODO
-//		job.getGenericDetails().setRequestedState(JobState.);
-//
-//		jobRepo.save(job);
+		if (!List.of(JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED, JobState.PAUSED)
+				.contains(job.getGenericDetails().getCurrentState()))
+			throw new RuntimeException(
+					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it");
+
+		job.getGenericDetails().setRequestedState(JobState.CANCELED);
+
+		jobRepo.save(job);
 
 	}
 
