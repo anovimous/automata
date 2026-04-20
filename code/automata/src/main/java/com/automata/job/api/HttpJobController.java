@@ -36,7 +36,7 @@ public class HttpJobController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Void> createDraftJob(@RequestBody HttpJobCreationRequest request) {
+	public ResponseEntity<Void> createNewJob(@RequestBody HttpJobCreationRequest request) {
 
 		HttpJob newlyCreatedJob = switch (request.httpJobScope()) {
 
@@ -58,25 +58,45 @@ public class HttpJobController {
 	@PostMapping("/{draftJobId}/queue")
 	public ResponseEntity<Void> queueJob(@PathVariable Long draftJobId) {
 
+		jobService.prepareJobForQueueing(draftJobId);
+
+		return ResponseEntity.status(204).build();
 	}
 
-	@PostMapping("/{draftJobId}/schedule")
-	public ResponseEntity<Void> scheduleJob(@PathVariable Long draftJobId, @RequestBody JobScheduleRequest req) {
+	// DELAYED
+//	@PostMapping("/{draftJobId}/schedule")
+//	public ResponseEntity<Void> scheduleJob(@PathVariable Long draftJobId, @RequestBody JobScheduleRequest req) {
+//
+//		ScheduleResponse dto = jobService.scheduleJob(draftJobId, req);
+//
+//		return ResponseEntity.of(dto);
+//
+//	}
+
+	@PostMapping("/{runningJobId}/pause")
+	public ResponseEntity<Void> pauseJob(@PathVariable Long runningJobId) {
+
+		jobService.pauseRunningJob(runningJobId);
+
+		return ResponseEntity.accepted().build();
 
 	}
 
-	@PostMapping("/{jobId}/pause")
-	public ResponseEntity<Void> pauseRunningJob(@PathVariable Long draftJobId) {
+	@PostMapping("/{pausedJobId}/resume")
+	public ResponseEntity<Void> resumeJob(@PathVariable Long pausedJobId) {
 
-	}
+		jobService.resumePausedJob(pausedJobId);
 
-	@PostMapping("/{jobId}/resume")
-	public ResponseEntity<Void> resumePausedJob(@PathVariable Long draftJobId) {
+		return ResponseEntity.accepted().build();
 
 	}
 
 	@PostMapping("/{jobId}/cancel")
-	public ResponseEntity<Void> cancelDraftOrPausedJob(@PathVariable Long draftJobId) {
+	public ResponseEntity<Void> cancelJob(@PathVariable Long jobId) {
+
+		jobService.cancelJob(jobId);
+
+		return ResponseEntity.status(204).build();
 
 	}
 
