@@ -25,15 +25,15 @@ public class HttpJobController {
 
 	private final HttpJobService jobService;
 
-	@GetMapping("/{jobId}")
-	public ResponseEntity<HttpJobDto> getJob() {
-
-	}
-
-	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<HttpJobDto>> getJobs(@RequestBody HttpJobFilter filter) {
-
-	}
+//	@GetMapping("/{jobId}")
+//	public ResponseEntity<HttpJobDto> getJob() {
+//
+//	}
+//
+//	@GetMapping("")
+//	public ResponseEntity<PageHolderResponse<HttpJobDto>> getJobs(@RequestBody HttpJobFilter filter) {
+//
+//	}
 
 	@PostMapping("")
 	public ResponseEntity<Void> createNewJob(@RequestBody HttpJobCreationRequest request) {
