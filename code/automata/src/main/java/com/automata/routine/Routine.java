@@ -32,14 +32,14 @@ public class Routine {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
+	private Long id;
 
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
 	private LocalDate creationDate;
 
-	@Column(nullable = false)
-	private String name;
+	@Column(nullable = false, updatable = false, unique = true)
+	private String key;
 
 	@Nullable
 	private String description;
