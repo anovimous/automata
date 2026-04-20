@@ -63,7 +63,7 @@ public class HttpJobService {
 		builder.routine(routine);
 
 		HttpJobGenericDetails genericDetails = HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.NARROW)
-				.state(JobState.DRAFT).verbosity(genericDto.verbosity()).priority(genericDto.priority())
+				.currentState(JobState.DRAFT).verbosity(genericDto.verbosity()).priority(genericDto.priority())
 				.rate(genericDto.rate()).targetSelector(genericDto.targetSelector())
 				.genericConfig(GenericConfig.of(genericDto.matchAndReplace())).customConfig(genericDto.customConfig())
 				.build();
@@ -122,7 +122,7 @@ public class HttpJobService {
 		builder.routine(routine);
 
 		HttpJobGenericDetails genericDetails = HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.NARROW)
-				.state(JobState.DRAFT).verbosity(genericDto.verbosity()).priority(genericDto.priority())
+				.currentState(JobState.DRAFT).verbosity(genericDto.verbosity()).priority(genericDto.priority())
 				.rate(genericDto.rate()).targetSelector(genericDto.targetSelector())
 				.genericConfig(GenericConfig.of(genericDto.matchAndReplace())).customConfig(genericDto.customConfig())
 				.build();
@@ -156,11 +156,66 @@ public class HttpJobService {
 
 	};
 
-
 	public HttpJob createDraftGlobalJob(GenericHttpJobDetailsDto genericDetails,
 			GlobalHttpJobDetailsDto globalJobDetails) {
 
 		throw new RuntimeException("Global jobs not implemented yet");
+
+	}
+
+	public void prepareJobForQueueing(Long draftJobId) {
+
+		HttpJob job = jobRepo.findById(draftJobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		if (job.getGenericDetails().getCurrentState() != JobState.DRAFT)
+			throw new RuntimeException("The job must be in the DRAFT state in order to prepare it for queueing");
+
+		job.getGenericDetails().setCurrentState(JobState.TOQUEUE);
+
+		jobRepo.save(job);
+
+	}
+
+	public void pauseRunningJob(Long runningJobId) {
+
+		HttpJob job = jobRepo.findById(runningJobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		if (job.getGenericDetails().getCurrentState() != JobState.RUNNING)
+			throw new RuntimeException("The job must be in the RUNNING state in order to pause it");
+
+		job.getGenericDetails().setRequestedState(JobState.PAUSED);
+
+		jobRepo.save(job);
+
+	}
+
+	public void resumePausedJob(Long pausedJobId) {
+
+		HttpJob job = jobRepo.findById(pausedJobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		if (job.getGenericDetails().getCurrentState() != JobState.PAUSED)
+			throw new RuntimeException("The job must be in the PAUSED state in order to resume it");
+
+		job.getGenericDetails().setRequestedState(JobState.RUNNING);
+
+		jobRepo.save(job);
+
+	}
+
+	public void cancelJob(Long jobId) {
+
+		HttpJob job = jobRepo.findById(jobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		// Jobs only with states of TOQUEUE, SCHEDULED, QUEUED, PAUSED can be canceled
+
+		// DELAYED: TODO
+//		job.getGenericDetails().setRequestedState(JobState.);
+//
+//		jobRepo.save(job);
 
 	}
 
