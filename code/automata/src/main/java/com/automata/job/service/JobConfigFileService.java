@@ -19,12 +19,16 @@ import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.WideHttpJob;
 import com.automata.job.domain.model.embedded.NarrowTargetConfig;
+import com.automata.job.domain.model.enums.TargetType;
+import com.automata.job.domain.model.enums.HttpJobScope;
+import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.valueobject.HostData;
 import com.automata.job.domain.valueobject.JobDetailsFileContainer;
 import com.automata.job.domain.valueobject.RequestData;
 import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.job.infra.JobDataJsonLinesWriter;
 import com.automata.job.infra.S3Service;
+import com.automata.job.repository.HttpJobRepository;
 import com.automata.job.repository.NarrowJobTargetRequestRepository;
 import com.automata.job.repository.WideJobTargetHostRepository;
 import com.automata.request.RequestUtils;
@@ -34,6 +38,9 @@ import com.automata.request.common.dto.PathVariableInternalDto;
 import com.automata.request.common.dto.QueryParameterInternalDto;
 import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.path.PathVariableRepository;
+import com.automata.routine.Routine;
+import com.automata.tenant.authentication.Authentication;
+import com.automata.tenant.authentication.AuthenticationRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -52,6 +59,10 @@ public class JobConfigFileService {
 	private final QueryParameterRepository queryParameterRepo;
 
 	private final BodyPropertyRepository bodyPropertyRepo;
+
+	private final HttpJobRepository httpJobRepo;
+
+	private final AuthenticationRepository authRepo;
 
 	private final S3Service s3Service;
 
@@ -83,9 +94,23 @@ public class JobConfigFileService {
 
 	private JobDetailsFileContainer createJobDetailsContainer(HttpJob job) {
 
+		TargetType targetType = switch (job.getGenericDetails().getTargetSelector().getSelectorType()) {
+		case SelectorType.SINGLE_HOST, SelectorType.MULTIPLE_HOSTS -> TargetType.HOST;
+		default -> TargetType.REQUEST;
+
+		};
+
+		Routine routine = httpJobRepo.getRoutineOfJob(job.getId());
+
+		Authentication auth = new Authentication();
+
+		if (job.getGenericDetails().getHttpJobScope() == HttpJobScope.NARROW) {
+			NarrowHttpJob castedJob = (NarrowHttpJob) job;
+			auth = authRepo.findByTenant(castedJob.getTenant());
+		}
 		return JobDetailsFileContainer.builder().jobId(job.getId()).creationDate(job.getCreationDate())
-				.verbosity(job.getGenericDetails().getVerbosity())
-				.customConfig(job.getGenericDetails().getCustomConfig())
+				.verbosity(job.getGenericDetails().getVerbosity()).targetType(targetType).routineKey(routine.getKey())
+				.auth(auth.getAuthData()).customConfig(job.getGenericDetails().getCustomConfig())
 				.genericConfig(job.getGenericDetails().getGenericConfig()).build();
 
 	}

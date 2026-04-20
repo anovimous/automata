@@ -12,6 +12,7 @@ import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobInternalDto;
 import com.automata.job.domain.valueobject.NarrowHttpJobInternalDto;
 import com.automata.job.domain.valueobject.NarrowHttpJobRateInternalDto;
+import com.automata.tenant.authentication.Authentication;
 
 @Repository
 public interface NarrowHttpJobRepository extends JpaRepository<NarrowHttpJob, Long> {
@@ -37,5 +38,8 @@ public interface NarrowHttpJobRepository extends JpaRepository<NarrowHttpJob, Lo
 
 	@Query("SELECT new com.automata.job.domain.valueobject.NarrowHttpJobInternalDto(j.genericDetails.rate, j.duration) FROM NarrowHttpJob j WHERE j.host.id = :hostId AND j.currentState IN :states")
 	List<NarrowHttpJobInternalDto> findAllByHostIdAndStateIn(Long hostId, List<JobState> states);
+
+	@Query("SELECT j.tenant.authentication FROM NarrowHttpJob j WHERE j.id = :jobId")
+	Authentication findAuthenticationOfJob(@Param("jobId") Long jobId);
 
 }

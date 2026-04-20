@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.ProgramRateDto;
+import com.automata.routine.Routine;
 
 @Repository
 public interface HttpJobRepository extends JpaRepository<HttpJob, Long> {
@@ -28,5 +29,8 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long> {
 			""")
 	List<ProgramRateDto> getProgramsRateDtos(@Param(value = "programsIds") Set<Long> programsIds,
 			@Param(value = "states") Set<JobState> states);
+
+	@Query("SELECT j.routine FROM HttpJob j WHERE j.id = :jobId")
+	Routine getRoutineOfJob(@Param(value = "jobId") Long jobId);
 
 }
