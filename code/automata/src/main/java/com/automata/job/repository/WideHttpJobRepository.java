@@ -20,27 +20,27 @@ public interface WideHttpJobRepository extends JpaRepository<WideHttpJob, Long> 
 			SELECT new com.automata.job.domain.valueobject.HttpJobInternalDto(
 				j.id,
 				j.creationDate,
-				j.scope,
-				j.genericDetails.duration,
+				j.genericDetails.httpJobScope,
+				CAST(null AS com.automata.routine.common.enums.Duration),
 				j.genericDetails.priority,
 				j.genericDetails.rate,
 				j.program.id,
 				CAST(null AS Long)
 			)
 			FROM WideHttpJob j
-			WHERE j.currentState = :currentState
+			WHERE j.genericDetails.currentState = :currentState
 			""")
 	List<HttpJobInternalDto> getJobsDtosByCurrentState(@Param(value = "currentState") JobState currentState);
 
 	@Query("""
 			    SELECT new com.automata.job.domain.valueobject.ProgramCurrentWideRateDto(
-			        j.programId,
+			        j.program.id,
 			        SUM(j.genericDetails.rate)
 			    )
 			    FROM HttpJob j
 			    WHERE j.program.id IN :programsIds
 			    AND j.genericDetails.currentState IN :states
-			    GROUP BY j.programId
+			    GROUP BY j.program.id
 			""")
 	List<ProgramCurrentWideRateDto> getProgramsWideRateDtos(@Param(value = "programsIds") Set<Long> programsIds,
 			@Param(value = "states") Set<JobState> states);

@@ -21,22 +21,22 @@ public interface NarrowHttpJobRepository extends JpaRepository<NarrowHttpJob, Lo
 			SELECT new com.automata.job.domain.valueobject.HttpJobInternalDto(
 				j.id,
 				j.creationDate,
-				j.scope,
-				j.genericDetails.duration,
+				j.genericDetails.httpJobScope,
+				j.duration,
 				j.genericDetails.priority,
 				j.genericDetails.rate,
 				j.program.id,
 				j.host.id
 			)
 			FROM NarrowHttpJob j
-			WHERE j.currentState = :currentState
+			WHERE j.genericDetails.currentState = :currentState
 			""")
 	List<HttpJobInternalDto> getJobsDtosByCurrentState(@Param(value = "currentState") JobState currentState);
 
-	@Query("SELECT new com.automata.job.domain.valueobject.NarrowHttpJobRateInternalDto(j.genericDetails.rate, j.host.id) FROM NarrowHttpJob j WHERE j.program.id = :programId AND j.currentState IN :states")
+	@Query("SELECT new com.automata.job.domain.valueobject.NarrowHttpJobRateInternalDto(j.genericDetails.rate, j.host.id) FROM NarrowHttpJob j WHERE j.program.id = :programId AND j.genericDetails.currentState IN :states")
 	List<NarrowHttpJobRateInternalDto> findAllByProgramIdAndCurrentStateIn(Long programId, List<JobState> states);
 
-	@Query("SELECT new com.automata.job.domain.valueobject.NarrowHttpJobInternalDto(j.genericDetails.rate, j.duration) FROM NarrowHttpJob j WHERE j.host.id = :hostId AND j.currentState IN :states")
+	@Query("SELECT new com.automata.job.domain.valueobject.NarrowHttpJobInternalDto(j.genericDetails.rate, j.duration) FROM NarrowHttpJob j WHERE j.host.id = :hostId AND j.genericDetails.currentState IN :states")
 	List<NarrowHttpJobInternalDto> findAllByHostIdAndStateIn(Long hostId, List<JobState> states);
 
 	@Query("SELECT j.tenant.authentication FROM NarrowHttpJob j WHERE j.id = :jobId")

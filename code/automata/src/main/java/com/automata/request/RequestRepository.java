@@ -24,7 +24,7 @@ public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpec
 
 	Page<Request> findByHost(Host host, Pageable ofSize);
 
-	Page<Request> findByIds(List<Long> requestsIds, Pageable ofSize);
+	Page<Request> findByIdIn(List<Long> ids, Pageable ofSize);
 
 	boolean existsByTenant(Tenant tenant);
 

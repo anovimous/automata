@@ -18,14 +18,14 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long> {
 
 	@Query("""
 			    SELECT new com.automata.job.domain.valueobject.ProgramRateDto(
-			        j.programId,
+			        j.program.id,
 			        j.program.programRateLimit,
 			        SUM(j.genericDetails.rate)
 			    )
 			    FROM HttpJob j
 			    WHERE j.program.id IN :programsIds
 			    AND j.genericDetails.currentState IN :states
-			    GROUP BY j.programId, j.program.programRateLimit
+			    GROUP BY j.program.id, j.program.programRateLimit
 			""")
 	List<ProgramRateDto> getProgramsRateDtos(@Param(value = "programsIds") Set<Long> programsIds,
 			@Param(value = "states") Set<JobState> states);
