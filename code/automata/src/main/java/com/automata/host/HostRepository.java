@@ -30,10 +30,10 @@ public interface HostRepository extends JpaRepository<Host, Long> {
 			""")
 	boolean anyInScopeProgramHostHasRateLimitLessThanGivenRate(Long programId, Integer rate);
 
-	@Query("SELECT new com.automata.host.common.dto.HostRateLimitInternalDto(h.id, h.rateLimit) FROM Host h WHERE h.id IN :hostsIds")
+	@Query("SELECT new com.automata.host.common.dto.HostRateLimitInternalDto(h.id, h.hostRateLimit) FROM Host h WHERE h.id IN :hostsIds")
 	List<HostRateLimitInternalDto> findDtosByIds(@Param(value = "hostsIds") Set<Long> hostsIds);
 
-	@Query("SELECT new com.automata.host.common.dto.HostAllRateLimitsInternalDto(h.id, h.rateLimit, h.shortRateLimit, h.longRateLimit) FROM Host h WHERE h.id =: hostId")
+	@Query("SELECT new com.automata.host.common.dto.HostAllRateLimitsInternalDto(h.id, h.hostRateLimit, h.shortRateLimit, h.longRateLimit) FROM Host h WHERE h.id =: hostId")
 	HostAllRateLimitsInternalDto findRateLimitsAllDtoById(@Param(value = "hostId") Long hostId);
 
 }
