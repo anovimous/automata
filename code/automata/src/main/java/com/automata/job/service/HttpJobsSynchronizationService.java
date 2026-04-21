@@ -130,7 +130,7 @@ public class HttpJobsSynchronizationService {
 			// check for each of these hosts H if ((new job X rate + current Narrow rate of
 			// H + current Wide rate of Program of H <= H rate limit))
 
-			int newCurrentTotalRateInHost = jobDto.rate() + entry.getValue() + programRate.currentWideRate();
+			long newCurrentTotalRateInHost = jobDto.rate() + entry.getValue() + programRate.currentWideRate();
 
 			if (newCurrentTotalRateInHost > hostsRateLimitMap.get(entry.getKey()))
 				return false;
@@ -166,7 +166,7 @@ public class HttpJobsSynchronizationService {
 				currentLongRate += narrowJobDto.rate();
 		}
 
-		int newCurrentRateInHost = jobDto.rate() + currentNarrowRate + programRate.currentWideRate();
+		long newCurrentRateInHost = jobDto.rate() + currentNarrowRate + programRate.currentWideRate();
 
 		if (newCurrentRateInHost > hostDto.rateLimit())
 			return false;
@@ -199,7 +199,7 @@ public class HttpJobsSynchronizationService {
 		List<ProgramCurrentWideRateDto> programWideCurrentRateDtos = wideJobRepo.getProgramsWideRateDtos(programsIds,
 				Set.of(JobState.QUEUED, JobState.RUNNING, JobState.PAUSED));
 
-		Map<Long, Integer> programCurrentWideRateMap = programWideCurrentRateDtos.stream().collect(
+		Map<Long, Long> programCurrentWideRateMap = programWideCurrentRateDtos.stream().collect(
 				Collectors.toMap(ProgramCurrentWideRateDto::programId, ProgramCurrentWideRateDto::currentWideRate));
 
 		Map<Long, ProgramSummaryRatesDto> programSummaryRatesDtosMap = programRateDtos.stream()
