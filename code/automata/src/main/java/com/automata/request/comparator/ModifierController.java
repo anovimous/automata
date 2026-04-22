@@ -41,7 +41,7 @@ public class ModifierController {
 	@GetMapping("")
 	public ResponseEntity<PageHolderResponse<Modifier>> getModifiers(@RequestParam(required = false) HashTarget target,
 			@RequestParam(required = false) Schema schema,
-			@PageableDefault(size = 30, sort = "creationDate", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 30, sort = {"creationDate"}, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Modifier> modifiers;
 

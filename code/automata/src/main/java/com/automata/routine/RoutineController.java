@@ -41,7 +41,7 @@ public class RoutineController {
 	@GetMapping("")
 	public ResponseEntity<PageHolderResponse<Routine>> getRoutines(@RequestParam(defaultValue = "") String query,
 			@RequestParam(required = false) Long vulnId,
-			@PageableDefault(size = 30, sort = "name, creationDate", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 30, sort = { "key" }, direction = Sort.Direction.ASC) Pageable pageable) {
 
 		Page<Routine> routines;
 

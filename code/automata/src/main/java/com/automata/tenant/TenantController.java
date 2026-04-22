@@ -49,7 +49,7 @@ public class TenantController {
 
 	@GetMapping("")
 	public ResponseEntity<PageHolderResponse<TenantResponse>> getTenants(@RequestParam Long hostId,
-			@PageableDefault(size = 10, sort = "creationDate", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 10, sort = { "creationDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Tenant> tenants = tenantService.getHostTenantsPage(hostId, pageable);
 

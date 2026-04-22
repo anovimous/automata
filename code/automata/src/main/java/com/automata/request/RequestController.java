@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.automata.common.dto.response.PageHolderResponse;
@@ -49,8 +50,9 @@ public class RequestController {
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<RequestResponse>> getRequests(RequestFilter filter,
-			@PageableDefault(size = 40, sort = "insertionDate", direction = Sort.Direction.ASC) Pageable pageable) {
+	public ResponseEntity<PageHolderResponse<RequestResponse>> getRequests(
+			@RequestParam(required = false) RequestFilter filter, @PageableDefault(size = 40, sort = {
+					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Request> requests = requestService.getRequestsFilteredAndPaged(filter, pageable);
 

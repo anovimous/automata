@@ -42,7 +42,7 @@ public class WordlistController {
 	@GetMapping("")
 	public ResponseEntity<PageHolderResponse<Wordlist>> getWordlists(@RequestParam(required = false) Long vulnId,
 			@RequestParam(defaultValue = "") String query,
-			@PageableDefault(size = 30, sort = "name, path", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 30, sort = { "name", "path" }, direction = Sort.Direction.ASC) Pageable pageable) {
 
 		Page<Wordlist> wordlists;
 
@@ -75,8 +75,6 @@ public class WordlistController {
 			@RequestBody WordlistPatchRequest patchRequest) {
 
 		Wordlist wordlist = wordlistService.patchWordlist(wordlistId, patchRequest);
-		
-		
 
 		return ResponseEntity.ok(wordlist);
 	}

@@ -35,7 +35,8 @@ public class ResponseController {
 
 	@GetMapping("")
 	public ResponseEntity<PageHolderResponse<ResponseDto>> getResponses(ResponseFilter filter,
-			@PageableDefault(size = 40, sort = "insertionDate", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 40, sort = {
+					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Response> responses = responseService.getResponsesFilteredAndPaged(filter, pageable);
 
