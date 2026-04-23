@@ -111,7 +111,7 @@ public class TenantController {
 
 	@GetMapping("/{tenantId}/authentications")
 	public ResponseEntity<PageHolderResponse<AuthenticationDto>> getAuthentications(@PathVariable Long tenantId,
-			@PageableDefault(size = 10, sort = "creationDate", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 10, sort = {"creationDate"}, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Authentication> authentications = authService.getTenantAuthenticationsPage(tenantId, pageable);
 
