@@ -9,9 +9,17 @@ import com.automata.request.common.enums.ContentType;
 import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.Source;
 
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
-@Data
+@Builder
+@Getter
+@Setter
+@RequiredArgsConstructor
+@AllArgsConstructor
 public class RequestInternalDto {
 
 	private final Long requestId;
