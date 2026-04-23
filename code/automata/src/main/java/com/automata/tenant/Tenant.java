@@ -45,7 +45,7 @@ public class Tenant {
 	@ManyToOne(optional = false)
 	private Host host;
 
-	@OneToOne(mappedBy = "tenant")
+	@OneToOne
 	private Authentication authentication;
 
 }
