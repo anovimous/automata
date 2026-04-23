@@ -40,7 +40,11 @@ public class RoutineService {
 
 	public Routine createRoutine(Routine toBeCreatedRoutine, Long vulnId) {
 
-		Vulnerability vulnerability = vulnRepo.findById(vulnId).orElse(null);
+		Vulnerability vulnerability = null;
+
+		if (vulnId != null)
+			vulnerability = vulnRepo.findById(vulnId)
+					.orElseThrow(() -> new EntityNotFoundException("Vulnerability not found"));
 
 		toBeCreatedRoutine.setVulnerability(vulnerability);
 
