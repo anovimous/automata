@@ -7,6 +7,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,7 +35,7 @@ public class ResponseController {
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<ResponseDto>> getResponses(ResponseFilter filter,
+	public ResponseEntity<PageHolderResponse<ResponseDto>> getResponses(@ModelAttribute ResponseFilter filter,
 			@PageableDefault(size = 40, sort = {
 					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
