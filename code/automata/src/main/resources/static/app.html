@@ -809,10 +809,10 @@ hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
                   <span class="toggle-text" id="val-routines-txt">ON</span>
                 </div>
               </div>
-              <!-- ENDPOINT CONFIG: POST /api/routines — body: {name, description, isAvailableAtConsumer, overhead, protocol, permittedScope, vulnerabilityId} -->
+              <!-- ENDPOINT CONFIG: POST /api/routines — body: {key, description, isAvailableAtConsumer, overhead, protocol, permittedScope, vulnerabilityId} -->
               <div class="form-group">
-                <label class="form-label">Name <span class="opt">(optional)</span></label>
-                <input class="form-input" id="routine-name" placeholder="SQL Injection Scanner">
+                <label class="form-label">Key</label>
+                <input class="form-input" id="routine-key" placeholder="SQL Injection Scanner">
               </div>
               <div class="form-group">
                 <label class="form-label">Description</label>
@@ -1880,17 +1880,17 @@ async function loadRoutines(page = 0) {
 async function createRoutine() {
   // ENDPOINT: POST /api/routines — body properties: name(string|null), description(string|null), isAvailableAtConsumer(bool|null), overhead(enum|null: HIGH/MEDIUM/LOW), protocol(enum|null: NETWORK/HTTP), permittedScope(enum|null: GLOBAL/PROGRAM/HOST), vulnerabilityId(int|null)
   const body = {};
-  const name = document.getElementById('routine-name').value;
+  const key = document.getElementById('routine-key').value;
   const desc = document.getElementById('routine-desc').value;
   const overhead = document.getElementById('routine-overhead').value;
   const protocol = document.getElementById('routine-protocol').value;
   const scope = document.getElementById('routine-scope').value;
   const vulnId = document.getElementById('routine-vuln-id').value;
-  if (name) body.name = name;
+  if (key) body.key = key;
   if (desc) body.description = desc;
   if (overhead) body.overhead = overhead;
   if (protocol) body.protocol = protocol;
-  if (scope) body.permittedScope = scope;
+  if (scope) body.scope = scope;
   if (vulnId) body.vulnerabilityId = parseInt(vulnId);
   body.isAvailableAtConsumer = document.getElementById('routine-available').checked;
   const res = await api('POST', '/api/routines', body);
