@@ -28,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 public class HostController {
 
 	private final HostService hostService;
+	
+	private final ObjectMapper mapper;
 
 	@GetMapping("/{hostId}")
 	public ResponseEntity<Host> getHost(@PathVariable Long hostId) {
@@ -55,9 +57,7 @@ public class HostController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Host> createHost(@RequestBody HostCreationRequest request) throws Exception {
-
-		ObjectMapper mapper = new ObjectMapper();
+	public ResponseEntity<Host> createHost(@RequestBody HostCreationRequest request) {
 
 		Host toBeCreatedHost = mapper.convertValue(request, Host.class);
 

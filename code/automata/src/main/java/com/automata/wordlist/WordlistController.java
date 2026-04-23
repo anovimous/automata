@@ -30,6 +30,8 @@ public class WordlistController {
 
 	private final WordlistService wordlistService;
 
+	private final ObjectMapper mapper;
+
 	@GetMapping("/{wordlistId}")
 	public ResponseEntity<Wordlist> getWordlist(@PathVariable Long wordlistId) {
 
@@ -57,8 +59,6 @@ public class WordlistController {
 
 	@PostMapping("")
 	public ResponseEntity<Wordlist> createWordlist(@RequestBody WordlistCreationRequest request) {
-
-		ObjectMapper mapper = new ObjectMapper();
 
 		Wordlist toBeCreatedWordlist = mapper.convertValue(request, Wordlist.class);
 

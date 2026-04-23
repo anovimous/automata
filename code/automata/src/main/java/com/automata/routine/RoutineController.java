@@ -28,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 public class RoutineController {
 
 	private final RoutineService routineService;
+	
+	private final ObjectMapper mapper;
 
 	@GetMapping("/{routineId}")
 	public ResponseEntity<Routine> getRoutine(@PathVariable Long routineId) {
@@ -56,8 +58,6 @@ public class RoutineController {
 
 	@PostMapping("")
 	public ResponseEntity<Routine> createRoutine(@RequestBody RoutineCreationRequest request) {
-
-		ObjectMapper mapper = new ObjectMapper();
 
 		Routine toBeCreatedRoutine = mapper.convertValue(request, Routine.class);
 
