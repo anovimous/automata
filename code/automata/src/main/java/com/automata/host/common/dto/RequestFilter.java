@@ -4,7 +4,20 @@ import com.automata.request.common.enums.ContentType;
 import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.Source;
 
-public record RequestFilter(Long hostId, Long programId, Long tenantId, Source source, Method method,
-		String computatedPath, String extension, ContentType contentType) {
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RequestFilter {
+	private Long hostId;
+	private Long programId;
+	private Long tenantId;
+	private Source source;
+	private Method method;
+	private String computatedPath;
+	private String extension;
+	private ContentType contentType;
 }
