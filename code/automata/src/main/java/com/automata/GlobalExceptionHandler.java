@@ -24,6 +24,7 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<String> handleGeneric(Exception ex) {
 		System.out.print("\n\n\n\n");
 		System.out.println(ex.getMessage());
+		ex.printStackTrace();
 		System.out.print("\n\n\n\n");
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
 	}
