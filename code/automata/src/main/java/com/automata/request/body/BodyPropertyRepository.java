@@ -16,11 +16,24 @@ public interface BodyPropertyRepository extends JpaRepository<BodyProperty, Long
 			SELECT new com.automata.request.common.dto.BodyPropertyInternalDto(
 			    b.fullPath,
 			    b.value,
-			    b.request.id
+			    b.request.id,
+			    CAST(null AS Long)
 			)
 			FROM BodyProperty b
 			WHERE b.request.id IN :requestsIds
 			""")
 	List<BodyPropertyInternalDto> getBodyPropertyDtosByRequestsIds(@Param("requestsIds") List<Long> requestsIds);
+
+	@Query("""
+			SELECT new com.automata.request.common.dto.BodyPropertyInternalDto(
+			    b.fullPath,
+			    b.value,
+			    CAST(null AS Long),
+			    b.response.id
+			)
+			FROM BodyProperty b
+			WHERE b.response.id IN :ids
+			""")
+	List<BodyPropertyInternalDto> getBodyPropertyDtosByResponseIds(@Param("ids") List<Long> ids);
 
 }
