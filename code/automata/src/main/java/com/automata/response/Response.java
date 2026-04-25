@@ -6,7 +6,6 @@ import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
-import com.automata.host.Host;
 import com.automata.request.Request;
 import com.automata.request.body.BodyProperty;
 
@@ -17,7 +16,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
@@ -53,11 +51,8 @@ public class Response {
 	@Column(nullable = false)
 	private Integer contentLength;
 
-	@OneToOne(mappedBy = "response")
+	@OneToOne(optional = false)
 	private Request request;
-
-	@ManyToOne(optional = false)
-	private Host host;
 
 	@Builder.Default
 	@OneToMany(mappedBy = "response")

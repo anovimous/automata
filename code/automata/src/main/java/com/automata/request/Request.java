@@ -10,7 +10,7 @@ import org.springframework.lang.Nullable;
 import com.automata.host.Host;
 import com.automata.program.Program;
 import com.automata.request.body.BodyProperty;
-import com.automata.request.common.enums.ContentType;
+import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.Source;
 import com.automata.request.equalityset.RequestEqualitySet;
@@ -73,7 +73,7 @@ public class Request {
 	// For now, request will only support JSON and POST form data
 
 	@Enumerated(EnumType.STRING)
-	private ContentType contentType;
+	private RequestContentType contentType;
 
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
@@ -88,7 +88,7 @@ public class Request {
 	@ManyToOne
 	private Tenant tenant;
 
-	@OneToOne
+	@OneToOne(mappedBy = "request")
 	private Response response;
 
 	@OneToMany(mappedBy = "request")
