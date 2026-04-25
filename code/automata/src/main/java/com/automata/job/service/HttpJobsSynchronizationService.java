@@ -8,6 +8,8 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.HostRepository;
 import com.automata.host.common.dto.HostAllRateLimitsInternalDto;
@@ -44,6 +46,7 @@ public class HttpJobsSynchronizationService {
 
 	private final JobQueueService queueService;
 
+	@Transactional(isolation = Isolation.SERIALIZABLE)
 	public void syncToQueueJobs() {
 
 		TreeSet<HttpJobInternalDto> sortedToQueueJobs = this.getSortedToQueueJobs();
@@ -57,7 +60,7 @@ public class HttpJobsSynchronizationService {
 			HttpJobInternalDto firstJob = sortedToQueueJobs.pollFirst();
 
 			ProgramSummaryRatesDto programRate = programSummaryRatesDtosMap.get(firstJob.programId());
-
+// COMPLETE HERE
 			boolean abidesToProgramRateLimit = programRate.currentRate() + firstJob.rate() <= programRate.rateLimit();
 
 			Boolean wideJobAbidesToEachHostRateLimit = false, narrowJobAbidesToTargetHostRateLimit = false;
