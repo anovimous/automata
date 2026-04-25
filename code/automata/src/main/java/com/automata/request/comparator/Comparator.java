@@ -1,8 +1,10 @@
 package com.automata.request.comparator;
 
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.lang.Nullable;
 
 import com.automata.host.Host;
@@ -34,6 +36,10 @@ public class Comparator {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	@CreationTimestamp
+	@Column(nullable = false, updatable = false)
+	private LocalDate creationDate;
+	
 	@Column(nullable = false)
 	private String name;
 
