@@ -37,7 +37,7 @@ public class QueryParameter {
 	@Column(nullable = false)
 	private String value;
 
-	@ManyToOne
+	@ManyToOne(optional = false)
 	private Request request;
 
 	@OneToOne
