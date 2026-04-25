@@ -7,7 +7,7 @@ public abstract class AuthenticationMapper {
 		return AuthenticationDto.builder().id(authentication.getId()).creationDate(authentication.getCreationDate())
 				.authData(authentication.getAuthData())
 				.isDynamicPopulationAvailable(authentication.isDynamicPopulationAvailable())
-				.code(authentication.getCode()).tenantId(authentication.getTenant().getId()).build();
+				.code(authentication.getCode()).tenantId(null).build();
 
 	}
 
