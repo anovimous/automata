@@ -1,9 +1,12 @@
 package com.automata.request.common.dto;
 
+import com.automata.host.Host;
+import com.automata.program.Program;
 import com.automata.request.RequestParseResult;
-import com.automata.request.common.enums.ContentType;
+import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.Source;
+import com.automata.tenant.Tenant;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -20,10 +23,16 @@ public class InternalRequestPersistanceDto {
 
 	private String version;
 
-	private ContentType contentType;
+	private RequestContentType contentType;
 
 	private Source source;
 
 	private RequestParseResult requestParseResult;
+
+	private Program program;
+
+	private Host host;
+
+	private Tenant tenant;
 
 }
