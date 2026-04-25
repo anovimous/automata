@@ -10,11 +10,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.job.api.dto.HttpJobCreationRequest;
+import com.automata.job.api.dto.HttpJobResponseDto;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.HttpJobScope;
+import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.service.HttpJobService;
+import com.automata.job.service.HttpJobsSynchronizationService;
+import com.automata.program.common.dto.ProgramSummaryDetailsResponseDto;
+import com.automata.routine.common.dto.RoutineSummaryDetailsResponseDto;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,12 +28,29 @@ import lombok.RequiredArgsConstructor;
 public class HttpJobController {
 
 	private final HttpJobService jobService;
+	
+	private final HttpJobsSynchronizationService syncService;
 
-//	@GetMapping("/{jobId}")
-//	public ResponseEntity<HttpJobDto> getJob() {
-//
-//	}
-//
+	@GetMapping("/{jobId}")
+	public ResponseEntity<HttpJobResponseDto> getJob(@PathVariable Long jobId) {
+
+		HttpJobFullDetailsInternalDto jobDto = jobService.getJobFullDetails(jobId);
+
+		HttpJobResponseDto responseDto = HttpJobResponseDto.builder().jobId(jobDto.jobId())
+				.httpJobScope(jobDto.httpJobScope()).currentState(jobDto.currentState())
+				.requestedState(jobDto.requestedState()).verbosity(jobDto.verbosity()).priority(jobDto.priority())
+				.rate(jobDto.rate()).targetSelector(jobDto.targetSelector()).genericConfig(jobDto.genericConfig())
+				.customConfig(jobDto.customConfig())
+				.program(ProgramSummaryDetailsResponseDto.builder().id(jobDto.programId()).name(jobDto.programName())
+						.build())
+				.routine(RoutineSummaryDetailsResponseDto.builder().id(jobDto.routineId()).key(jobDto.routineKey())
+						.build())
+				.build();
+
+		return ResponseEntity.ok(responseDto);
+
+	}
+
 //	@GetMapping("")
 //	public ResponseEntity<PageHolderResponse<HttpJobDto>> getJobs(@RequestBody HttpJobFilter filter) {
 //
@@ -63,6 +84,16 @@ public class HttpJobController {
 		return ResponseEntity.status(204).build();
 	}
 
+	// TEST METHOD:
+	
+	@PostMapping("/sync")
+	public ResponseEntity<Void> syncJob() {
+
+		syncService.syncToQueueJobs();
+
+		return ResponseEntity.status(204).build();
+	}
+	
 	// DELAYED
 //	@PostMapping("/{draftJobId}/schedule")
 //	public ResponseEntity<Void> scheduleJob(@PathVariable Long draftJobId, @RequestBody JobScheduleRequest req) {
