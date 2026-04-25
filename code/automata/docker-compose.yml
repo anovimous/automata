@@ -1,0 +1,114 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: automata-postgres
+    environment:
+      POSTGRES_DB: automatadb
+      POSTGRES_USER: automata
+      POSTGRES_PASSWORD: OjN86GXh6bLX9ltp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U automata -d automatadb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: automata-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: automata
+      RABBITMQ_DEFAULT_PASS: OjN86GXh6bLX9ltp
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: automata-rustfs
+    environment:
+      RUSTFS_ROOT_USER: automata
+      RUSTFS_ROOT_PASSWORD: OjN86GXh6bLX9ltp
+    ports:
+      - "9000:9000"  # S3-compatible API
+      - "9001:9001"  # console UI
+    volumes:
+      - rustfs_data:/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rustfs-init:
+    image: minio/mc:latest
+    container_name: automata-rustfs-init
+    networks:
+      - backend
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set rustfs http://rustfs:9000 automata OjN86GXh6bLX9ltp &&
+        mc mb --ignore-existing rustfs/job-configuration &&
+        mc anonymous set public rustfs/job-configuration
+      "
+
+  app:
+    build: .
+    container_name: automata-spring-app
+    ports:
+      - "8080:8080"
+    environment:
+      # Postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/automatadb
+      SPRING_DATASOURCE_USERNAME: automata
+      SPRING_DATASOURCE_PASSWORD: OjN86GXh6bLX9ltp
+
+      # RabbitMQ
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: automata
+      SPRING_RABBITMQ_PASSWORD: OjN86GXh6bLX9ltp
+
+      # RustFS (S3-compatible — adjust property names to match your client)
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: automata
+      RUSTFS_SECRET_KEY: OjN86GXh6bLX9ltp
+      RUSTFS_REGION: us-east-1
+    networks:
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+      rustfs-init:
+        condition: service_completed_successfully  # waits for buckets to be created
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  rustfs_data:

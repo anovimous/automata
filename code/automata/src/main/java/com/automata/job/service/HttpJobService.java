@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
@@ -22,6 +23,7 @@ import com.automata.job.domain.model.embedded.TargetSelector;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.model.enums.SelectorType;
+import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.TargetSelectionResult;
 import com.automata.job.repository.HttpJobRepository;
 import com.automata.program.Program;
@@ -53,6 +55,16 @@ public class HttpJobService {
 	private final JobTargetConfigService targetConfigService;
 
 	private final JobConfigFileService configFileService;
+
+	@Transactional(readOnly = true)
+	public HttpJobFullDetailsInternalDto getJobFullDetails(Long jobId) {
+
+		HttpJobFullDetailsInternalDto jobDto = jobRepo.findFullDetailsByJobId(jobId)
+				.orElseThrow(() -> new EntityNotFoundException("Job not found"));
+
+		return jobDto;
+
+	}
 
 	public NarrowHttpJob createDraftNarrowJob(GenericHttpJobDetailsDto genericDto, NarrowHttpJobDetailsDto narrowDto) {
 

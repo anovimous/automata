@@ -5,7 +5,7 @@ import java.util.List;
 
 import com.automata.common.utils.ValidationResult;
 import com.automata.request.body.BodyParseResult;
-import com.automata.request.common.enums.ContentType;
+import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.common.enums.Method;
 import com.automata.request.header.Header;
 import com.automata.request.parameter.QueryStringParseResult;
@@ -24,7 +24,7 @@ public class RequestParseResult {
 
 	private String version;
 
-	private ContentType contentType;
+	private RequestContentType contentType;
 
 	private PathParsingResult pathParseResult;
 

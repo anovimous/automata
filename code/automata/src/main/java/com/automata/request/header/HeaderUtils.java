@@ -1,19 +1,19 @@
 package com.automata.request.header;
 
-import com.automata.request.common.enums.ContentType;
+import com.automata.request.common.enums.RequestContentType;
 import com.automata.response.ResponseContentType;
 
 public abstract class HeaderUtils {
 
-	public static ContentType detectContentType(String contentType) {
+	public static RequestContentType detectRequestContentType(String contentType) {
 
 		String lower = contentType.toLowerCase().replace(" ", "");
 
 		return switch (lower) {
-		case "application/json" -> ContentType.JSON;
-		case "application/x-www-form-urlencoded" -> ContentType.FORM;
+		case "application/json" -> RequestContentType.JSON;
+		case "application/x-www-form-urlencoded" -> RequestContentType.FORM;
 		// case "multipart/form-data" -> ContentType.MULTIPART;
-		default -> ContentType.UNSUPPORTED;
+		default -> RequestContentType.UNSUPPORTED;
 		};
 
 	}

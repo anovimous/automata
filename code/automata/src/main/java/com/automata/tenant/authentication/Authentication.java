@@ -49,7 +49,7 @@ public class Authentication {
 	@Column(columnDefinition = "jsonb")
 	private DynamicCode code;
 
-	@OneToOne(optional = false)
+	@OneToOne(mappedBy = "authentication")
 	private Tenant tenant;
 
 }

@@ -7,6 +7,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,10 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.automata.common.dto.response.PageHolderResponse;
-import com.automata.host.common.dto.RequestFilter;
 import com.automata.request.common.dto.RawRequestAdditionDto;
-import com.automata.request.common.dto.RequestAdditionDto;
+import com.automata.request.common.dto.RequestFilter;
 import com.automata.request.common.dto.RequestPatchDto;
+import com.automata.request.common.dto.RequestRawResponse;
 import com.automata.request.common.dto.RequestResponse;
 import com.automata.request.common.dto.RequestsEqualizationDto;
 import com.automata.response.RawResponseAdditionDto;
@@ -38,19 +39,20 @@ public class RequestController {
 	private final ResponseService responseService;
 
 	@GetMapping("/{requestId}")
-	public ResponseEntity<RequestResponse> getRequest(@PathVariable Long requestId) {
+	public ResponseEntity<RequestRawResponse> getRequest(@PathVariable Long requestId) {
 
-		Request request = requestService.getRequestById(requestId);
+		String rawRequestBase64 = requestService.getRawRequestBase64(requestId);
 
-		RequestResponse response = RequestMapper.toRequestResponse(request);
+		RequestRawResponse response = new RequestRawResponse(rawRequestBase64);
 
 		return ResponseEntity.ok(response);
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<RequestResponse>> getRequests(RequestFilter filter,
-			@PageableDefault(size = 40, sort = "insertionDate", direction = Sort.Direction.ASC) Pageable pageable) {
+	public ResponseEntity<PageHolderResponse<RequestResponse>> getRequests(@ModelAttribute RequestFilter filter,
+			@PageableDefault(size = 40, sort = {
+					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Request> requests = requestService.getRequestsFilteredAndPaged(filter, pageable);
 
@@ -66,19 +68,6 @@ public class RequestController {
 		requestEqualityService.equalizeRequestsIntoEqualityGroups(dto);
 
 		return ResponseEntity.status(204).build();
-
-	}
-
-	@PostMapping("")
-	public ResponseEntity<RequestResponse> addRequestViaComponents(@RequestBody RequestAdditionDto dto) {
-
-		return ResponseEntity.status(503).build();
-
-//		Request request = requestService.addRequestViaComponents(dto);
-//
-//		RequestResponse response = RequestMapper.toRequestResponse(request);
-//
-//		return ResponseEntity.status(201).body(response);
 
 	}
 

@@ -26,7 +26,7 @@ public class RoutineService {
 	}
 
 	public Page<Routine> getRoutinesPagedAndFilteredOnQueryString(String name, Pageable pageable) {
-		return routineRepo.findByNameContainingIgnoreCase(name, pageable);
+		return routineRepo.findByKeyContainingIgnoreCase(name, pageable);
 	}
 
 	public Page<Routine> getVulnerabilityRoutinesPagedAndFilteredOnQueryString(Long vulnId, String name,
@@ -35,12 +35,16 @@ public class RoutineService {
 		Vulnerability vulnerability = vulnRepo.findById(vulnId)
 				.orElseThrow(() -> new EntityNotFoundException("Vulnerability not found"));
 
-		return routineRepo.findByNameContainingIgnoreCaseAndVulnerability(name, vulnerability, pageable);
+		return routineRepo.findByKeyContainingIgnoreCaseAndVulnerability(name, vulnerability, pageable);
 	}
 
 	public Routine createRoutine(Routine toBeCreatedRoutine, Long vulnId) {
 
-		Vulnerability vulnerability = vulnRepo.findById(vulnId).orElse(null);
+		Vulnerability vulnerability = null;
+
+		if (vulnId != null)
+			vulnerability = vulnRepo.findById(vulnId)
+					.orElseThrow(() -> new EntityNotFoundException("Vulnerability not found"));
 
 		toBeCreatedRoutine.setVulnerability(vulnerability);
 

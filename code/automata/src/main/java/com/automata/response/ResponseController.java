@@ -7,6 +7,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,9 +34,21 @@ public class ResponseController {
 
 	}
 
+	@GetMapping("/{responseId}/raw")
+	public ResponseEntity<RawResponseDto> getRawResponse(@PathVariable Long responseId) {
+
+		String responseBase64 = responseService.getRawResponse(responseId);
+
+		RawResponseDto responseDto = new RawResponseDto(responseBase64);
+
+		return ResponseEntity.ok(responseDto);
+
+	}
+
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<ResponseDto>> getResponses(ResponseFilter filter,
-			@PageableDefault(size = 40, sort = "insertionDate", direction = Sort.Direction.ASC) Pageable pageable) {
+	public ResponseEntity<PageHolderResponse<ResponseDto>> getResponses(@ModelAttribute ResponseFilter filter,
+			@PageableDefault(size = 40, sort = {
+					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Response> responses = responseService.getResponsesFilteredAndPaged(filter, pageable);
 

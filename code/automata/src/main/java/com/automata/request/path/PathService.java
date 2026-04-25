@@ -40,7 +40,9 @@ public class PathService {
 
 	}
 
-	public List<PathVariable> persistPathVariables(List<PathVariable> pathVariables) {
+	public List<PathVariable> persistRequestPathVariables(List<PathVariable> pathVariables, Request persistedRequest) {
+
+		pathVariables.forEach(variable -> variable.setRequest(persistedRequest));
 
 		return pathVariableRepo.saveAll(pathVariables);
 

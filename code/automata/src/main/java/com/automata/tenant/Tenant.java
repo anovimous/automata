@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.automata.host.Host;
+import com.automata.tenant.authentication.Authentication;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,6 +13,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -42,5 +44,8 @@ public class Tenant {
 
 	@ManyToOne(optional = false)
 	private Host host;
+
+	@OneToOne
+	private Authentication authentication;
 
 }

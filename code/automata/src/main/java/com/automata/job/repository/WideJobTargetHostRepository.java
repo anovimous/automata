@@ -15,9 +15,9 @@ public interface WideJobTargetHostRepository extends JpaRepository<WideJobTarget
 
 	@Query(value = """
 			SELECT new com.automata.host.common.dto.HostInternalDto(
-			    h.id,
-			    h.host,
-			    h.scope
+			    h.targetHost.id,
+			    h.targetHost.host,
+			    h.targetHost.scope
 			)
 			FROM WideJobTargetHost h
 			WHERE h.job = :job

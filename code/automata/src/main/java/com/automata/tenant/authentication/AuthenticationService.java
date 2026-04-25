@@ -3,6 +3,7 @@ package com.automata.tenant.authentication;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
@@ -33,14 +34,20 @@ public class AuthenticationService {
 
 	}
 
+	@Transactional
 	public Authentication createAuthentication(Authentication authentication, Long tenantId) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)
 				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
-		authentication.setTenant(tenant);
+		if (tenant.getAuthentication() != null)
+			authRepo.delete(tenant.getAuthentication());
 
-		return authRepo.save(authentication);
+		Authentication persistedAuth = authRepo.save(authentication);
+
+		tenant.setAuthentication(persistedAuth);
+
+		return persistedAuth;
 
 	}
 

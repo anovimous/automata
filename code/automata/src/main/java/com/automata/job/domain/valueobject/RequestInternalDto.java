@@ -5,13 +5,21 @@ import java.util.List;
 import com.automata.request.common.dto.BodyPropertyInternalDto;
 import com.automata.request.common.dto.PathVariableInternalDto;
 import com.automata.request.common.dto.QueryParameterInternalDto;
-import com.automata.request.common.enums.ContentType;
+import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.Source;
 
-import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
-@Data
+@Builder
+@Getter
+@Setter
+@RequiredArgsConstructor
+@AllArgsConstructor
 public class RequestInternalDto {
 
 	private final Long requestId;
@@ -20,7 +28,7 @@ public class RequestInternalDto {
 	private final String extension;
 	private final String version;
 	private final int numberOfProperties;
-	private final ContentType contentType;
+	private final RequestContentType contentType;
 	private final Source source;
 	private List<PathVariableInternalDto> pathVariableDtos;
 	private List<QueryParameterInternalDto> queryParameterDtos;

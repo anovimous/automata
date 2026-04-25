@@ -1,29 +1,38 @@
 package com.automata.request;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.common.utils.Base64Utils;
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
-import com.automata.host.common.dto.RequestFilter;
+import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.request.body.BodyProperty;
+import com.automata.request.body.BodyPropertyRepository;
 import com.automata.request.body.BodyPropertyService;
+import com.automata.request.common.dto.BodyPropertyInternalDto;
 import com.automata.request.common.dto.InternalRequestPersistanceDto;
+import com.automata.request.common.dto.PathVariableInternalDto;
+import com.automata.request.common.dto.QueryParameterInternalDto;
 import com.automata.request.common.dto.RawRequestAdditionDto;
-import com.automata.request.common.dto.RequestAdditionDto;
+import com.automata.request.common.dto.RequestFilter;
 import com.automata.request.common.dto.RequestPatchDto;
 import com.automata.request.comparator.ComparatorRepository;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.automata.request.header.HeaderService;
 import com.automata.request.parameter.QueryParameter;
+import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.parameter.QueryParameterService;
 import com.automata.request.path.PathService;
 import com.automata.request.path.PathVariable;
+import com.automata.request.path.PathVariableRepository;
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
 
@@ -44,6 +53,12 @@ public class RequestService {
 
 	private final ComparatorRepository comparatorRepo;
 
+	private final PathVariableRepository pathVariableRepo;
+
+	private final QueryParameterRepository queryParameterRepo;
+
+	private final BodyPropertyRepository bodyPropertyRepo;
+
 	private final PathService pathService;
 
 	private final QueryParameterService queryParameterService;
@@ -58,6 +73,39 @@ public class RequestService {
 
 	}
 
+	@Transactional(readOnly = true)
+	public String getRawRequestBase64(Long requestId) {
+
+		Request request = requestRepo.findById(requestId)
+				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+
+		RequestInternalDto dto = RequestInternalDto.builder().requestId(requestId).method(request.getMethod())
+				.computatedPath(request.getComputatedPath()).version(request.getVersion())
+				.extension(request.getExtension()).numberOfProperties(request.getNumberOfProperties())
+				.contentType(request.getContentType()).source(request.getSource()).build();
+
+		List<Long> ids = List.of(request.getId());
+
+		List<PathVariableInternalDto> pathVariables = pathVariableRepo.getPathVariableDtosOfRequests(ids);
+
+		List<QueryParameterInternalDto> queryParameters = queryParameterRepo.getQueryParameterDtosByRequestsIds(ids);
+
+		List<BodyPropertyInternalDto> bodyProperties = bodyPropertyRepo.getBodyPropertyDtosByRequestsIds(ids);
+		
+		dto.setPathVariableDtos(pathVariables);
+
+		dto.setQueryParameterDtos(queryParameters);
+
+		dto.setBodyPropertyDtos(bodyProperties);
+
+		String host = request.getHost().getHost();
+
+		String rawRequest = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, host));
+
+		return Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8));
+
+	}
+
 	public Page<Request> getRequestsFilteredAndPaged(RequestFilter filter, Pageable pageable) {
 
 		RequestUtils.validateRequestFilter(filter)
@@ -69,17 +117,15 @@ public class RequestService {
 
 	}
 
-	public Request addRequestViaComponents(RequestAdditionDto dto) {
-		// DELAYED
-		return null;
-
-	}
-
+	@Transactional
 	public Request addRawRequest(RawRequestAdditionDto dto) {
 
 		Host host = hostRepo.findById(dto.hostId()).orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
-		Tenant tenant = tenantRepo.findById(dto.tenantId()).orElse(null);
+		Tenant tenant = null;
+		if (dto.tenantId() != null)
+			tenant = tenantRepo.findById(dto.tenantId())
+					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
 		String rawRequest = Base64Utils.decode(dto.requestBase64());
 
@@ -93,20 +139,15 @@ public class RequestService {
 		InternalRequestPersistanceDto internalDto = InternalRequestPersistanceDto.builder().source(dto.source())
 				.method(parseResult.getMethod()).version(parseResult.getVersion())
 				.extension(parseResult.getPathParseResult().getExtension()).contentType(parseResult.getContentType())
-				.requestParseResult(parseResult).build();
+				.requestParseResult(parseResult).program(host.getProgram()).host(host).tenant(tenant).build();
 
 		Request persistedRequest = this.internalPersistRequest(internalDto);
-
-		persistedRequest.setHost(host);
-
-		persistedRequest.setProgram(host.getProgram());
-
-		persistedRequest.setTenant(tenant);
 
 		return persistedRequest;
 
 	}
 
+	@Transactional
 	public Request patchRequest(Long requestId, RequestPatchDto dto) {
 
 		Request request = requestRepo.findById(requestId)
@@ -156,6 +197,7 @@ public class RequestService {
 
 	}
 
+	@Transactional
 	private Request internalPersistRequest(InternalRequestPersistanceDto internalDto) {
 
 		Request request = new Request();
@@ -172,13 +214,19 @@ public class RequestService {
 
 		request.setExtension(internalDto.getRequestParseResult().getPathParseResult().getExtension());
 
+		request.setProgram(internalDto.getProgram());
+
+		request.setHost(internalDto.getHost());
+
+		request.setTenant(internalDto.getTenant());
+
 		requestRepo.save(request);
 
-		List<PathVariable> persistedPathVariables = pathService
-				.persistPathVariables(internalDto.getRequestParseResult().getPathParseResult().getPathVariables());
+		List<PathVariable> persistedPathVariables = pathService.persistRequestPathVariables(
+				internalDto.getRequestParseResult().getPathParseResult().getPathVariables(), request);
 
-		List<QueryParameter> persistedQueryParameters = queryParameterService.persistQueryParameters(
-				internalDto.getRequestParseResult().getQueryStringParseResult().getQueryParameters());
+		List<QueryParameter> persistedQueryParameters = queryParameterService.persistRequestQueryParameters(
+				internalDto.getRequestParseResult().getQueryStringParseResult().getQueryParameters(), request);
 
 		List<BodyProperty> persistedBodyProperties = bodyService.persistRequestBodyProperties(
 				internalDto.getRequestParseResult().getBodyParseResult().getBodyProperties(), request);

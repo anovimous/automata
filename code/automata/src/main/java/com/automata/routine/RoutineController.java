@@ -28,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 public class RoutineController {
 
 	private final RoutineService routineService;
+	
+	private final ObjectMapper mapper;
 
 	@GetMapping("/{routineId}")
 	public ResponseEntity<Routine> getRoutine(@PathVariable Long routineId) {
@@ -41,7 +43,7 @@ public class RoutineController {
 	@GetMapping("")
 	public ResponseEntity<PageHolderResponse<Routine>> getRoutines(@RequestParam(defaultValue = "") String query,
 			@RequestParam(required = false) Long vulnId,
-			@PageableDefault(size = 30, sort = "name, creationDate", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 30, sort = { "key" }, direction = Sort.Direction.ASC) Pageable pageable) {
 
 		Page<Routine> routines;
 
@@ -56,8 +58,6 @@ public class RoutineController {
 
 	@PostMapping("")
 	public ResponseEntity<Routine> createRoutine(@RequestBody RoutineCreationRequest request) {
-
-		ObjectMapper mapper = new ObjectMapper();
 
 		Routine toBeCreatedRoutine = mapper.convertValue(request, Routine.class);
 

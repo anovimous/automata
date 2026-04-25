@@ -15,7 +15,7 @@ import com.automata.job.domain.valueobject.RequestInternalDto;
 public interface NarrowJobTargetRequestRepository extends JpaRepository<NarrowJobTargetRequest, Long> {
 
 	@Query(value = """
-			SELECT new com.automata.job.common.dto.RequestInternalDto(
+			SELECT new com.automata.job.domain.valueobject.RequestInternalDto(
 			    r.targetRequest.id,
 			    r.targetRequest.method,
 			 r.targetRequest.computatedPath,

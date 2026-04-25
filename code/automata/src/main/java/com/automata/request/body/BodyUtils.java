@@ -10,13 +10,13 @@ import java.util.stream.Collectors;
 
 import org.apache.hc.core5.http.NameValuePair;
 import org.apache.hc.core5.http.message.BasicNameValuePair;
-import org.apache.hc.core5.net.URIBuilder;
 import org.apache.hc.core5.net.WWWFormCodec;
 
 import com.automata.request.body.BodyProperty.BodyPropertyBuilder;
 import com.automata.request.common.dto.BodyPropertyInternalDto;
-import com.automata.request.common.enums.ContentType;
 import com.automata.request.common.enums.PropertyValueType;
+import com.automata.request.common.enums.RequestContentType;
+import com.automata.response.ResponseContentType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.wnameless.json.flattener.JsonFlattener;
@@ -59,9 +59,7 @@ public abstract class BodyUtils {
 
 	public static BodyParseResult parseFormBody(String body) {
 
-		URIBuilder builder = new URIBuilder().setCustomQuery(body);
-
-		List<NameValuePair> pairs = builder.getQueryParams();
+		List<NameValuePair> pairs = WWWFormCodec.parse(body, StandardCharsets.UTF_8);
 
 		List<BodyProperty> bodyProperties = pairs.stream()
 				.map((pair) -> BodyProperty.builder().fullPath(pair.getName()).value(pair.getValue())
@@ -103,13 +101,20 @@ public abstract class BodyUtils {
 
 	}
 
-	public static Optional<String> composeRawBody(ContentType contentType,
+	public static Optional<String> composeRequestRawBody(RequestContentType contentType,
 			List<BodyPropertyInternalDto> bodyPropertyDtos) {
 
-		if (contentType.equals(ContentType.JSON))
-			return Optional.of(composeRawJsonBody(bodyPropertyDtos));
+		if (contentType.equals(RequestContentType.JSON))
+			return Optional.ofNullable(composeRawJsonBody(bodyPropertyDtos));
 		else
-			return Optional.of(composeRawFormBody(bodyPropertyDtos));
+			return Optional.ofNullable(composeRawFormBody(bodyPropertyDtos));
+
+	}
+
+	public static Optional<String> composeResponseRawBody(ResponseContentType contentType,
+			List<BodyPropertyInternalDto> bodyPropertyDtos) {
+
+		return Optional.ofNullable(composeRawJsonBody(bodyPropertyDtos));
 
 	}
 

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.automata.request.comparator.common.dto.ModifierPatchRequest;
 import com.automata.request.comparator.common.enums.Schema;
+import com.automata.request.comparator.hash.HashTarget;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -28,16 +29,16 @@ public class ModifierService {
 
 	}
 
-	public Page<Modifier> getModifiersPagedAndFilteredOnQueryString(String key, Pageable pageable) {
+	public Page<Modifier> getModifiersPagedAndFilteredOnHashTarget(HashTarget target, Pageable pageable) {
 
-		return modifierRepo.findByKeyContainingIgnoreCase(key, pageable);
+		return modifierRepo.findByTarget(target, pageable);
 
 	}
 
-	public Page<Modifier> getModifiersPagedAndFilteredOnQueryStringAndSchema(String key, Schema schema,
+	public Page<Modifier> getModifiersPagedAndFilteredOnHashTargetAndSchema(HashTarget target, Schema schema,
 			Pageable pageable) {
 
-		return modifierRepo.findByKeyContainingIgnoreCaseAndSchema(key, schema, pageable);
+		return modifierRepo.findByTargetAndSchema(target, schema, pageable);
 
 	}
 

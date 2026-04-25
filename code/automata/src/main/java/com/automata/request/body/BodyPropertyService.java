@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.request.Request;
-import com.automata.request.common.enums.ContentType;
+import com.automata.request.common.enums.RequestContentType;
 import com.automata.response.Response;
 
 import lombok.RequiredArgsConstructor;
@@ -23,9 +23,9 @@ public class BodyPropertyService {
 
 		BodyParseResult parseResult;
 
-		if (request.getContentType() == ContentType.JSON)
+		if (request.getContentType() == RequestContentType.JSON)
 			parseResult = BodyUtils.parseJsonBody(body);
-		else if (request.getContentType() == ContentType.FORM)
+		else if (request.getContentType() == RequestContentType.FORM)
 			parseResult = BodyUtils.parseFormBody(body);
 		else
 			parseResult = new BodyParseResult();

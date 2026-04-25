@@ -6,12 +6,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import com.automata.request.comparator.common.enums.Schema;
+import com.automata.request.comparator.hash.HashTarget;
 
 @Repository
 public interface ModifierRepository extends JpaRepository<Modifier, Long> {
 
-	Page<Modifier> findByKeyContainingIgnoreCaseAndSchema(String query, Schema schema, Pageable pageable);
+	Page<Modifier> findByTarget(HashTarget target, Pageable pageable);
 
-	Page<Modifier> findByKeyContainingIgnoreCase(String query, Pageable pageable);
+	Page<Modifier> findByTargetAndSchema(HashTarget target, Schema schema, Pageable pageable);
 
 }

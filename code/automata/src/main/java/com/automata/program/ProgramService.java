@@ -1,6 +1,5 @@
 package com.automata.program;
 
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -8,7 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import com.automata.job.domain.model.enums.JobState;
 import com.automata.program.common.dto.PatchProgramRequest;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;

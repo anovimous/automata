@@ -41,7 +41,7 @@ public class ComparatorController {
 	public ResponseEntity<PageHolderResponse<Comparator>> getComparators(@RequestParam(defaultValue = "") String query,
 			@RequestParam(required = false) Long programId, @RequestParam(required = false) Long hostId,
 			@RequestParam(required = false) Schema schema,
-			@PageableDefault(size = 30, sort = "creationDate", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 30, sort = {"target"}, direction = Sort.Direction.ASC) Pageable pageable) {
 
 		Page<Comparator> comparators = comparatorService.getComparatorsPagedAndFiltered(query, programId, hostId,
 				schema, pageable);

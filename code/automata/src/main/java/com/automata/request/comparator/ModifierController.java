@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.request.comparator.common.dto.ModifierPatchRequest;
 import com.automata.request.comparator.common.enums.Schema;
+import com.automata.request.comparator.hash.HashTarget;
 
 import lombok.RequiredArgsConstructor;
 
@@ -38,16 +39,16 @@ public class ModifierController {
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<Modifier>> getModifiers(@RequestParam(defaultValue = "") String query,
+	public ResponseEntity<PageHolderResponse<Modifier>> getModifiers(@RequestParam(required = false) HashTarget target,
 			@RequestParam(required = false) Schema schema,
-			@PageableDefault(size = 30, sort = "creationDate", direction = Sort.Direction.ASC) Pageable pageable) {
+			@PageableDefault(size = 30, sort = {"creationDate"}, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Modifier> modifiers;
 
 		if (schema == null)
-			modifiers = modifierService.getModifiersPagedAndFilteredOnQueryString(query, pageable);
+			modifiers = modifierService.getModifiersPagedAndFilteredOnHashTarget(target, pageable);
 		else
-			modifiers = modifierService.getModifiersPagedAndFilteredOnQueryStringAndSchema(query, schema, pageable);
+			modifiers = modifierService.getModifiersPagedAndFilteredOnHashTargetAndSchema(target, schema, pageable);
 
 		return ResponseEntity.ok(new PageHolderResponse<>(modifiers));
 

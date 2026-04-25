@@ -1,12 +1,12 @@
 package com.automata.request.common.enums;
 
-public enum ContentType {
+public enum RequestContentType {
 	JSON("application/json"), MULTIPART("multipart/form-data"), FORM("application/x-www-form-urlencoded"),
 	UNSUPPORTED("unsupported");
 
 	private final String rawValue;
 
-	ContentType(String rawValue) {
+	RequestContentType(String rawValue) {
 		this.rawValue = rawValue;
 	}
 
