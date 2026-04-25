@@ -34,6 +34,17 @@ public class ResponseController {
 
 	}
 
+	@GetMapping("/{responseId}/raw")
+	public ResponseEntity<RawResponseDto> getRawResponse(@PathVariable Long responseId) {
+
+		String responseBase64 = responseService.getRawResponse(responseId);
+
+		RawResponseDto responseDto = new RawResponseDto(responseBase64);
+
+		return ResponseEntity.ok(responseDto);
+
+	}
+
 	@GetMapping("")
 	public ResponseEntity<PageHolderResponse<ResponseDto>> getResponses(@ModelAttribute ResponseFilter filter,
 			@PageableDefault(size = 40, sort = {
