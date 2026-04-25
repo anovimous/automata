@@ -7,8 +7,7 @@ import java.util.stream.Collectors;
 
 import org.apache.hc.core5.http.NameValuePair;
 import org.apache.hc.core5.http.message.BasicNameValuePair;
-import org.apache.hc.core5.net.URIBuilder;
-import org.apache.hc.core5.net.URLEncodedUtils;
+import org.apache.hc.core5.net.WWWFormCodec;
 
 import com.automata.request.common.dto.QueryParameterInternalDto;
 
@@ -19,9 +18,7 @@ public abstract class QueryParameterUtils {
 		if (queryString.startsWith("?"))
 			queryString = queryString.substring(1);
 
-		URIBuilder builder = new URIBuilder().setCustomQuery(queryString);
-
-		List<NameValuePair> pairs = builder.getQueryParams();
+		List<NameValuePair> pairs = WWWFormCodec.parse(queryString, StandardCharsets.UTF_8);
 
 		List<QueryParameter> queryParameters = pairs.stream()
 				.map((pair) -> QueryParameter.of(pair.getName(), pair.getValue())).collect(Collectors.toList());
@@ -33,15 +30,17 @@ public abstract class QueryParameterUtils {
 		return parseResult;
 	}
 
-	@SuppressWarnings("deprecation")
 	public static Optional<String> composeRawQueryString(List<QueryParameterInternalDto> queryParameterDtos) {
 
-		List<BasicNameValuePair> apacheNameValuePairs = queryParameterDtos.stream()
-				.map((dto) -> new BasicNameValuePair(dto.parameter(), dto.value())).toList();
+		if (!queryParameterDtos.isEmpty()) {
+			List<BasicNameValuePair> apacheNameValuePairs = queryParameterDtos.stream()
+					.map((dto) -> new BasicNameValuePair(dto.parameter(), dto.value())).toList();
 
-		String queryString = URLEncodedUtils.format(apacheNameValuePairs, StandardCharsets.UTF_8);
+			String queryString = WWWFormCodec.format(apacheNameValuePairs, StandardCharsets.UTF_8);
 
-		return Optional.of(queryString);
+			return Optional.of(queryString);
+		} else
+			return Optional.empty();
 	}
 
 }

@@ -2,6 +2,7 @@ package com.automata.request.path;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -24,11 +25,13 @@ public abstract class PathUtils {
 
 		PathParsingResult parseResult = new PathParsingResult();
 
-		String extension = cleanedPath.substring(lastDotIndex);
+		String extension = (lastDotIndex != -1) ? cleanedPath.substring(lastDotIndex) : null;
 
 		parseResult.setExtension(extension);
 
 		List<String> uriSplits = Arrays.asList(cleanedPath.split("/"));
+
+		List<String> newUriSplits = new ArrayList<>();
 
 		for (int i = 0; i < uriSplits.size(); i++) {
 
@@ -36,21 +39,23 @@ public abstract class PathUtils {
 
 			if (UUIDUtils.isValidUUID(part)) {
 
-				uriSplits.set(i, String.join("@", Integer.toString(i), PathVariableValueType.GUID.toString()));
+				newUriSplits.add(String.join("@", Integer.toString(i), PathVariableValueType.GUID.toString()));
 
 				parseResult.getPathVariables().add(PathVariable.of(i, PathVariableValueType.GUID, part));
 
 			} else if (part.matches("\\d+")) {
 
-				uriSplits.set(i, String.join("@", Integer.toString(i), PathVariableValueType.INT.toString()));
+				newUriSplits.add(String.join("@", Integer.toString(i), PathVariableValueType.INT.toString()));
 
 				parseResult.getPathVariables().add(PathVariable.of(i, PathVariableValueType.INT, part));
 
+			} else {
+				newUriSplits.add(part);
 			}
 
 		}
 
-		parseResult.setComputatedPath(String.join("", uriSplits));
+		parseResult.setComputatedPath(String.join("/", newUriSplits));
 		return parseResult;
 
 	}
@@ -77,15 +82,16 @@ public abstract class PathUtils {
 
 	public static String composeRawPath(String computatedPath, List<PathVariableInternalDto> pathVariableDtos) {
 
+		// .split here will result in an entry of "" at the index 0
 		List<String> computatedUriSplits = Arrays.asList(computatedPath.split("/"));
 
 		Map<Integer, PathVariableInternalDto> dtosMap = pathVariableDtos.stream()
 				.collect(Collectors.toMap(PathVariableInternalDto::index, dto -> dto));
-
+		
 		List<String> originalUriSplits = computatedUriSplits.stream().map((part) -> {
 
 			if (part.matches("[0-9]+@(INT|GUID)")) {
-				int pathIndex = Integer.parseInt(part.substring(0, part.indexOf('@')));
+				Integer pathIndex = Integer.parseInt(part.substring(0, part.indexOf('@')));
 				return dtosMap.get(pathIndex).value();
 			} else
 				return part;
