@@ -2,6 +2,7 @@ package com.automata.request;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -13,10 +14,12 @@ import java.util.stream.Collectors;
 import org.apache.hc.core5.http.ClassicHttpRequest;
 
 import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.ProtocolVersion;
 import org.apache.hc.core5.http.impl.BasicHttpTransportMetrics;
 import org.apache.hc.core5.http.impl.io.SessionInputBufferImpl;
 import org.apache.hc.core5.http.impl.io.SessionOutputBufferImpl;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.message.BasicClassicHttpRequest;
 import org.apache.hc.core5.net.URIAuthority;
@@ -25,12 +28,12 @@ import org.apache.hc.core5.http.impl.io.DefaultHttpRequestWriter;
 import org.springframework.data.jpa.domain.Specification;
 
 import com.automata.common.utils.ValidationResult;
-import com.automata.host.common.dto.RequestFilter;
 import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.request.body.BodyParseResult;
 import com.automata.request.body.BodyUtils;
-import com.automata.request.common.enums.ContentType;
+import com.automata.request.common.dto.RequestFilter;
 import com.automata.request.common.enums.Method;
+import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.header.Header;
 import com.automata.request.header.HeaderCompositePK;
 import com.automata.request.header.HeaderUtils;
@@ -44,8 +47,10 @@ import jakarta.persistence.criteria.Predicate;
 public abstract class RequestUtils {
 
 	public static ValidationResult validateRequestFilter(RequestFilter filter) {
+		if (filter == null)
+			return ValidationResult.invalid();
 		// validate that either hostId or programId is always present
-		if (filter.programId() != null || filter.hostId() != null)
+		if (filter.getProgramId() != null || filter.getHostId() != null)
 			return ValidationResult.valid();
 		else
 			return ValidationResult.invalid();
@@ -58,37 +63,37 @@ public abstract class RequestUtils {
 
 			List<Predicate> predicates = new ArrayList<>();
 
-			if (filter.programId() != null) {
-				predicates.add(cb.equal(root.join("program").get("id"), filter.programId()));
+			if (filter.getProgramId() != null) {
+				predicates.add(cb.equal(root.join("program").get("id"), filter.getProgramId()));
 			}
 
-			if (filter.hostId() != null) {
-				predicates.add(cb.equal(root.join("host").get("id"), filter.hostId()));
+			if (filter.getHostId() != null) {
+				predicates.add(cb.equal(root.join("host").get("id"), filter.getHostId()));
 			}
 
-			if (filter.tenantId() != null) {
-				predicates.add(cb.equal(root.join("tenant").get("id"), filter.tenantId()));
+			if (filter.getTenantId() != null) {
+				predicates.add(cb.equal(root.join("tenant").get("id"), filter.getTenantId()));
 			}
 
-			if (filter.source() != null) {
-				predicates.add(cb.equal(root.get("source"), filter.source()));
+			if (filter.getSource() != null) {
+				predicates.add(cb.equal(root.get("source"), filter.getSource()));
 			}
 
-			if (filter.method() != null) {
-				predicates.add(cb.equal(root.get("method"), filter.method()));
+			if (filter.getMethod() != null) {
+				predicates.add(cb.equal(root.get("method"), filter.getMethod()));
 			}
 
-			if (filter.computatedPath() != null && !filter.computatedPath().isBlank()) {
+			if (filter.getComputatedPath() != null && !filter.getComputatedPath().isBlank()) {
 				predicates.add(cb.like(cb.lower(root.get("computatedPath")),
-						"%" + filter.computatedPath().toLowerCase() + "%"));
+						"%" + filter.getComputatedPath().toLowerCase() + "%"));
 			}
 
-			if (filter.extension() != null && !filter.extension().isBlank()) {
-				predicates.add(cb.equal(root.get("extension"), filter.extension()));
+			if (filter.getExtension() != null && !filter.getExtension().isBlank()) {
+				predicates.add(cb.equal(root.get("extension"), filter.getExtension()));
 			}
 
-			if (filter.contentType() != null) {
-				predicates.add(cb.equal(root.get("contentType"), filter.contentType()));
+			if (filter.getContentType() != null) {
+				predicates.add(cb.equal(root.get("contentType"), filter.getContentType()));
 			}
 			return cb.and(predicates.toArray(Predicate[]::new));
 
@@ -111,20 +116,53 @@ public abstract class RequestUtils {
 			return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
 		}
 
+		if (request.getFirstHeader(HttpHeaders.CONTENT_TYPE) != null) {
+
+			if (!isContentTypeParseble(request.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue()))
+				return RequestParseResult.builder()
+						.validationResult(ValidationResult.invalid("Content Type not supported")).build();
+
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+			// Drain internal buffer first
+			int available = buffer.length();
+			byte[] bufferBytes = new byte[available];
+			try {
+				buffer.read(bufferBytes, 0, available, stream);
+				out.write(bufferBytes);
+				// Then drain the stream
+				out.write(stream.readAllBytes());
+			} catch (IOException e) {
+				RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
+			}
+
+			byte[] bodyBytes = out.toByteArray();
+
+			if (bodyBytes.length > 0) {
+				request.setEntity(new ByteArrayEntity(bodyBytes,
+						org.apache.hc.core5.http.ContentType.parse(request.getFirstHeader("Content-Type").getValue())));
+			}
+		}
 		// Here starts construction of RequestParseResult components:
 
 		// Method
 		Method customMethod = Method.valueOf(request.getMethod().toUpperCase());
 
-		// Path and query parameters
+		// URI Creation:
 		URI uri = URI.create(request.getPath());
 
+		// Path Parsing:
 		String path = uri.getPath();
-		String queryString = uri.getQuery();
-
 		PathParsingResult pathParseResult = PathUtils.parsePath(path);
 
-		QueryStringParseResult queryStringParseResult = QueryParameterUtils.parseQueryString(queryString);
+		// QueryString Parsing:
+		String queryString = uri.getQuery();
+		QueryStringParseResult queryStringParseResult;
+
+		if (queryString != null)
+			queryStringParseResult = QueryParameterUtils.parseQueryString(queryString);
+		else
+			queryStringParseResult = new QueryStringParseResult();
 
 		// Version
 		String version = request.getVersion().format();
@@ -141,11 +179,11 @@ public abstract class RequestUtils {
 
 		// Body
 
-		Optional<HttpEntity> optionalEntity = Optional.of(request.getEntity());
+		Optional<HttpEntity> optionalEntity = Optional.ofNullable(request.getEntity());
 
 		BodyParseResult bodyParseResult;
 
-		ContentType customContentType;
+		RequestContentType customContentType = null;
 
 		if (optionalEntity.isPresent()) {
 
@@ -157,15 +195,13 @@ public abstract class RequestUtils {
 				return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
 			}
 
-			customContentType = HeaderUtils.detectContentType(
+			customContentType = HeaderUtils.detectRequestContentType(
 					org.apache.hc.core5.http.ContentType.parse(optionalEntity.get().getContentType()).getMimeType());
 
-			if (customContentType == ContentType.JSON)
+			if (customContentType == RequestContentType.JSON)
 				bodyParseResult = BodyUtils.parseJsonBody(body);
-			else if (customContentType == ContentType.FORM)
-				bodyParseResult = BodyUtils.parseFormBody(body);
 			else
-				throw new IllegalArgumentException("No content types other than JSON and FORM body are allowed");
+				bodyParseResult = BodyUtils.parseFormBody(body);
 
 		} else
 			bodyParseResult = new BodyParseResult();
@@ -173,8 +209,9 @@ public abstract class RequestUtils {
 		// Final result construction
 
 		RequestParseResult finalParseResult = RequestParseResult.builder().method(customMethod).version(version)
-				.pathParseResult(pathParseResult).queryStringParseResult(queryStringParseResult)
-				.bodyParseResult(bodyParseResult).headers(headers).build();
+				.contentType(customContentType).pathParseResult(pathParseResult)
+				.queryStringParseResult(queryStringParseResult).bodyParseResult(bodyParseResult).headers(headers)
+				.validationResult(ValidationResult.valid()).build();
 
 		return finalParseResult;
 
@@ -199,9 +236,6 @@ public abstract class RequestUtils {
 
 		String version = internalDto.getVersion();
 
-		Optional<String> rawBody = BodyUtils.composeRawBody(internalDto.getContentType(),
-				internalDto.getBodyPropertyDtos());
-
 		ClassicHttpRequest apacheRequest = new BasicClassicHttpRequest(method, URI.create(uri));
 
 		apacheRequest.setAuthority(new URIAuthority(host));
@@ -209,20 +243,30 @@ public abstract class RequestUtils {
 		apacheRequest.setVersion(new ProtocolVersion("HTTP", Character.getNumericValue(version.charAt(5)),
 				Character.getNumericValue(version.charAt(7))));
 
-		rawBody.ifPresent((body) -> {
+		apacheRequest.setHeader(HttpHeaders.HOST, host);
 
-			org.apache.hc.core5.http.ContentType apacheContentType;
+		if (internalDto.getContentType() != null) {
 
-			if (internalDto.getContentType() == ContentType.JSON)
-				apacheContentType = org.apache.hc.core5.http.ContentType.APPLICATION_JSON;
-			else
-				apacheContentType = org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED;
+			Optional<String> rawBody = BodyUtils.composeRequestRawBody(internalDto.getContentType(),
+					internalDto.getBodyPropertyDtos());
 
-			HttpEntity bodyEntity = new StringEntity(body, apacheContentType);
+			rawBody.ifPresent((body) -> {
 
-			apacheRequest.setEntity(bodyEntity);
-		});
+				apacheRequest.setHeader(HttpHeaders.CONTENT_TYPE, internalDto.getContentType().getRaw());
 
+				org.apache.hc.core5.http.ContentType apacheContentType;
+
+				if (internalDto.getContentType() == RequestContentType.JSON)
+					apacheContentType = org.apache.hc.core5.http.ContentType.APPLICATION_JSON;
+				else
+					apacheContentType = org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED;
+
+				HttpEntity bodyEntity = new StringEntity(body, apacheContentType);
+
+				apacheRequest.setEntity(bodyEntity);
+
+			});
+		}
 		return apacheRequest;
 
 	}
@@ -241,10 +285,6 @@ public abstract class RequestUtils {
 			buffer.flush(baos);
 
 			if (apacheCoreRequest.getEntity() != null) {
-
-				baos.write('\r');
-				baos.write('\n');
-
 				apacheCoreRequest.getEntity().writeTo(baos);
 			}
 
@@ -256,6 +296,12 @@ public abstract class RequestUtils {
 
 		return rawRequest;
 
+	}
+
+	public static boolean isContentTypeParseble(String contentType) {
+		// For now only JSON and FORM request bodies are supported
+		return contentType.toLowerCase().equals(RequestContentType.JSON.getRaw())
+				|| contentType.toLowerCase().equals(RequestContentType.FORM.getRaw());
 	}
 
 }
