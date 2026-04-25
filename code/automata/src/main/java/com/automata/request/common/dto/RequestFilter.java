@@ -1,7 +1,7 @@
-package com.automata.host.common.dto;
+package com.automata.request.common.dto;
 
-import com.automata.request.common.enums.ContentType;
 import com.automata.request.common.enums.Method;
+import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.common.enums.Source;
 
 import lombok.AllArgsConstructor;
@@ -19,5 +19,5 @@ public class RequestFilter {
 	private Method method;
 	private String computatedPath;
 	private String extension;
-	private ContentType contentType;
+	private RequestContentType contentType;
 }
