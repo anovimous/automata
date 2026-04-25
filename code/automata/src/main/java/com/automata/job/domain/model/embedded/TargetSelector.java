@@ -3,11 +3,13 @@ package com.automata.job.domain.model.embedded;
 import com.automata.job.domain.model.enums.SelectorType;
 import com.fasterxml.jackson.databind.JsonNode;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Setter
-@Getter
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class TargetSelector {
 
 	private SelectorType selectorType;
