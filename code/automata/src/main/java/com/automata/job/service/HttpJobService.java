@@ -66,6 +66,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public NarrowHttpJob createDraftNarrowJob(GenericHttpJobDetailsDto genericDto, NarrowHttpJobDetailsDto narrowDto) {
 
 		NarrowHttpJobBuilder<?, ?> builder = NarrowHttpJob.builder();
@@ -125,6 +126,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public WideHttpJob createDraftWideJob(GenericHttpJobDetailsDto genericDto, WideHttpJobDetailsDto wideDto) {
 
 		WideHttpJobBuilder<?, ?> builder = WideHttpJob.builder();
@@ -176,6 +178,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public void prepareJobForQueueing(Long draftJobId) {
 
 		HttpJob job = jobRepo.findById(draftJobId)
@@ -190,6 +193,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public void pauseRunningJob(Long runningJobId) {
 
 		HttpJob job = jobRepo.findById(runningJobId)
@@ -204,6 +208,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public void resumePausedJob(Long pausedJobId) {
 
 		HttpJob job = jobRepo.findById(pausedJobId)
@@ -218,6 +223,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public void cancelJob(Long jobId) {
 
 		HttpJob job = jobRepo.findById(jobId)
