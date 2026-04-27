@@ -29,9 +29,11 @@ import com.automata.program.ProgramRepository;
 import com.automata.routine.common.enums.Duration;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class HttpJobsSynchronizationService {
 
 	private final HttpJobRepository jobRepo;
@@ -50,17 +52,16 @@ public class HttpJobsSynchronizationService {
 	public void syncToQueueJobs() {
 
 		TreeSet<HttpJobInternalDto> sortedToQueueJobs = this.getSortedToQueueJobs();
-
+		
 		Set<Long> programsIds = sortedToQueueJobs.stream().map(dto -> dto.programId()).collect(Collectors.toSet());
-
 		Map<Long, ProgramSummaryRatesDto> programSummaryRatesDtosMap = this.getSummaryOfRates(programsIds);
 
 		while (!sortedToQueueJobs.isEmpty()) {
 
 			HttpJobInternalDto firstJob = sortedToQueueJobs.pollFirst();
-
+			
 			ProgramSummaryRatesDto programRate = programSummaryRatesDtosMap.get(firstJob.programId());
-// COMPLETE HERE
+
 			boolean abidesToProgramRateLimit = programRate.currentRate() + firstJob.rate() <= programRate.rateLimit();
 
 			Boolean wideJobAbidesToEachHostRateLimit = false, narrowJobAbidesToTargetHostRateLimit = false;
