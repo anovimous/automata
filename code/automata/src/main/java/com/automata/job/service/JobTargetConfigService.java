@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
@@ -32,6 +33,7 @@ public class JobTargetConfigService {
 
 	private final WideJobTargetHostRepository jobTargetHostRepo;
 
+	@Transactional
 	public NarrowHttpJob configureHostAsTarget(NarrowHttpJob newlyPersistedJob, Long hostId) {
 
 		Host host = hostRepo.getReferenceById(hostId);
@@ -44,6 +46,7 @@ public class JobTargetConfigService {
 
 	}
 
+	@Transactional
 	public NarrowHttpJob configureRequestsAsTarget(NarrowHttpJob newlyPersistedJob, Set<Long> requestsIds) {
 
 		List<NarrowJobTargetRequest> jobTargetRequestRelations = requestsIds.stream()
@@ -56,10 +59,11 @@ public class JobTargetConfigService {
 
 		newlyPersistedJob.setTargetConfig(targetconfig);
 
-		return newlyPersistedJob;
+		return jobRepo.save(newlyPersistedJob);
 
 	}
 
+	@Transactional
 	public WideHttpJob configureHostsAsTarget(WideHttpJob newlyPersistedJob, Set<Long> hostsIds) {
 
 		List<WideJobTargetHost> jobTargetHostRelations = hostsIds.stream()
