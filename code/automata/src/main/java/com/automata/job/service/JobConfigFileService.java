@@ -1,12 +1,14 @@
 package com.automata.job.service;
 
 import java.io.IOException;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
@@ -42,13 +44,30 @@ import com.automata.routine.Routine;
 import com.automata.tenant.authentication.Authentication;
 import com.automata.tenant.authentication.AuthenticationRepository;
 
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public class JobConfigFileService {
 
-	private final String TMP_DIR = "/var/tmp/";
+	public JobConfigFileService(@Value("${com.automata.files.tmp.location}") String tmpDir,
+			NarrowJobTargetRequestRepository narrowJobTargetRequestRepo,
+			WideJobTargetHostRepository wideJobTargetHostRepo, PathVariableRepository pathVariableRepo,
+			QueryParameterRepository queryParameterRepo, BodyPropertyRepository bodyPropertyRepo,
+			HttpJobRepository httpJobRepo, AuthenticationRepository authRepo, S3Service s3Service) {
+		this.TMP_DIR = tmpDir;
+		this.narrowJobTargetRequestRepo = narrowJobTargetRequestRepo;
+		this.wideJobTargetHostRepo = wideJobTargetHostRepo;
+		this.pathVariableRepo = pathVariableRepo;
+		this.queryParameterRepo = queryParameterRepo;
+		this.bodyPropertyRepo = bodyPropertyRepo;
+		this.httpJobRepo = httpJobRepo;
+		this.authRepo = authRepo;
+		this.s3Service = s3Service;
+	}
+
+	@Value("${com.automata.files.tmp.location}")
+	private final String TMP_DIR;
 
 	private final NarrowJobTargetRequestRepository narrowJobTargetRequestRepo;
 
@@ -115,13 +134,14 @@ public class JobConfigFileService {
 
 	}
 
+	@Transactional
 	private String tempStoreNarrowJobTargetData(NarrowHttpJob fullyConfiguredJob) {
 
 		NarrowTargetConfig targetConfig = fullyConfiguredJob.getTargetConfig();
 
 		JobDataJsonLinesWriter writer;
 
-		String fileLocation = TMP_DIR + fullyConfiguredJob.getId();
+		String fileLocation = TMP_DIR + "/" + fullyConfiguredJob.getId();
 
 		try {
 			writer = new JobDataJsonLinesWriter(fileLocation);
@@ -132,11 +152,12 @@ public class JobConfigFileService {
 		Host host = fullyConfiguredJob.getHost();
 
 		if (targetConfig.getTargetHost() != null) {
-
+			
 			HostData hostData = new HostData(host.getId(), host.getHost(), host.getScope());
 
 			try {
 				writer.writeHostData(hostData);
+				writer.flushAndClose();
 			} catch (IOException e) {
 				throw new RuntimeException("Error writing RequestData object to JSONL file");
 			}
@@ -202,6 +223,12 @@ public class JobConfigFileService {
 
 			} while (requestDtosPage.hasNext());
 
+			try {
+				writer.flushAndClose();
+			} catch (IOException e) {
+				throw new RuntimeException("Error writing RequestData object to JSONL file");
+			}
+
 		}
 
 		return fileLocation;
@@ -213,7 +240,7 @@ public class JobConfigFileService {
 
 		JobDataJsonLinesWriter writer;
 
-		String fileLocation = TMP_DIR + fullyConfiguredJob.getId();
+		String fileLocation = TMP_DIR + "/" + fullyConfiguredJob.getId();
 
 		try {
 			writer = new JobDataJsonLinesWriter(fileLocation);
