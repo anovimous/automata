@@ -43,8 +43,8 @@ services:
       RUSTFS_ROOT_USER: automata
       RUSTFS_ROOT_PASSWORD: OjN86GXh6bLX9ltp
     ports:
-      - "9000:9000"  # S3-compatible API
-      - "9001:9001"  # console UI
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - rustfs_data:/data
     networks:
@@ -75,6 +75,8 @@ services:
     container_name: automata-spring-app
     ports:
       - "8080:8080"
+    volumes:
+      - tmp_files:/app/files
     environment:
       # Postgres
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/automatadb
@@ -87,11 +89,14 @@ services:
       SPRING_RABBITMQ_USERNAME: automata
       SPRING_RABBITMQ_PASSWORD: OjN86GXh6bLX9ltp
 
-      # RustFS (S3-compatible — adjust property names to match your client)
+      # RustFS
       RUSTFS_ENDPOINT: http://rustfs:9000
       RUSTFS_ACCESS_KEY: automata
       RUSTFS_SECRET_KEY: OjN86GXh6bLX9ltp
       RUSTFS_REGION: us-east-1
+
+      # Tmp storage for job config files
+      TMP_FILES_PATH: /app/files
     networks:
       - backend
     depends_on:
@@ -102,7 +107,7 @@ services:
       rustfs:
         condition: service_healthy
       rustfs-init:
-        condition: service_completed_successfully  # waits for buckets to be created
+        condition: service_completed_successfully
 
 networks:
   backend:
@@ -112,3 +117,4 @@ volumes:
   postgres_data:
   rabbitmq_data:
   rustfs_data:
+  tmp_files:
