@@ -19,16 +19,17 @@ import com.automata.routine.Routine;
 public interface HttpJobRepository extends JpaRepository<HttpJob, Long> {
 
 	@Query("""
-			    SELECT new com.automata.job.domain.valueobject.ProgramRateDto(
-			        j.program.id,
-			        j.program.programRateLimit,
-			        SUM(j.genericDetails.rate)
-			    )
-			    FROM HttpJob j
-			    WHERE j.program.id IN :programsIds
-			    AND j.genericDetails.currentState IN :states
-			    GROUP BY j.program.id, j.program.programRateLimit
-			""")
+		    SELECT new com.automata.job.domain.valueobject.ProgramRateDto(
+		        p.id,
+		        p.programRateLimit,
+		        COALESCE(SUM(j.genericDetails.rate), 0)
+		    )
+		    FROM Program p
+		    LEFT JOIN HttpJob j ON j.program.id = p.id
+		        AND j.genericDetails.currentState IN :states
+		    WHERE p.id IN :programsIds
+		    GROUP BY p.id, p.programRateLimit
+		""")
 	List<ProgramRateDto> getProgramsRateDtos(@Param(value = "programsIds") Set<Long> programsIds,
 			@Param(value = "states") Set<JobState> states);
 
