@@ -42,6 +42,7 @@ public class ResponseService {
 
 	}
 
+	@Transactional(readOnly = true)
 	public String getRawResponse(Long responseId) {
 
 		Response response = responseRepo.findById(responseId)

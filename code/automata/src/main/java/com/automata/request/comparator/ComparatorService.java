@@ -4,6 +4,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
@@ -47,6 +48,7 @@ public class ComparatorService {
 
 	}
 
+	@Transactional
 	public Comparator patchComparator(Long comparatorId, ComparatorPatchRequest patchRequest) {
 
 		Comparator comparator = comparatorRepo.findById(comparatorId)
@@ -81,6 +83,7 @@ public class ComparatorService {
 
 	}
 
+	@Transactional
 	public void deleteComparator(Long comparatorId) {
 
 		Comparator comparator = comparatorRepo.findById(comparatorId)

@@ -111,6 +111,7 @@ public class JobConfigFileService {
 
 	}
 
+	@Transactional(readOnly = true)
 	private JobDetailsFileContainer createJobDetailsContainer(HttpJob job) {
 
 		TargetType targetType = switch (job.getGenericDetails().getTargetSelector().getSelectorType()) {
@@ -134,7 +135,7 @@ public class JobConfigFileService {
 
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	private String tempStoreNarrowJobTargetData(NarrowHttpJob fullyConfiguredJob) {
 
 		NarrowTargetConfig targetConfig = fullyConfiguredJob.getTargetConfig();
@@ -152,7 +153,7 @@ public class JobConfigFileService {
 		Host host = fullyConfiguredJob.getHost();
 
 		if (targetConfig.getTargetHost() != null) {
-			
+
 			HostData hostData = new HostData(host.getId(), host.getHost(), host.getScope());
 
 			try {
@@ -235,7 +236,7 @@ public class JobConfigFileService {
 
 	}
 
-	@Transactional
+	@Transactional(readOnly = true)
 	private String tempStoreWideJobTargetData(WideHttpJob fullyConfiguredJob) {
 
 		JobDataJsonLinesWriter writer;

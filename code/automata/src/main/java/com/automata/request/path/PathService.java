@@ -40,6 +40,7 @@ public class PathService {
 
 	}
 
+	@Transactional
 	public List<PathVariable> persistRequestPathVariables(List<PathVariable> pathVariables, Request persistedRequest) {
 
 		pathVariables.forEach(variable -> variable.setRequest(persistedRequest));

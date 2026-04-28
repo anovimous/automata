@@ -19,6 +19,7 @@ public class AuthenticationService {
 
 	private final TenantRepository tenantRepo;
 
+	@Transactional(readOnly = true)
 	public Authentication getAuthenticationById(Long authenticationId, Long tenantId) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)
@@ -51,6 +52,7 @@ public class AuthenticationService {
 
 	}
 
+	@Transactional(readOnly = true)
 	public Page<Authentication> getTenantAuthenticationsPage(Long tenantId, Pageable pageable) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)
@@ -60,6 +62,7 @@ public class AuthenticationService {
 
 	}
 
+	@Transactional
 	public Authentication patchAuthentication(Long authenticationId, AuthenticationPatchRequest patchRequest,
 			Long tenantId) {
 
@@ -84,6 +87,7 @@ public class AuthenticationService {
 
 	}
 
+	@Transactional
 	public void deleteAuthentication(Long authenticationId, Long tenantId) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)

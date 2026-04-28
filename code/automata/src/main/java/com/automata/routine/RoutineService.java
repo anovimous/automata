@@ -3,6 +3,7 @@ package com.automata.routine;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.routine.common.dto.RoutinePatchRequest;
 import com.automata.vulnerability.Vulnerability;
@@ -29,6 +30,7 @@ public class RoutineService {
 		return routineRepo.findByKeyContainingIgnoreCase(name, pageable);
 	}
 
+	@Transactional(readOnly = true)
 	public Page<Routine> getVulnerabilityRoutinesPagedAndFilteredOnQueryString(Long vulnId, String name,
 			Pageable pageable) {
 
@@ -38,6 +40,7 @@ public class RoutineService {
 		return routineRepo.findByKeyContainingIgnoreCaseAndVulnerability(name, vulnerability, pageable);
 	}
 
+	@Transactional
 	public Routine createRoutine(Routine toBeCreatedRoutine, Long vulnId) {
 
 		Vulnerability vulnerability = null;
@@ -52,6 +55,7 @@ public class RoutineService {
 
 	}
 
+	@Transactional
 	public Routine patchRoutine(Long routineId, RoutinePatchRequest patchRequest) {
 
 		Routine routine = routineRepo.findById(routineId)
@@ -86,6 +90,7 @@ public class RoutineService {
 
 	}
 
+	@Transactional
 	public void deleteRoutine(Long routineId) {
 
 		Routine routine = routineRepo.findById(routineId)

@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
@@ -42,6 +43,7 @@ public class RequestEqualityService {
 
 	private final HashStrategyResolver resolver;
 
+	@Transactional
 	public void equalizeRequestsIntoEqualityGroups(RequestsEqualizationDto dto) {
 
 		// NOTE: This operation until now only works correctly when there is 0 equality
