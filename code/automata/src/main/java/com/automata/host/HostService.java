@@ -3,6 +3,7 @@ package com.automata.host;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.program.Program;
 import com.automata.program.ProgramRepository;
@@ -25,6 +26,7 @@ public class HostService {
 
 	}
 
+	@Transactional
 	public Host createHost(Host host, Long programId) {
 
 		Program program = programRepo.findById(programId)
@@ -32,6 +34,8 @@ public class HostService {
 
 		HostUtils.validateHostFormat(host.getHost())
 				.ifNotValidThrow(() -> new IllegalArgumentException("Host is of invalid format"));
+
+		host.setLevel(HostUtils.identifyLevel(host.getHost()));
 
 		host.setProgram(program);
 
@@ -45,6 +49,7 @@ public class HostService {
 
 	}
 
+	@Transactional(readOnly = true)
 	public Page<Host> getProgramHostsPagedAndFilteredOnQueryString(Long programId, String name, Pageable pageable) {
 
 		Program program = programRepo.findById(programId)
@@ -53,6 +58,7 @@ public class HostService {
 		return hostRepo.findByHostContainingIgnoreCaseAndProgram(name, program, pageable);
 	}
 
+	@Transactional
 	public Host patchHost(Long hostId, PatchHostRequest patchRequest) {
 
 		Host host = hostRepo.findById(hostId).orElseThrow(() -> new EntityNotFoundException("Host not found"));
