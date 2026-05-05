@@ -32,6 +32,8 @@ import com.automata.routine.Routine;
 import com.automata.routine.RoutineRepository;
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
+import com.automata.wordlist.Wordlist;
+import com.automata.wordlist.WordlistRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -50,11 +52,20 @@ public class HttpJobService {
 
 	private final TenantRepository tenantRepo;
 
+	private final WordlistRepository wordlistRepo;
+
 	private final TargetSelectionService targetSelectionService;
 
 	private final JobTargetConfigService targetConfigService;
 
 	private final JobConfigFileService configFileService;
+
+	@Transactional(readOnly = true)
+	public HttpJob getJob(Long jobId) {
+
+		return jobRepo.findById(jobId).orElseThrow(() -> new EntityNotFoundException("Job not found"));
+
+	}
 
 	@Transactional(readOnly = true)
 	public HttpJobFullDetailsInternalDto getJobFullDetails(Long jobId) {
@@ -97,6 +108,12 @@ public class HttpJobService {
 				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
 		builder.tenant(tenant);
+
+		Wordlist wordlist = null;
+		if (genericDto.wordlistId() != null)
+			wordlist = wordlistRepo.findById(genericDto.wordlistId()).orElse(null);
+
+		builder.wordlist(wordlist);
 
 		NarrowHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 
@@ -148,6 +165,12 @@ public class HttpJobService {
 				.orElseThrow(() -> new EntityNotFoundException("Program not found"));
 
 		builder.program(program);
+		
+		Wordlist wordlist = null;
+		if (genericDto.wordlistId() != null)
+			wordlist = wordlistRepo.findById(genericDto.wordlistId()).orElse(null);
+
+		builder.wordlist(wordlist);
 
 		WideHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 

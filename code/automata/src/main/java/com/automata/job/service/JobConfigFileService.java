@@ -41,9 +41,11 @@ import com.automata.request.common.dto.QueryParameterInternalDto;
 import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.path.PathVariableRepository;
 import com.automata.routine.Routine;
+import com.automata.routine.RoutineRepository;
 import com.automata.tenant.authentication.Authentication;
 import com.automata.tenant.authentication.AuthenticationRepository;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
@@ -54,7 +56,8 @@ public class JobConfigFileService {
 			NarrowJobTargetRequestRepository narrowJobTargetRequestRepo,
 			WideJobTargetHostRepository wideJobTargetHostRepo, PathVariableRepository pathVariableRepo,
 			QueryParameterRepository queryParameterRepo, BodyPropertyRepository bodyPropertyRepo,
-			HttpJobRepository httpJobRepo, AuthenticationRepository authRepo, S3Service s3Service) {
+			HttpJobRepository httpJobRepo, AuthenticationRepository authRepo, S3Service s3Service,
+			RoutineRepository routineRepo) {
 		this.TMP_DIR = tmpDir;
 		this.narrowJobTargetRequestRepo = narrowJobTargetRequestRepo;
 		this.wideJobTargetHostRepo = wideJobTargetHostRepo;
@@ -63,6 +66,7 @@ public class JobConfigFileService {
 		this.bodyPropertyRepo = bodyPropertyRepo;
 		this.httpJobRepo = httpJobRepo;
 		this.authRepo = authRepo;
+		this.routineRepo = routineRepo;
 		this.s3Service = s3Service;
 	}
 
@@ -82,6 +86,8 @@ public class JobConfigFileService {
 	private final HttpJobRepository httpJobRepo;
 
 	private final AuthenticationRepository authRepo;
+
+	private final RoutineRepository routineRepo;
 
 	private final S3Service s3Service;
 
@@ -112,15 +118,15 @@ public class JobConfigFileService {
 	}
 
 	@Transactional(readOnly = true)
-	private JobDetailsFileContainer createJobDetailsContainer(HttpJob job) {
+	public JobDetailsFileContainer createJobDetailsContainer(HttpJob job) {
 
 		TargetType targetType = switch (job.getGenericDetails().getTargetSelector().getSelectorType()) {
 		case SelectorType.SINGLE_HOST, SelectorType.MULTIPLE_HOSTS -> TargetType.HOST;
 		default -> TargetType.REQUEST;
 
 		};
-
-		Routine routine = httpJobRepo.getRoutineOfJob(job.getId());
+		Routine routine = routineRepo.findById(job.getRoutine().getId())
+				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
 
 		Authentication auth = new Authentication();
 
@@ -128,15 +134,20 @@ public class JobConfigFileService {
 			NarrowHttpJob castedJob = (NarrowHttpJob) job;
 			auth = authRepo.findByTenant(castedJob.getTenant());
 		}
-		return JobDetailsFileContainer.builder().jobId(job.getId()).creationDate(job.getCreationDate())
-				.verbosity(job.getGenericDetails().getVerbosity()).targetType(targetType).routineKey(routine.getKey())
-				.auth(auth.getAuthData()).customConfig(job.getGenericDetails().getCustomConfig())
+
+		String wordlistPath = null;
+		if (job.getWordlist() != null)
+			wordlistPath = job.getWordlist().getPath();
+
+		return JobDetailsFileContainer.builder().jobId(job.getId()).verbosity(job.getGenericDetails().getVerbosity())
+				.targetType(targetType).routineKey(routine.getKey()).auth(auth.getAuthData()).wordlistPath(wordlistPath)
+				.customConfig(job.getGenericDetails().getCustomConfig())
 				.genericConfig(job.getGenericDetails().getGenericConfig()).build();
 
 	}
 
 	@Transactional(readOnly = true)
-	private String tempStoreNarrowJobTargetData(NarrowHttpJob fullyConfiguredJob) {
+	public String tempStoreNarrowJobTargetData(NarrowHttpJob fullyConfiguredJob) {
 
 		NarrowTargetConfig targetConfig = fullyConfiguredJob.getTargetConfig();
 
@@ -237,7 +248,7 @@ public class JobConfigFileService {
 	}
 
 	@Transactional(readOnly = true)
-	private String tempStoreWideJobTargetData(WideHttpJob fullyConfiguredJob) {
+	public String tempStoreWideJobTargetData(WideHttpJob fullyConfiguredJob) {
 
 		JobDataJsonLinesWriter writer;
 
