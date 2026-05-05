@@ -11,7 +11,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class AuthNameValuePair {
 
-	private String name;
+	private String key;
 
 	private String value;
 
