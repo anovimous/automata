@@ -14,9 +14,9 @@ public class JobQueueService {
 
 	private final AmqpTemplate rabbit;
 
-	public void queueHttpJob(HttpJobInternalDto jobDto) {
+	public void queueHttpJob(HttpJobInternalDto jobDto, String routineKey) {
 
-		HttpJobQueueMetadata metadata = new HttpJobQueueMetadata(jobDto.id());
+		HttpJobQueueMetadata metadata = new HttpJobQueueMetadata(jobDto.id(), routineKey);
 
 		rabbit.convertAndSend("jobs.http.ready", metadata, message -> {
 			if (jobDto.priority() > 3)
