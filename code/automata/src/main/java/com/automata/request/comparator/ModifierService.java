@@ -3,6 +3,7 @@ package com.automata.request.comparator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.request.comparator.common.dto.ModifierPatchRequest;
 import com.automata.request.comparator.common.enums.Schema;
@@ -42,6 +43,7 @@ public class ModifierService {
 
 	}
 
+	@Transactional
 	public Modifier patchModifier(Long modifierId, ModifierPatchRequest patchRequest) {
 
 		Modifier modifier = modifierRepo.findById(modifierId)
@@ -56,7 +58,8 @@ public class ModifierService {
 		return modifier;
 
 	}
-
+	
+	@Transactional
 	public void deleteModifier(Long modifierId) {
 
 		Modifier modifier = modifierRepo.findById(modifierId)

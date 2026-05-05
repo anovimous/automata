@@ -32,6 +32,8 @@ import com.automata.routine.Routine;
 import com.automata.routine.RoutineRepository;
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
+import com.automata.wordlist.Wordlist;
+import com.automata.wordlist.WordlistRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -50,11 +52,20 @@ public class HttpJobService {
 
 	private final TenantRepository tenantRepo;
 
+	private final WordlistRepository wordlistRepo;
+
 	private final TargetSelectionService targetSelectionService;
 
 	private final JobTargetConfigService targetConfigService;
 
 	private final JobConfigFileService configFileService;
+
+	@Transactional(readOnly = true)
+	public HttpJob getJob(Long jobId) {
+
+		return jobRepo.findById(jobId).orElseThrow(() -> new EntityNotFoundException("Job not found"));
+
+	}
 
 	@Transactional(readOnly = true)
 	public HttpJobFullDetailsInternalDto getJobFullDetails(Long jobId) {
@@ -66,6 +77,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public NarrowHttpJob createDraftNarrowJob(GenericHttpJobDetailsDto genericDto, NarrowHttpJobDetailsDto narrowDto) {
 
 		NarrowHttpJobBuilder<?, ?> builder = NarrowHttpJob.builder();
@@ -97,6 +109,12 @@ public class HttpJobService {
 
 		builder.tenant(tenant);
 
+		Wordlist wordlist = null;
+		if (genericDto.wordlistId() != null)
+			wordlist = wordlistRepo.findById(genericDto.wordlistId()).orElse(null);
+
+		builder.wordlist(wordlist);
+
 		NarrowHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 
 		TargetSelector targetSelector = genericDto.targetSelector();
@@ -125,6 +143,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public WideHttpJob createDraftWideJob(GenericHttpJobDetailsDto genericDto, WideHttpJobDetailsDto wideDto) {
 
 		WideHttpJobBuilder<?, ?> builder = WideHttpJob.builder();
@@ -146,6 +165,12 @@ public class HttpJobService {
 				.orElseThrow(() -> new EntityNotFoundException("Program not found"));
 
 		builder.program(program);
+
+		Wordlist wordlist = null;
+		if (genericDto.wordlistId() != null)
+			wordlist = wordlistRepo.findById(genericDto.wordlistId()).orElse(null);
+
+		builder.wordlist(wordlist);
 
 		WideHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 
@@ -176,6 +201,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public void prepareJobForQueueing(Long draftJobId) {
 
 		HttpJob job = jobRepo.findById(draftJobId)
@@ -190,6 +216,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public void pauseRunningJob(Long runningJobId) {
 
 		HttpJob job = jobRepo.findById(runningJobId)
@@ -204,6 +231,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public void resumePausedJob(Long pausedJobId) {
 
 		HttpJob job = jobRepo.findById(pausedJobId)
@@ -218,6 +246,7 @@ public class HttpJobService {
 
 	}
 
+	@Transactional
 	public void cancelJob(Long jobId) {
 
 		HttpJob job = jobRepo.findById(jobId)
@@ -232,6 +261,23 @@ public class HttpJobService {
 					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it");
 
 		job.getGenericDetails().setRequestedState(JobState.CANCELED);
+
+		jobRepo.save(job);
+
+	}
+
+	@Transactional
+	public void updateCurrentJobState(Long jobId, JobState newState, String message) {
+
+		HttpJob job = jobRepo.findById(jobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		if (List.of(JobState.DRAFT, JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED).contains(newState))
+			throw new RuntimeException("The job is not allowed to this state by the orchestrator");
+
+		job.getGenericDetails().setCurrentState(newState);
+
+		job.getGenericDetails().setRequestedState(null);
 
 		jobRepo.save(job);
 

@@ -17,5 +17,7 @@ public class MatchAndReplace {
 	MatchAndReplaceRule rule;
 
 	String targetKey;
+	
+	String value;
 
 }

@@ -33,6 +33,7 @@ public class QueryParameterService {
 		request.setParameters(toSetQueryParameters);
 	}
 
+	@Transactional
 	public List<QueryParameter> persistRequestQueryParameters(List<QueryParameter> queryParameters,
 			Request persistedRequest) {
 

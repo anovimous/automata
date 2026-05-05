@@ -43,6 +43,7 @@ public class BodyPropertyService {
 
 	}
 
+	@Transactional
 	public List<BodyProperty> persistRequestBodyProperties(List<BodyProperty> bodyProperties,
 			Request persistedRequest) {
 
@@ -51,6 +52,7 @@ public class BodyPropertyService {
 		return bodyRepo.saveAll(bodyProperties);
 	}
 
+	@Transactional
 	public List<BodyProperty> persistResponseBodyProperties(List<BodyProperty> bodyProperties,
 			Response persistedResponse) {
 

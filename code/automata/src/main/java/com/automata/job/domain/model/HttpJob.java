@@ -7,6 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.program.Program;
 import com.automata.routine.Routine;
+import com.automata.wordlist.Wordlist;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
@@ -43,10 +44,16 @@ public abstract class HttpJob {
 	@Embedded
 	private HttpJobGenericDetails genericDetails;
 
+	@Embedded
+	private JobResult result;
+
 	@ManyToOne
 	private Program program;
 
 	@ManyToOne(optional = false)
 	private Routine routine;
+
+	@ManyToOne
+	private Wordlist wordlist;
 
 }

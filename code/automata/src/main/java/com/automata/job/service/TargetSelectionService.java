@@ -2,6 +2,7 @@ package com.automata.job.service;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.HostRepository;
 import com.automata.job.domain.model.embedded.MultipleEqualitySetsSelector;
@@ -87,6 +88,7 @@ public class TargetSelectionService {
 
 	}
 
+	@Transactional
 	private TargetSelectionResult handleSingleEqualitySetSelector(SingleEqualitySetSelector selector) {
 
 		Long equalitySetId = selector.getEqualitySetId();

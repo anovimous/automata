@@ -3,6 +3,7 @@ package com.automata.tenant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
@@ -27,6 +28,7 @@ public class TenantService {
 
 	}
 
+	@Transactional
 	public Tenant createTenant(Tenant tenant, Long hostId) {
 
 		Host host = hostRepo.findById(hostId).orElseThrow(() -> new EntityNotFoundException("Host not found"));
@@ -37,6 +39,7 @@ public class TenantService {
 
 	}
 
+	@Transactional(readOnly = true)
 	public Page<Tenant> getHostTenantsPage(Long hostId, Pageable pageable) {
 
 		Host host = hostRepo.findById(hostId).orElseThrow(() -> new EntityNotFoundException("Host not found"));
@@ -45,6 +48,7 @@ public class TenantService {
 
 	}
 
+	@Transactional
 	public Tenant patchTenant(Long tenantId, TenantPatchRequest patchRequest) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)
@@ -60,6 +64,7 @@ public class TenantService {
 
 	}
 
+	@Transactional
 	public void deleteTenant(Long tenantId) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)

@@ -1,12 +1,14 @@
 package com.automata.job.service;
 
 import java.io.IOException;
+
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
@@ -39,16 +41,37 @@ import com.automata.request.common.dto.QueryParameterInternalDto;
 import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.path.PathVariableRepository;
 import com.automata.routine.Routine;
+import com.automata.routine.RoutineRepository;
 import com.automata.tenant.authentication.Authentication;
 import com.automata.tenant.authentication.AuthenticationRepository;
 
-import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public class JobConfigFileService {
 
-	private final String TMP_DIR = "/var/tmp/";
+	public JobConfigFileService(@Value("${com.automata.files.tmp.location}") String tmpDir,
+			NarrowJobTargetRequestRepository narrowJobTargetRequestRepo,
+			WideJobTargetHostRepository wideJobTargetHostRepo, PathVariableRepository pathVariableRepo,
+			QueryParameterRepository queryParameterRepo, BodyPropertyRepository bodyPropertyRepo,
+			HttpJobRepository httpJobRepo, AuthenticationRepository authRepo, S3Service s3Service,
+			RoutineRepository routineRepo) {
+		this.TMP_DIR = tmpDir;
+		this.narrowJobTargetRequestRepo = narrowJobTargetRequestRepo;
+		this.wideJobTargetHostRepo = wideJobTargetHostRepo;
+		this.pathVariableRepo = pathVariableRepo;
+		this.queryParameterRepo = queryParameterRepo;
+		this.bodyPropertyRepo = bodyPropertyRepo;
+		this.httpJobRepo = httpJobRepo;
+		this.authRepo = authRepo;
+		this.routineRepo = routineRepo;
+		this.s3Service = s3Service;
+	}
+
+	@Value("${com.automata.files.tmp.location}")
+	private final String TMP_DIR;
 
 	private final NarrowJobTargetRequestRepository narrowJobTargetRequestRepo;
 
@@ -63,6 +86,8 @@ public class JobConfigFileService {
 	private final HttpJobRepository httpJobRepo;
 
 	private final AuthenticationRepository authRepo;
+
+	private final RoutineRepository routineRepo;
 
 	private final S3Service s3Service;
 
@@ -92,15 +117,16 @@ public class JobConfigFileService {
 
 	}
 
-	private JobDetailsFileContainer createJobDetailsContainer(HttpJob job) {
+	@Transactional(readOnly = true)
+	public JobDetailsFileContainer createJobDetailsContainer(HttpJob job) {
 
 		TargetType targetType = switch (job.getGenericDetails().getTargetSelector().getSelectorType()) {
 		case SelectorType.SINGLE_HOST, SelectorType.MULTIPLE_HOSTS -> TargetType.HOST;
 		default -> TargetType.REQUEST;
 
 		};
-
-		Routine routine = httpJobRepo.getRoutineOfJob(job.getId());
+		Routine routine = routineRepo.findById(job.getRoutine().getId())
+				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
 
 		Authentication auth = new Authentication();
 
@@ -108,20 +134,26 @@ public class JobConfigFileService {
 			NarrowHttpJob castedJob = (NarrowHttpJob) job;
 			auth = authRepo.findByTenant(castedJob.getTenant());
 		}
-		return JobDetailsFileContainer.builder().jobId(job.getId()).creationDate(job.getCreationDate())
-				.verbosity(job.getGenericDetails().getVerbosity()).targetType(targetType).routineKey(routine.getKey())
-				.auth(auth.getAuthData()).customConfig(job.getGenericDetails().getCustomConfig())
+
+		String wordlistPath = null;
+		if (job.getWordlist() != null)
+			wordlistPath = job.getWordlist().getPath();
+
+		return JobDetailsFileContainer.builder().jobId(job.getId()).verbosity(job.getGenericDetails().getVerbosity())
+				.targetType(targetType).routineKey(routine.getKey()).auth(auth.getAuthData()).wordlistPath(wordlistPath)
+				.customConfig(job.getGenericDetails().getCustomConfig())
 				.genericConfig(job.getGenericDetails().getGenericConfig()).build();
 
 	}
 
-	private String tempStoreNarrowJobTargetData(NarrowHttpJob fullyConfiguredJob) {
+	@Transactional(readOnly = true)
+	public String tempStoreNarrowJobTargetData(NarrowHttpJob fullyConfiguredJob) {
 
 		NarrowTargetConfig targetConfig = fullyConfiguredJob.getTargetConfig();
 
 		JobDataJsonLinesWriter writer;
 
-		String fileLocation = TMP_DIR + fullyConfiguredJob.getId();
+		String fileLocation = TMP_DIR + "/" + fullyConfiguredJob.getId();
 
 		try {
 			writer = new JobDataJsonLinesWriter(fileLocation);
@@ -137,6 +169,7 @@ public class JobConfigFileService {
 
 			try {
 				writer.writeHostData(hostData);
+				writer.flushAndClose();
 			} catch (IOException e) {
 				throw new RuntimeException("Error writing RequestData object to JSONL file");
 			}
@@ -202,18 +235,24 @@ public class JobConfigFileService {
 
 			} while (requestDtosPage.hasNext());
 
+			try {
+				writer.flushAndClose();
+			} catch (IOException e) {
+				throw new RuntimeException("Error writing RequestData object to JSONL file");
+			}
+
 		}
 
 		return fileLocation;
 
 	}
 
-	@Transactional
-	private String tempStoreWideJobTargetData(WideHttpJob fullyConfiguredJob) {
+	@Transactional(readOnly = true)
+	public String tempStoreWideJobTargetData(WideHttpJob fullyConfiguredJob) {
 
 		JobDataJsonLinesWriter writer;
 
-		String fileLocation = TMP_DIR + fullyConfiguredJob.getId();
+		String fileLocation = TMP_DIR + "/" + fullyConfiguredJob.getId();
 
 		try {
 			writer = new JobDataJsonLinesWriter(fileLocation);

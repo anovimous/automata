@@ -55,5 +55,10 @@ public class JobDataJsonLinesWriter {
 		writer.newLine();
 
 	}
-
+	
+	public void flushAndClose() throws IOException {
+		writer.flush();
+		writer.close();
+	}
+	
 }

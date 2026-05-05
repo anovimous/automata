@@ -1,6 +1,7 @@
 package com.automata.job.service;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,6 +18,7 @@ import com.automata.host.common.dto.HostRateLimitInternalDto;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobInternalDto;
+import com.automata.job.domain.valueobject.HttpJobRoutineInternalDto;
 import com.automata.job.domain.valueobject.NarrowHttpJobInternalDto;
 import com.automata.job.domain.valueobject.NarrowHttpJobRateInternalDto;
 import com.automata.job.domain.valueobject.ProgramCurrentWideRateDto;
@@ -29,9 +31,11 @@ import com.automata.program.ProgramRepository;
 import com.automata.routine.common.enums.Duration;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class HttpJobsSynchronizationService {
 
 	private final HttpJobRepository jobRepo;
@@ -50,17 +54,22 @@ public class HttpJobsSynchronizationService {
 	public void syncToQueueJobs() {
 
 		TreeSet<HttpJobInternalDto> sortedToQueueJobs = this.getSortedToQueueJobs();
+		
+		Map<Long, String> jobsRoutineKeysMap = jobRepo
+				.findJobsRoutineKeys(sortedToQueueJobs.stream().map(HttpJobInternalDto::id).toList()).stream()
+				.collect(Collectors.toMap(HttpJobRoutineInternalDto::id, HttpJobRoutineInternalDto::routineKey));
 
 		Set<Long> programsIds = sortedToQueueJobs.stream().map(dto -> dto.programId()).collect(Collectors.toSet());
-
 		Map<Long, ProgramSummaryRatesDto> programSummaryRatesDtosMap = this.getSummaryOfRates(programsIds);
+
+		Set<Long> finalQueuedJobsIds = new HashSet<Long>();
 
 		while (!sortedToQueueJobs.isEmpty()) {
 
 			HttpJobInternalDto firstJob = sortedToQueueJobs.pollFirst();
 
 			ProgramSummaryRatesDto programRate = programSummaryRatesDtosMap.get(firstJob.programId());
-// COMPLETE HERE
+
 			boolean abidesToProgramRateLimit = programRate.currentRate() + firstJob.rate() <= programRate.rateLimit();
 
 			Boolean wideJobAbidesToEachHostRateLimit = false, narrowJobAbidesToTargetHostRateLimit = false;
@@ -83,9 +92,15 @@ public class HttpJobsSynchronizationService {
 
 			}
 
-			if (abidesToProgramRateLimit && (wideJobAbidesToEachHostRateLimit || narrowJobAbidesToTargetHostRateLimit))
-				queueService.queueHttpJob(firstJob);
+			if (abidesToProgramRateLimit
+					&& (wideJobAbidesToEachHostRateLimit || narrowJobAbidesToTargetHostRateLimit)) {
+				queueService.queueHttpJob(firstJob, jobsRoutineKeysMap.get(firstJob.id()));
+				finalQueuedJobsIds.add(firstJob.id());
+			}
 		}
+
+		jobRepo.updateJobsState(finalQueuedJobsIds, JobState.QUEUED);
+
 	}
 
 	// DONE:

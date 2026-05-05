@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,28 +13,26 @@ import org.springframework.stereotype.Repository;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
+import com.automata.job.domain.valueobject.HttpJobRoutineInternalDto;
 import com.automata.job.domain.valueobject.ProgramRateDto;
-import com.automata.routine.Routine;
 
 @Repository
 public interface HttpJobRepository extends JpaRepository<HttpJob, Long> {
 
 	@Query("""
 			    SELECT new com.automata.job.domain.valueobject.ProgramRateDto(
-			        j.program.id,
-			        j.program.programRateLimit,
-			        SUM(j.genericDetails.rate)
+			        p.id,
+			        p.programRateLimit,
+			        COALESCE(SUM(j.genericDetails.rate), 0)
 			    )
-			    FROM HttpJob j
-			    WHERE j.program.id IN :programsIds
-			    AND j.genericDetails.currentState IN :states
-			    GROUP BY j.program.id, j.program.programRateLimit
+			    FROM Program p
+			    LEFT JOIN HttpJob j ON j.program.id = p.id
+			        AND j.genericDetails.currentState IN :states
+			    WHERE p.id IN :programsIds
+			    GROUP BY p.id, p.programRateLimit
 			""")
 	List<ProgramRateDto> getProgramsRateDtos(@Param(value = "programsIds") Set<Long> programsIds,
 			@Param(value = "states") Set<JobState> states);
-
-	@Query("SELECT j.routine FROM HttpJob j WHERE j.id = :jobId")
-	Routine getRoutineOfJob(@Param(value = "jobId") Long jobId);
 
 	@Query("""
 			SELECT new com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto(
@@ -58,5 +57,12 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long> {
 			WHERE j.id = :jobId
 			""")
 	Optional<HttpJobFullDetailsInternalDto> findFullDetailsByJobId(@Param("jobId") Long jobId);
+
+	@Query("UPDATE HttpJob j SET j.genericDetails.currentState = :state WHERE j.id IN :finalQueuedJobsIds")
+	@Modifying
+	void updateJobsState(@Param("finalQueuedJobsIds") Set<Long> finalQueuedJobsIds, @Param("state") JobState state);
+
+	@Query("SELECT new com.automata.job.domain.valueobject.HttpJobRoutineInternalDto(j.id, j.routine.key) FROM HttpJob j WHERE j.id IN :jobsIds")
+	List<HttpJobRoutineInternalDto> findJobsRoutineKeys(@Param("jobsIds") List<Long> jobsIds);
 
 }

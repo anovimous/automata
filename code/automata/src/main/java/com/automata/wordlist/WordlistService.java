@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;
@@ -32,6 +33,7 @@ public class WordlistService {
 
 	}
 
+	@Transactional(readOnly = true)
 	public Page<Wordlist> getVulnerabilityWordlistsPagedAndFilteredOnQueryString(Long vulnId, String name,
 			Pageable pageable) {
 
@@ -41,6 +43,7 @@ public class WordlistService {
 		return wordlistRepo.findByNameContainingIgnoreCaseAndVulnerabilities(name, vuln, pageable);
 	}
 
+	@Transactional
 	public Wordlist createWordlist(Wordlist toBeCreatedWordlist, Set<Long> vulnIds) {
 
 		if (vulnIds != null && !vulnIds.isEmpty()) {
@@ -53,6 +56,7 @@ public class WordlistService {
 		return wordlistRepo.save(toBeCreatedWordlist);
 	}
 
+	@Transactional
 	public Wordlist patchWordlist(Long wordlistId, WordlistPatchRequest patchRequest) {
 
 		Wordlist wordlist = wordlistRepo.findById(wordlistId)
@@ -82,6 +86,7 @@ public class WordlistService {
 
 	}
 
+	@Transactional
 	public void deleteWordlist(Long wordlistId) {
 
 		Wordlist wordlist = wordlistRepo.findById(wordlistId)
