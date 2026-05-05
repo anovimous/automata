@@ -165,7 +165,7 @@ public class HttpJobService {
 				.orElseThrow(() -> new EntityNotFoundException("Program not found"));
 
 		builder.program(program);
-		
+
 		Wordlist wordlist = null;
 		if (genericDto.wordlistId() != null)
 			wordlist = wordlistRepo.findById(genericDto.wordlistId()).orElse(null);
@@ -261,6 +261,23 @@ public class HttpJobService {
 					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it");
 
 		job.getGenericDetails().setRequestedState(JobState.CANCELED);
+
+		jobRepo.save(job);
+
+	}
+
+	@Transactional
+	public void updateCurrentJobState(Long jobId, JobState newState, String message) {
+
+		HttpJob job = jobRepo.findById(jobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		if (List.of(JobState.DRAFT, JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED).contains(newState))
+			throw new RuntimeException("The job is not allowed to this state by the orchestrator");
+
+		job.getGenericDetails().setCurrentState(newState);
+
+		job.getGenericDetails().setRequestedState(null);
 
 		jobRepo.save(job);
 

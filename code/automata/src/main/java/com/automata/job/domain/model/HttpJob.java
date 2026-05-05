@@ -44,12 +44,15 @@ public abstract class HttpJob {
 	@Embedded
 	private HttpJobGenericDetails genericDetails;
 
+	@Embedded
+	private JobResult result;
+
 	@ManyToOne
 	private Program program;
 
 	@ManyToOne(optional = false)
 	private Routine routine;
-	
+
 	@ManyToOne
 	private Wordlist wordlist;
 
