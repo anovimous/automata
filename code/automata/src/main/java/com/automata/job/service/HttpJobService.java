@@ -1,5 +1,6 @@
 package com.automata.job.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -37,9 +38,11 @@ import com.automata.wordlist.WordlistRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class HttpJobService {
 
 	private final HttpJobRepository jobRepo;
@@ -109,11 +112,11 @@ public class HttpJobService {
 
 		builder.tenant(tenant);
 
-		Wordlist wordlist = null;
-		if (genericDto.wordlistId() != null)
-			wordlist = wordlistRepo.findById(genericDto.wordlistId()).orElse(null);
+		List<Wordlist> wordlists = new ArrayList<>();
+		if (genericDto.wordlistsIds() != null)
+			wordlists = wordlistRepo.findAllById(genericDto.wordlistsIds());
 
-		builder.wordlist(wordlist);
+		builder.wordlists(wordlists);
 
 		NarrowHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 
@@ -166,11 +169,11 @@ public class HttpJobService {
 
 		builder.program(program);
 
-		Wordlist wordlist = null;
-		if (genericDto.wordlistId() != null)
-			wordlist = wordlistRepo.findById(genericDto.wordlistId()).orElse(null);
+		List<Wordlist> wordlists = new ArrayList<>();
+		if (genericDto.wordlistsIds() != null)
+			wordlists = wordlistRepo.findAllById(genericDto.wordlistsIds());
 
-		builder.wordlist(wordlist);
+		builder.wordlists(wordlists);
 
 		WideHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 
@@ -252,7 +255,7 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
-		if (job.getGenericDetails().getCurrentState() != JobState.SCHEDULED)
+		if (job.getGenericDetails().getCurrentState() == JobState.SCHEDULED)
 			throw new RuntimeException("Canceling scheduled jobs not implemented is yet");
 
 		if (!List.of(JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED, JobState.PAUSED)
@@ -268,6 +271,9 @@ public class HttpJobService {
 
 	@Transactional
 	public void updateCurrentJobState(Long jobId, JobState newState, String message) {
+
+		log.info("Update job state request received: jobId=" + jobId + " ,newState=" + newState + " ,message="
+				+ message);
 
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));

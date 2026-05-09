@@ -64,5 +64,8 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long> {
 
 	@Query("SELECT new com.automata.job.domain.valueobject.HttpJobRoutineInternalDto(j.id, j.routine.key) FROM HttpJob j WHERE j.id IN :jobsIds")
 	List<HttpJobRoutineInternalDto> findJobsRoutineKeys(@Param("jobsIds") List<Long> jobsIds);
+	
+	@Query("SELECT w.path FROM HttpJob j JOIN j.wordlists w WHERE j.id = :jobId")
+	Set<String> findWordlistPathsByJobId(@Param("jobId") Long jobId);
 
 }
