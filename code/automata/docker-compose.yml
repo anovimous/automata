@@ -67,7 +67,9 @@ services:
       /bin/sh -c "
         mc alias set rustfs http://rustfs:9000 automata OjN86GXh6bLX9ltp &&
         mc mb --ignore-existing rustfs/job-configuration &&
-        mc anonymous set public rustfs/job-configuration
+        mc anonymous set public rustfs/job-configuration &&
+        mc mb --ignore-existing rustfs/job-results &&
+        mc anonymous set public rustfs/job-results
       "
 
   app:
