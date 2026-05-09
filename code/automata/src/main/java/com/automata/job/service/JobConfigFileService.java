@@ -1,9 +1,9 @@
 package com.automata.job.service;
 
 import java.io.IOException;
-
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -135,12 +135,11 @@ public class JobConfigFileService {
 			auth = authRepo.findByTenant(castedJob.getTenant());
 		}
 
-		String wordlistPath = null;
-		if (job.getWordlist() != null)
-			wordlistPath = job.getWordlist().getPath();
+		Set<String> wordlistsPaths = httpJobRepo.findWordlistPathsByJobId(job.getId());
 
-		return JobDetailsFileContainer.builder().jobId(job.getId()).verbosity(job.getGenericDetails().getVerbosity())
-				.targetType(targetType).routineKey(routine.getKey()).auth(auth.getAuthData()).wordlistPath(wordlistPath)
+		return JobDetailsFileContainer.builder().jobId(job.getId()).rate(job.getGenericDetails().getRate())
+				.verbosity(job.getGenericDetails().getVerbosity()).targetType(targetType).routineKey(routine.getKey())
+				.auth(auth.getAuthData()).wordlistsPaths(wordlistsPaths)
 				.customConfig(job.getGenericDetails().getCustomConfig())
 				.genericConfig(job.getGenericDetails().getGenericConfig()).build();
 

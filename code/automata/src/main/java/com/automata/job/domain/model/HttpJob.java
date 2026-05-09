@@ -1,6 +1,7 @@
 package com.automata.job.domain.model;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -18,6 +19,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -53,7 +55,7 @@ public abstract class HttpJob {
 	@ManyToOne(optional = false)
 	private Routine routine;
 
-	@ManyToOne
-	private Wordlist wordlist;
+	@ManyToMany
+	private List<Wordlist> wordlists;
 
 }
