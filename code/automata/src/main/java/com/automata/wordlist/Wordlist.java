@@ -26,17 +26,17 @@ public class Wordlist {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	
-	@Column(nullable = false)
+
+	@Column(nullable = false, unique = true)
 	private String path;
-	
+
 	@Nullable
 	String name;
-	
+
 	@Nullable
 	private Integer numberOfLines;
-	
-	//Optional
+
+	// Optional
 	@Nullable
 	@ManyToMany
 	private Set<Vulnerability> vulnerabilities = new HashSet<>();
