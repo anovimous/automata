@@ -2,6 +2,7 @@ package com.automata.job.service;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,7 +51,8 @@ public class JobTargetConfigService {
 	public NarrowHttpJob configureRequestsAsTarget(NarrowHttpJob newlyPersistedJob, Set<Long> requestsIds) {
 
 		List<NarrowJobTargetRequest> jobTargetRequestRelations = requestsIds.stream()
-				.map((requestId) -> NarrowJobTargetRequest.of(newlyPersistedJob, Request.of(requestId))).toList();
+				.map((requestId) -> NarrowJobTargetRequest.of(newlyPersistedJob, Request.of(requestId)))
+				.collect(Collectors.toList());
 
 		jobTargetRequestRepo.saveAll(jobTargetRequestRelations);
 
