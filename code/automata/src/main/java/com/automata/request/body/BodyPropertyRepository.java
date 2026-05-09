@@ -36,4 +36,37 @@ public interface BodyPropertyRepository extends JpaRepository<BodyProperty, Long
 			""")
 	List<BodyPropertyInternalDto> getBodyPropertyDtosByResponseIds(@Param("ids") List<Long> ids);
 
+	// --- Export queries ---
+
+	@Query("""
+			SELECT DISTINCT b.fullPath
+			FROM BodyProperty b
+			WHERE b.request IS NOT NULL
+			  AND b.request.host.id = :hostId
+			""")
+	List<String> findDistinctFullPathsByRequestHostId(@Param("hostId") Long hostId);
+
+	@Query("""
+			SELECT DISTINCT b.fullPath
+			FROM BodyProperty b
+			WHERE b.response IS NOT NULL
+			  AND b.response.request.host.id = :hostId
+			""")
+	List<String> findDistinctFullPathsByResponseHostId(@Param("hostId") Long hostId);
+
+	@Query("""
+			SELECT DISTINCT b.fullPath
+			FROM BodyProperty b
+			WHERE b.request IS NOT NULL
+			  AND b.request.program.id = :programId
+			""")
+	List<String> findDistinctFullPathsByRequestProgramId(@Param("programId") Long programId);
+
+	@Query("""
+			SELECT DISTINCT b.fullPath
+			FROM BodyProperty b
+			WHERE b.response IS NOT NULL
+			  AND b.response.request.program.id = :programId
+			""")
+	List<String> findDistinctFullPathsByResponseProgramId(@Param("programId") Long programId);
 }
