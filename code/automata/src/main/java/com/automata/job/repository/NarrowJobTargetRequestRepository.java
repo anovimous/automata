@@ -29,5 +29,7 @@ public interface NarrowJobTargetRequestRepository extends JpaRepository<NarrowJo
 			WHERE r.job = :job
 			""", countQuery = "SELECT COUNT(r) FROM NarrowJobTargetRequest r WHERE r.job = :job")
 	Page<RequestInternalDto> getRequestDtosByJob(@Param("job") NarrowHttpJob job, Pageable pageable);
+	
+	boolean existsByTargetRequestId(Long requestId);
 
 }
