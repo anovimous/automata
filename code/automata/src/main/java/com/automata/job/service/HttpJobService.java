@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
@@ -26,6 +28,7 @@ import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.TargetSelectionResult;
+import com.automata.job.infra.S3Service;
 import com.automata.job.repository.HttpJobRepository;
 import com.automata.program.Program;
 import com.automata.program.ProgramRepository;
@@ -36,6 +39,7 @@ import com.automata.tenant.TenantRepository;
 import com.automata.wordlist.Wordlist;
 import com.automata.wordlist.WordlistRepository;
 
+import io.awspring.cloud.s3.S3Resource;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,10 +67,30 @@ public class HttpJobService {
 
 	private final JobConfigFileService configFileService;
 
+	private final S3Service s3;
+
 	@Transactional(readOnly = true)
 	public HttpJob getJob(Long jobId) {
 
 		return jobRepo.findById(jobId).orElseThrow(() -> new EntityNotFoundException("Job not found"));
+
+	}
+
+	@Transactional(readOnly = true)
+	public S3Resource getJobResult(Long jobId) {
+
+		HttpJob job = jobRepo.findById(jobId).orElseThrow(() -> new EntityNotFoundException("Job not found"));
+
+		if (job.getGenericDetails().getCurrentState() != JobState.FINISHED
+				&& job.getGenericDetails().getCurrentState() != JobState.FAILED)
+			throw new IllegalArgumentException("The job has to end before downloading it's result");
+
+		S3Resource result = s3.getJobResult(job.getId());
+
+		if (!result.exists())
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Result not found");
+
+		return result;
 
 	}
 

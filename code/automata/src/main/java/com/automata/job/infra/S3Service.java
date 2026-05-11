@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.automata.job.domain.valueobject.JobDetailsFileContainer;
 
+import io.awspring.cloud.s3.S3Resource;
 import io.awspring.cloud.s3.S3Template;
 import lombok.RequiredArgsConstructor;
 
@@ -17,7 +18,17 @@ public class S3Service {
 
 	public static final String JOB_CONFIG_BUCKET = "job-configuration";
 
+	public static final String JOB_RESULT_BUCKET = "job-results";
+
 	private final S3Template s3Template;
+
+	public S3Resource getJobResult(Long jobId) {
+
+		String resultKey = String.format("%d.result", jobId);
+
+		return s3Template.download(JOB_RESULT_BUCKET, resultKey);
+
+	}
 
 	public void storeJobDetailsObject(JobDetailsFileContainer container) {
 

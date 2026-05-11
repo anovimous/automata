@@ -1,7 +1,10 @@
 package com.automata.job.api;
 
+import java.io.InputStream;
 import java.net.URI;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -9,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.automata.job.api.dto.HttpJobCreationRequest;
 import com.automata.job.api.dto.HttpJobResponseDto;
@@ -20,6 +24,7 @@ import com.automata.job.service.HttpJobsSynchronizationService;
 import com.automata.program.common.dto.ProgramSummaryDetailsResponseDto;
 import com.automata.routine.common.dto.RoutineSummaryDetailsResponseDto;
 
+import io.awspring.cloud.s3.S3Resource;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -28,7 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class HttpJobController {
 
 	private final HttpJobService jobService;
-	
+
 	private final HttpJobsSynchronizationService syncService;
 
 	@GetMapping("/{jobId}")
@@ -48,6 +53,25 @@ public class HttpJobController {
 				.build();
 
 		return ResponseEntity.ok(responseDto);
+
+	}
+
+	@GetMapping("/{jobId}/result")
+	public ResponseEntity<StreamingResponseBody> downloadJobResult(@PathVariable Long jobId) {
+
+		S3Resource resource = jobService.getJobResult(jobId);
+
+		StreamingResponseBody stream = outputStream -> {
+			try (InputStream inputStream = resource.getInputStream()) {
+				inputStream.transferTo(outputStream);
+			}
+		};
+
+		String contentDispositionHeader = String.format("attachment; filename=\"%d.result\"", jobId);
+
+		return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM)
+				.contentLength(resource.contentLength())
+				.header(HttpHeaders.CONTENT_DISPOSITION, contentDispositionHeader).body(stream);
 
 	}
 
@@ -85,7 +109,7 @@ public class HttpJobController {
 	}
 
 	// TEST METHOD:
-	
+
 	@PostMapping("/sync")
 	public ResponseEntity<Void> syncJob() {
 
@@ -93,7 +117,7 @@ public class HttpJobController {
 
 		return ResponseEntity.status(204).build();
 	}
-	
+
 	// DELAYED
 //	@PostMapping("/{draftJobId}/schedule")
 //	public ResponseEntity<Void> scheduleJob(@PathVariable Long draftJobId, @RequestBody JobScheduleRequest req) {
