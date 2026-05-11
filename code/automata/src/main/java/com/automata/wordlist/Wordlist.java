@@ -31,13 +31,11 @@ public class Wordlist {
 	private String path;
 
 	@Nullable
-	String name;
+	private String name;
 
 	@Nullable
 	private Integer numberOfLines;
 
-	// Optional
-	@Nullable
 	@ManyToMany
 	private Set<Vulnerability> vulnerabilities = new HashSet<>();
 }
