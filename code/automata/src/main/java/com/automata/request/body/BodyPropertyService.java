@@ -35,11 +35,12 @@ public class BodyPropertyService {
 
 		bodyRepo.deleteAllByIdInBatch(toDeleteBodyProperties);
 
-		List<BodyProperty> toSetBodyProperties = parseResult.getBodyProperties();
+		bodyRepo.flush();
 
-		bodyRepo.saveAll(toSetBodyProperties);
+		List<BodyProperty> persistedBodyProperties = this.persistRequestBodyProperties(parseResult.getBodyProperties(),
+				request);
 
-		request.setBodyProperties(parseResult.getBodyProperties());
+		request.setBodyProperties(persistedBodyProperties);
 
 	}
 

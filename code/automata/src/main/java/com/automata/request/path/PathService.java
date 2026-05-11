@@ -28,15 +28,16 @@ public class PathService {
 
 		pathVariableRepo.deleteAllByIdInBatch(toDeletePathVariables);
 
+		pathVariableRepo.flush();
+
 		request.setComputatedPath(parseResult.getComputatedPath());
 
 		request.setExtension(parseResult.getExtension());
 
-		List<PathVariable> toSetPathVariables = parseResult.getPathVariables();
+		List<PathVariable> persistedPathVariables = this.persistRequestPathVariables(parseResult.getPathVariables(),
+				request);
 
-		pathVariableRepo.saveAll(toSetPathVariables);
-
-		request.setPathVariables(toSetPathVariables);
+		request.setPathVariables(persistedPathVariables);
 
 	}
 

@@ -26,11 +26,12 @@ public class QueryParameterService {
 
 		queryParamRepo.deleteAllByIdInBatch(toDeleteQueryParametersIds);
 
-		List<QueryParameter> toSetQueryParameters = parseResult.getQueryParameters();
+		queryParamRepo.flush();
 
-		queryParamRepo.saveAll(toSetQueryParameters);
+		List<QueryParameter> persistedQueryParameters = this
+				.persistRequestQueryParameters(parseResult.getQueryParameters(), request);
 
-		request.setParameters(toSetQueryParameters);
+		request.setParameters(persistedQueryParameters);
 	}
 
 	@Transactional
