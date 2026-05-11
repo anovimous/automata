@@ -1,6 +1,9 @@
 package com.automata.job.service;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -205,11 +208,23 @@ public class JobConfigFileService {
 
 				List<RequestInternalDto> fullyPopulatedRequestDtos = requestDtosPage.map((dto) -> {
 
-					dto.setPathVariableDtos(pathVariablesByRequest.get(dto.getRequestId()));
+					List<PathVariableInternalDto> pathVariables = pathVariablesByRequest.get(dto.getRequestId()) != null
+							? pathVariablesByRequest.get(dto.getRequestId())
+							: new ArrayList<PathVariableInternalDto>();
 
-					dto.setQueryParameterDtos(queryParametersByRequest.get(dto.getRequestId()));
+					dto.setPathVariableDtos(pathVariables);
 
-					dto.setBodyPropertyDtos(bodyPropertiesByRequest.get(dto.getRequestId()));
+					List<QueryParameterInternalDto> queryParams = queryParametersByRequest
+							.get(dto.getRequestId()) != null ? queryParametersByRequest.get(dto.getRequestId())
+									: new ArrayList<QueryParameterInternalDto>();
+
+					dto.setQueryParameterDtos(queryParams);
+
+					List<BodyPropertyInternalDto> bodyProperties = bodyPropertiesByRequest
+							.get(dto.getRequestId()) != null ? bodyPropertiesByRequest.get(dto.getRequestId())
+									: new ArrayList<BodyPropertyInternalDto>();
+
+					dto.setBodyPropertyDtos(bodyProperties);
 
 					return dto;
 
@@ -221,8 +236,10 @@ public class JobConfigFileService {
 
 					// OPT: apply preemptive match and replace rules here
 
+					String rawRequest = RequestUtils.composeRawRequest(apacheRequest);
+
 					RequestData singleRequestData = new RequestData(dto.getRequestId(),
-							RequestUtils.composeRawRequest(apacheRequest));
+							Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8)));
 
 					try {
 						writer.writeRequestData(singleRequestData);
