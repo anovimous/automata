@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 @Configuration
@@ -14,6 +15,7 @@ public class JacksonConfig {
 	@Bean
 	Jackson2ObjectMapperBuilderCustomizer customizer() {
 		return builder -> builder.featuresToDisable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-				.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).modules(new JavaTimeModule());
+				.featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+				.modules(new JavaTimeModule(), new Jdk8Module());
 	}
 }
