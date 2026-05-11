@@ -96,12 +96,11 @@ public class TenantController {
 
 	// Tenant authentication specific endpoints ->:
 
-	@GetMapping("/{tenantId}/authentications/{authenticationId}")
+	@GetMapping("/{tenantId}/authentication")
 
-	public ResponseEntity<AuthenticationDto> getAuthentication(@PathVariable Long tenantId,
-			@PathVariable Long authenticationId) {
+	public ResponseEntity<AuthenticationDto> getAuthentication(@PathVariable Long tenantId) {
 
-		Authentication authentication = authService.getAuthenticationById(authenticationId, tenantId);
+		Authentication authentication = authService.getAuthenticationOfTenant(tenantId);
 
 		AuthenticationDto authenticationResponse = AuthenticationMapper.toAuthenticationDto(authentication);
 
@@ -109,20 +108,7 @@ public class TenantController {
 
 	}
 
-	@GetMapping("/{tenantId}/authentications")
-	public ResponseEntity<PageHolderResponse<AuthenticationDto>> getAuthentications(@PathVariable Long tenantId,
-			@PageableDefault(size = 10, sort = {"creationDate"}, direction = Sort.Direction.DESC) Pageable pageable) {
-
-		Page<Authentication> authentications = authService.getTenantAuthenticationsPage(tenantId, pageable);
-
-		Page<AuthenticationDto> authenticationResponses = authentications
-				.map(AuthenticationMapper::toAuthenticationDto);
-
-		return ResponseEntity.ok(new PageHolderResponse<>(authenticationResponses));
-
-	}
-
-	@PostMapping("/{tenantId}/authentications")
+	@PostMapping("/{tenantId}/authentication")
 	public ResponseEntity<AuthenticationDto> createAuthentication(@PathVariable Long tenantId,
 			@RequestBody AuthenticationCreationRequest request) {
 
@@ -136,21 +122,21 @@ public class TenantController {
 
 	}
 
-	@PatchMapping("/{tenantId}/authentications/{authenticationId}")
+	@PatchMapping("/{tenantId}/authentication")
 	public ResponseEntity<AuthenticationDto> patchAuthentication(@PathVariable Long tenantId,
-			@PathVariable Long authenticationId, @RequestBody AuthenticationPatchRequest patchRequest) {
+			@RequestBody AuthenticationPatchRequest patchRequest) {
 
-		Authentication authentication = authService.patchAuthentication(authenticationId, patchRequest, tenantId);
+		Authentication authentication = authService.patchAuthentication(patchRequest, tenantId);
 
 		AuthenticationDto authenticationResponse = AuthenticationMapper.toAuthenticationDto(authentication);
 
 		return ResponseEntity.ok(authenticationResponse);
 	}
 
-	@DeleteMapping("/{tenantId}/authentications/{authenticationId}")
+	@DeleteMapping("/{tenantId}/authentication")
 	public ResponseEntity<Void> deleteAuthentication(@PathVariable Long tenantId, @PathVariable Long authenticationId) {
 
-		authService.deleteAuthentication(authenticationId, tenantId);
+		authService.deleteAuthentication(tenantId);
 
 		return ResponseEntity.status(204).build();
 

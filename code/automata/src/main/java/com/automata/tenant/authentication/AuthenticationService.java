@@ -1,9 +1,9 @@
 package com.automata.tenant.authentication;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
@@ -20,18 +20,12 @@ public class AuthenticationService {
 	private final TenantRepository tenantRepo;
 
 	@Transactional(readOnly = true)
-	public Authentication getAuthenticationById(Long authenticationId, Long tenantId) {
+	public Authentication getAuthenticationOfTenant(Long tenantId) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)
 				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
-		Authentication auth = authRepo.findById(authenticationId)
-				.orElseThrow(() -> new EntityNotFoundException("Authentication not found"));
-
-		if (auth.getTenant().getId() != tenant.getId())
-			throw new IllegalArgumentException("Authentication does not belong to the specified tenant");
-
-		return auth;
+		return tenant.getAuthentication();
 
 	}
 
@@ -52,28 +46,16 @@ public class AuthenticationService {
 
 	}
 
-	@Transactional(readOnly = true)
-	public Page<Authentication> getTenantAuthenticationsPage(Long tenantId, Pageable pageable) {
-
-		Tenant tenant = tenantRepo.findById(tenantId)
-				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
-
-		return authRepo.findByTenant(tenant, pageable);
-
-	}
-
 	@Transactional
-	public Authentication patchAuthentication(Long authenticationId, AuthenticationPatchRequest patchRequest,
-			Long tenantId) {
+	public Authentication patchAuthentication(AuthenticationPatchRequest patchRequest, Long tenantId) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)
 				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
-		Authentication authentication = authRepo.findById(authenticationId)
-				.orElseThrow(() -> new EntityNotFoundException("Authentication not found"));
+		Authentication authentication = tenant.getAuthentication();
 
-		if (authentication.getTenant().getId() != tenant.getId())
-			throw new IllegalArgumentException("Authentication does not belong to the specified tenant");
+		if (authentication == null)
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Authentication not found for this tenant");
 
 		patchRequest.authData().ifPresent(authentication::setAuthData);
 
@@ -88,18 +70,15 @@ public class AuthenticationService {
 	}
 
 	@Transactional
-	public void deleteAuthentication(Long authenticationId, Long tenantId) {
+	public void deleteAuthentication(Long tenantId) {
 
 		Tenant tenant = tenantRepo.findById(tenantId)
 				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
-		Authentication authentication = authRepo.findById(authenticationId)
-				.orElseThrow(() -> new EntityNotFoundException("Authentication not found"));
+		Authentication authentication = tenant.getAuthentication();
 
-		if (authentication.getTenant().getId() != tenant.getId())
-			throw new IllegalArgumentException("Authentication does not belong to the specified tenant");
-
-		authRepo.delete(authentication);
+		if (authentication != null)
+			authRepo.delete(authentication);
 
 	}
 }
