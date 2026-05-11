@@ -78,8 +78,8 @@ public class ProgramService {
 	}
 
 	public void deleteProgram(Long programId) {
-		// TODO Later
-		// lower priority
+
+		throw new RuntimeException("Delete operation is not implemented yet");
 
 	}
 

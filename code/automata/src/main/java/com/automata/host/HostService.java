@@ -103,8 +103,7 @@ public class HostService {
 	}
 
 	public void deleteHost(Long hostId) {
-		// TODO Later
-		// lower priority
+		throw new RuntimeException("Delete operation is not implemented yet");
 	}
 
 }

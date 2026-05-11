@@ -91,7 +91,7 @@ public class RequestService {
 		List<QueryParameterInternalDto> queryParameters = queryParameterRepo.getQueryParameterDtosByRequestsIds(ids);
 
 		List<BodyPropertyInternalDto> bodyProperties = bodyPropertyRepo.getBodyPropertyDtosByRequestsIds(ids);
-		
+
 		dto.setPathVariableDtos(pathVariables);
 
 		dto.setQueryParameterDtos(queryParameters);
@@ -150,50 +150,57 @@ public class RequestService {
 	@Transactional
 	public Request patchRequest(Long requestId, RequestPatchDto dto) {
 
-		Request request = requestRepo.findById(requestId)
-				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+		throw new RuntimeException("Patch operation is not implemented yet");
 
-//		if (jobRepo.existsByRequest(request))
-//			throw new RuntimeException("Request can't be modified if it is related to any job");
-
-		if (equalitySetRepo.existsByRequests_Id(requestId))
-			throw new RuntimeException("Request can't be modified if it exists in an equalityset");
-
-		dto.method().ifPresent(request::setMethod);
-
-		dto.source().ifPresent(request::setSource);
-
-		dto.tenantId().ifPresent((tenantId) -> {
-
-			Tenant tenant = tenantRepo.findById(tenantId)
-					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
-
-			request.setTenant(tenant);
-
-		});
-
-		dto.path().ifPresentOrElse(path -> pathService.updatePath(request, path), () -> {
-			dto.extension().ifPresent(request::setExtension);
-		});
-
-		dto.queryStringBase64().ifPresent(queryStringBase64 -> queryParameterService
-				.updateQueryParametersProvidedQueryString(request, Base64Utils.decode(queryStringBase64)));
-
-		if (dto.bodyBase64().isPresent() && dto.contentType().isPresent())
-			bodyService.updateBodyProvidedRaw(request, Base64Utils.decode(dto.bodyBase64().get()));
-		else {
-			if (dto.bodyBase64().isPresent() || dto.contentType().isPresent())
-				throw new IllegalArgumentException(
-						"Body and contentType must be provided in conjunction with each other");
-		}
-
-		return request;
+//		Request request = requestRepo.findById(requestId)
+//				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+//
+//		if (narrowJobTargetRequestRepo.existsByTargetRequestId(requestId))
+//			throw new IllegalArgumentException("Updating a request which is associated with a job is not allowed");
+//
+//		if (equalitySetRepo.existsByRequests_Id(requestId))
+//			throw new RuntimeException("Request can't be modified if it exists in an equalityset");
+//
+//		dto.method().ifPresent(request::setMethod);
+//
+//		dto.source().ifPresent(request::setSource);
+//
+//		dto.tenantId().ifPresent((tenantId) -> {
+//
+//			Tenant tenant = tenantRepo.findById(tenantId)
+//					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+//
+//			request.setTenant(tenant);
+//
+//		});
+//
+//		dto.path().ifPresentOrElse(path -> pathService.updatePath(request, path), () -> {
+//			dto.extension().ifPresent(request::setExtension);
+//		});
+//
+//		dto.queryStringBase64().ifPresent(queryStringBase64 -> queryParameterService
+//				.updateQueryParametersProvidedQueryString(request, Base64Utils.decode(queryStringBase64)));
+//
+//		if (dto.bodyBase64().isPresent() && dto.contentType().isPresent())
+//			bodyService.updateBodyProvidedRaw(request, Base64Utils.decode(dto.bodyBase64().get()));
+//		else {
+//			if (dto.bodyBase64().isPresent() || dto.contentType().isPresent())
+//				throw new IllegalArgumentException(
+//						"Body and contentType must be provided in conjunction with each other");
+//		}
+//
+//		return request;
 
 	}
 
 	public void deleteRequest(Long requestId) {
 		// check if any unfinished job is tied to it
 		// remove equality set if it becomes empty
+
+		throw new RuntimeException("Delete operation is not implemented yet");
+
+//		if (narrowJobTargetRequestRepo.existsByTargetRequestId(requestId))
+//			throw new IllegalArgumentException("Deleting a request which is associated with a job is not allowed");
 
 	}
 
