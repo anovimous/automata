@@ -8,7 +8,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.dto.RequestFilter;
-import com.automata.request.common.dto.RequestPatchDto;
 import com.automata.request.common.dto.RequestRawResponse;
 import com.automata.request.common.dto.RequestResponse;
 import com.automata.request.common.dto.RequestsEqualizationDto;
@@ -94,18 +92,6 @@ public class RequestController {
 		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
 
 		return ResponseEntity.ok(requestResponse);
-
-	}
-
-	@PatchMapping("/{requestId}")
-	public ResponseEntity<RequestResponse> patchRequestProperties(@PathVariable Long requestId,
-			@RequestBody RequestPatchDto dto) {
-
-		Request request = requestService.patchRequest(requestId, dto);
-
-		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
-
-		return ResponseEntity.status(204).body(requestResponse);
 
 	}
 
