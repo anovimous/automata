@@ -1,5 +1,7 @@
 package com.automata.program;
 
+import java.net.URI;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.program.common.dto.PatchProgramRequest;
+import com.automata.program.common.dto.ProgramDetailedResponse;
+import com.automata.program.common.dto.ProgramSummaryResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,53 +32,54 @@ public class ProgramController {
 	private final ProgramService programService;
 
 	@GetMapping("/{programId}")
-	public ResponseEntity<Program> getProgram(@PathVariable Long programId) {
+	public ResponseEntity<ProgramDetailedResponse> getProgram(@PathVariable Long programId) {
 
-		Program program = programService.getProgramById(programId);
+		Program program = programService.getProgramWithVulns(programId);
 
-		return ResponseEntity.ok(program);
+		ProgramDetailedResponse response = ProgramMapper.toDetailedResponse(program);
+
+		return ResponseEntity.ok(response);
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<Program>> getPrograms(@RequestParam(defaultValue = "") String query,
-			@PageableDefault(size = 10, sort = {
+	public ResponseEntity<PageHolderResponse<ProgramSummaryResponse>> getPrograms(
+			@RequestParam(defaultValue = "") String query, @PageableDefault(size = 10, sort = {
 					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Program> programs = programService.getProgramsPagedAndFilteredOnQueryString(query, pageable);
 
-		return ResponseEntity.ok(new PageHolderResponse<>(programs));
+		Page<ProgramSummaryResponse> programResponses = ProgramMapper.toSummaryResponse(programs);
+
+		return ResponseEntity.ok(new PageHolderResponse<>(programResponses));
 
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Program> createProgram(@RequestBody Program program) {
+	public ResponseEntity<Void> createProgram(@RequestBody Program program) {
 
 		Program createdProgram = programService.createProgram(program);
 
-		return ResponseEntity.status(201).body(createdProgram);
+		return ResponseEntity.status(201)
+				.location(URI.create(String.format("/api/programs/%d", createdProgram.getId()))).build();
 
 	}
 
 	@PatchMapping("/{programId}")
-	public ResponseEntity<Program> patchProgram(@PathVariable Long programId,
+	public ResponseEntity<Void> patchProgram(@PathVariable Long programId,
 			@RequestBody PatchProgramRequest patchRequest) {
 
-		Program program = programService.patchProgram(programId, patchRequest);
+		programService.patchProgram(programId, patchRequest);
 
-		return ResponseEntity.ok(program);
+		return ResponseEntity.status(204).build();
 	}
 
 	@DeleteMapping("/{programId}")
 	public ResponseEntity<Void> deleteProgram(@PathVariable Long programId) {
 
-		return ResponseEntity.status(503).build();
+		programService.deleteProgram(programId);
 
-//		waiting for service implementation
-
-//		programService.deleteProgram(programId);
-//		
-//		return ResponseEntity.status(204).build();
+		return ResponseEntity.status(204).build();
 
 	}
 

@@ -23,9 +23,10 @@ public class ProgramService {
 
 	private final VulnerabilityRepository vulnerabilityRepo;
 
-	public Program getProgramById(Long programId) {
+	public Program getProgramWithVulns(Long programId) {
 
-		return programRepo.findById(programId).orElseThrow(() -> new EntityNotFoundException("Program not found"));
+		return programRepo.findByIdWithVulns(programId)
+				.orElseThrow(() -> new EntityNotFoundException("Program not found"));
 
 	}
 
