@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recon — Security Testing Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg0: #07090d;
+  --bg1: #0d1117;
+  --bg2: #131920;
+  --bg3: #1a2230;
+  --bg4: #212d3d;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #cdd9e5;
+  --text2: #768390;
+  --text3: #444d56;
+  --accent: #58a6ff;
+  --accent-dim: rgba(88,166,255,0.12);
+  --green: #3fb950;
+  --green-dim: rgba(63,185,80,0.12);
+  --red: #f85149;
+  --red-dim: rgba(248,81,73,0.12);
+  --yellow: #d29922;
+  --yellow-dim: rgba(210,153,34,0.12);
+  --orange: #e3b341;
+  --purple: #bc8cff;
+  --cyan: #39d353;
+  --radius: 6px;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+  --nav-w: 220px;
+  --panel-w: 340px;
+  --panel-min: 40px;
+  --tr: 0.2s ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--sans);background:var(--bg0);color:var(--text);font-size:13px;display:flex;flex-direction:column}
+
+/* ─── TOP BAR ─── */
+.topbar{
+  height:44px;background:var(--bg1);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;z-index:200;
+}
+.topbar-logo{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:2px;color:var(--text);display:flex;align-items:center;gap:6px}
+.topbar-logo .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.topbar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
+.base-url-input{
+  font-family:var(--mono);font-size:11px;background:var(--bg2);
+  border:1px solid var(--border);color:var(--text2);padding:4px 10px;
+  border-radius:var(--radius);width:260px;outline:none;transition:border var(--tr);
+}
+.base-url-input:focus{border-color:var(--accent);color:var(--text)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.panel-toggle-btn{
+  display:flex;align-items:center;gap:6px;padding:4px 10px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;transition:all var(--tr);
+}
+.panel-toggle-btn:hover{border-color:var(--border2);color:var(--text)}
+.log-count{background:var(--accent-dim);color:var(--accent);border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600}
+
+/* ─── MAIN LAYOUT ─── */
+.layout{display:flex;flex:1;overflow:hidden}
+
+/* ─── SIDEBAR NAV ─── */
+.sidenav{
+  width:var(--nav-w);flex-shrink:0;background:var(--bg1);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--bg3) transparent;
+}
+.sidenav::-webkit-scrollbar{width:4px}
+.sidenav::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px}
+.nav-section{padding:16px 8px 4px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);font-weight:600;font-family:var(--mono)}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:7px 12px;
+  border-radius:var(--radius);margin:1px 4px;cursor:pointer;
+  color:var(--text2);font-size:12px;font-weight:500;transition:all var(--tr);
+  border:1px solid transparent;
+}
+.nav-item:hover{background:var(--bg2);color:var(--text)}
+.nav-item.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(88,166,255,0.2)}
+.nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+
+/* ─── CONTENT ─── */
+.content{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg3) transparent}
+.content::-webkit-scrollbar{width:6px}
+.content::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+
+.page{display:none;padding:24px;animation:fadeIn 0.2s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.page-header{margin-bottom:24px}
+.page-title{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--text);margin-bottom:4px}
+.page-subtitle{font-size:12px;color:var(--text2)}
+
+/* ─── CARDS & SECTIONS ─── */
+.section{margin-bottom:24px}
+.section-label{font-family:var(--mono);font-size:11px;letter-spacing:0.5px;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.card{background:var(--bg1);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.card-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text)}
+.card-body{padding:16px}
+
+/* ─── FORMS ─── */
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:5px;font-family:var(--mono);letter-spacing:0.3px}
+.form-label .req{color:var(--red);margin-left:2px}
+.form-label .opt{color:var(--text3);font-weight:400;font-size:10px}
+.form-input,.form-select,.form-textarea{
+  width:100%;background:var(--bg2);border:1px solid var(--border);
+  color:var(--text);padding:7px 10px;border-radius:var(--radius);
+  font-family:var(--mono);font-size:12px;outline:none;transition:border var(--tr);
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
+.form-input::placeholder{color:var(--text3)}
+.form-input:disabled{opacity:0.5;cursor:not-allowed}
+.form-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23768390'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.form-textarea{resize:vertical;min-height:80px}
+.form-input.invalid{border-color:var(--red)!important}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+/* Validation Toggle */
+.validation-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:8px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)}
+.validation-label{font-size:11px;color:var(--text2);font-family:var(--mono)}
+.toggle-wrap{display:flex;align-items:center;gap:6px}
+.toggle{position:relative;width:32px;height:18px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--bg4);border-radius:9px;transition:var(--tr)}
+.toggle-slider::before{content:'';position:absolute;width:12px;height:12px;left:3px;top:3px;background:var(--text3);border-radius:50%;transition:var(--tr)}
+.toggle input:checked+.toggle-slider{background:var(--accent-dim)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(14px);background:var(--accent)}
+.toggle-text{font-size:10px;color:var(--text3);font-family:var(--mono);width:20px}
+
+/* ─── BUTTONS ─── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 14px;
+  border-radius:var(--radius);font-family:var(--mono);font-size:12px;font-weight:500;
+  cursor:pointer;transition:all var(--tr);border:1px solid transparent;line-height:1;
+}
+.btn-primary{background:var(--accent);color:#0d1117;border-color:var(--accent)}
+.btn-primary:hover{background:#79b8ff;border-color:#79b8ff}
+.btn-secondary{background:transparent;color:var(--text2);border-color:var(--border)}
+.btn-secondary:hover{border-color:var(--border2);color:var(--text);background:var(--bg2)}
+.btn-danger{background:transparent;color:var(--red);border-color:rgba(248,81,73,0.3)}
+.btn-danger:hover{background:var(--red-dim)}
+.btn-success{background:transparent;color:var(--green);border-color:rgba(63,185,80,0.3)}
+.btn-success:hover{background:var(--green-dim)}
+.btn-sm{padding:4px 8px;font-size:11px}
+.btn-xs{padding:2px 6px;font-size:10px}
+.btn-icon{padding:5px 8px}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ─── TABLE ─── */
+.table-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+th{padding:9px 14px;text-align:left;font-size:10px;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);font-weight:600;background:var(--bg2);border-bottom:1px solid var(--border)}
+td{padding:9px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg2)}
+.empty-row td{text-align:center;color:var(--text3);padding:32px;font-size:12px}
+
+/* ─── BADGES ─── */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:0.3px}
+.badge-blue{background:var(--accent-dim);color:var(--accent)}
+.badge-green{background:var(--green-dim);color:var(--green)}
+.badge-red{background:var(--red-dim);color:var(--red)}
+.badge-yellow{background:var(--yellow-dim);color:var(--yellow)}
+.badge-gray{background:var(--bg3);color:var(--text2)}
+.badge-purple{background:rgba(188,140,255,0.12);color:var(--purple)}
+
+.method-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-family:var(--mono);font-size:10px;font-weight:700;min-width:44px;text-align:center}
+.method-GET{background:rgba(63,185,80,0.15);color:#3fb950}
+.method-POST{background:rgba(88,166,255,0.15);color:#58a6ff}
+.method-PUT{background:rgba(210,153,34,0.15);color:#d29922}
+.method-PATCH{background:rgba(188,140,255,0.15);color:#bc8cff}
+.method-DELETE{background:rgba(248,81,73,0.15);color:#f85149}
+.method-HEAD{background:rgba(57,211,83,0.15);color:#39d353}
+
+/* ─── STATUS CODES ─── */
+.status-code{font-family:var(--mono);font-size:11px;font-weight:700}
+.status-2xx{color:var(--green)}
+.status-3xx{color:var(--accent)}
+.status-4xx{color:var(--yellow)}
+.status-5xx{color:var(--red)}
+.status-err{color:var(--text3)}
+
+/* ─── SIDE PANEL (Request Log) ─── */
+.side-panel{
+  width:var(--panel-w);flex-shrink:0;background:var(--bg1);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;transition:width var(--tr);overflow:hidden;
+}
+.side-panel.collapsed{width:var(--panel-min)}
+.panel-header{
+  height:44px;flex-shrink:0;display:flex;align-items:center;padding:0 12px;
+  border-bottom:1px solid var(--border);gap:8px;
+}
+.panel-title{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text);letter-spacing:0.5px;flex:1;white-space:nowrap;overflow:hidden}
+.panel-actions{display:flex;gap:4px;flex-shrink:0}
+.panel-body{flex:1;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg3) transparent}
+.panel-body::-webkit-scrollbar{width:4px}
+.panel-body::-webkit-scrollbar-thumb{background:var(--bg3)}
+.panel-empty{padding:32px 16px;text-align:center;color:var(--text3);font-size:11px;font-family:var(--mono)}
+.log-item{
+  display:flex;align-items:center;gap:8px;padding:7px 12px;
+  border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--tr);
+}
+.log-item:hover{background:var(--bg2)}
+.log-method{font-family:var(--mono);font-size:10px;font-weight:700;min-width:38px}
+.log-path{font-family:var(--mono);font-size:10px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-status{font-family:var(--mono);font-size:10px;font-weight:700;flex-shrink:0}
+.log-pending{color:var(--text3);font-size:9px;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* ─── MODAL ─── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--bg1);border:1px solid var(--border2);border-radius:10px;
+  width:540px;max-width:90vw;max-height:85vh;display:flex;flex-direction:column;
+  box-shadow:0 24px 80px rgba(0,0,0,0.6);
+}
+.modal-header{
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+.modal-title{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text)}
+.modal-close{
+  width:28px;height:28px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);
+  color:var(--text2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;
+  transition:all var(--tr);
+}
+.modal-close:hover{border-color:var(--red);color:var(--red)}
+.modal-body{padding:20px;overflow-y:auto;flex:1}
+.modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
+
+/* ─── TOAST ─── */
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:8px;
+  padding:10px 16px;font-family:var(--mono);font-size:12px;color:var(--text);
+  animation:slideIn 0.3s ease;max-width:320px;display:flex;align-items:center;gap:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+}
+.toast.success{border-left:3px solid var(--green)}
+.toast.error{border-left:3px solid var(--red)}
+.toast.info{border-left:3px solid var(--accent)}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
+@keyframes slideOut{to{transform:translateX(20px);opacity:0}}
+
+/* ─── DETAILS PANEL ─── */
+.detail-row{display:flex;align-items:flex-start;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-key{font-family:var(--mono);font-size:11px;color:var(--text3);min-width:120px;flex-shrink:0;padding-top:1px}
+.detail-val{font-family:var(--mono);font-size:11px;color:var(--text);word-break:break-all}
+
+/* ─── JOB STATUS ─── */
+.job-controls{display:flex;gap:6px;align-items:center}
+.dot-running{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;flex-shrink:0}
+.dot-paused{width:8px;height:8px;border-radius:50%;background:var(--yellow);flex-shrink:0}
+.dot-draft{width:8px;height:8px;border-radius:50%;background:var(--text3);flex-shrink:0}
+
+/* ─── PAGINATION ─── */
+.pagination{display:flex;align-items:center;gap:6px;margin-top:16px;font-family:var(--mono);font-size:11px;color:var(--text2)}
+.page-btn{
+  padding:4px 10px;border-radius:var(--radius);border:1px solid var(--border);
+  background:var(--bg2);color:var(--text2);cursor:pointer;transition:all var(--tr);
+}
+.page-btn:hover{border-color:var(--accent);color:var(--accent)}
+.page-btn.active{background:var(--accent-dim);color:var(--accent);border-color:rgba(88,166,255,0.3)}
+.page-btn:disabled{opacity:0.4;cursor:not-allowed}
+.page-info{flex:1;text-align:center;color:var(--text3)}
+
+/* ─── INLINE PAIR LIST ─── */
+.pair-list{display:flex;flex-direction:column;gap:6px}
+.pair-item{display:flex;gap:6px;align-items:center}
+.pair-item .form-input{flex:1}
+.pair-remove{padding:5px 8px;background:transparent;border:1px solid var(--border);border-radius:var(--radius);color:var(--red);cursor:pointer;font-size:12px;transition:all var(--tr);flex-shrink:0}
+.pair-remove:hover{background:var(--red-dim);border-color:var(--red)}
+.add-pair-btn{margin-top:6px}
+
+/* ─── SCOPE CHIP ─── */
+.scope-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-family:var(--mono);font-size:10px}
+.scope-WILDCARD{background:rgba(188,140,255,0.12);color:var(--purple)}
+.scope-FQDN{background:rgba(88,166,255,0.12);color:var(--accent)}
+.scope-GLOBAL{background:rgba(63,185,80,0.12);color:var(--green)}
+.scope-PROGRAM{background:rgba(88,166,255,0.12);color:var(--accent)}
+.scope-HOST{background:rgba(188,140,255,0.12);color:var(--purple)}
+
+/* ─── PLATFORM CHIP ─── */
+.platform-HACKERONE{background:rgba(218,89,60,0.15);color:#da593c}
+.platform-BUGCROWD{background:rgba(247,150,70,0.15);color:#f79646}
+.platform-INTIGRITI{background:rgba(57,211,83,0.15);color:#39d353}
+
+/* ─── OVERHEAD ─── */
+.overhead-HIGH{color:var(--red)}
+.overhead-MEDIUM{color:var(--yellow)}
+.overhead-LOW{color:var(--green)}
+
+/* ─── FILTER BAR ─── */
+.filter-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filter-bar .form-input{width:220px}
+.filter-bar .form-select{width:160px}
+.results-count{font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:auto}
+
+/* ─── SPLIT VIEW ─── */
+.split-view{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* ─── COLLAPSIBLE ─── */
+.collapse-toggle{cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
+.collapse-arrow{transition:transform var(--tr);font-size:10px}
+.collapse-arrow.open{transform:rotate(90deg)}
+.collapsible-body{overflow:hidden;transition:all var(--tr)}
+
+/* ─── MISC ─── */
+.monospace{font-family:var(--mono)}
+.text-green{color:var(--green)}
+.text-red{color:var(--red)}
+.text-yellow{color:var(--yellow)}
+.text-accent{color:var(--accent)}
+.text-dim{color:var(--text2)}
+.text-dimmer{color:var(--text3)}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.flex{display:flex}
+.items-center{align-items:center}
+.gap-8{gap:8px}
+.w-full{width:100%}
+hr.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+.loading{
+  display:inline-block;width:12px;height:12px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.kbd{display:inline-block;padding:2px 5px;background:var(--bg3);border:1px solid var(--border2);border-radius:4px;font-family:var(--mono);font-size:10px;color:var(--text2)}
+
+/* Scrollbar global */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-logo"><span class="dot"></span> RECON</div>
+  <div class="topbar-sep"></div>
+  <input class="base-url-input" id="baseUrl" value="http://localhost:8080" placeholder="Base URL" title="API Base URL">
+  <div class="topbar-right">
+    <button class="panel-toggle-btn" onclick="togglePanel()">
+      ⚡ Request Log <span class="log-count" id="logCount">0</span>
+    </button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="layout">
+
+  <!-- SIDEBAR NAV -->
+  <nav class="sidenav">
+    <div class="nav-section">Core</div>
+    <div class="nav-item active" onclick="navigate('programs')" data-page="programs"><span class="nav-icon">🎯</span> Programs</div>
+    <div class="nav-item" onclick="navigate('hosts')" data-page="hosts"><span class="nav-icon">🌐</span> Hosts</div>
+    <div class="nav-item" onclick="navigate('tenants')" data-page="tenants"><span class="nav-icon">👤</span> Tenants</div>
+    <div class="nav-item" onclick="navigate('requests')" data-page="requests"><span class="nav-icon">📡</span> Requests</div>
+    <div class="nav-item" onclick="navigate('responses')" data-page="responses"><span class="nav-icon">📨</span> Responses</div>
+
+    <div class="nav-section">Automation</div>
+    <div class="nav-item" onclick="navigate('jobs')" data-page="jobs"><span class="nav-icon">⚙️</span> Jobs</div>
+    <div class="nav-item" onclick="navigate('routines')" data-page="routines"><span class="nav-icon">🔁</span> Routines</div>
+
+    <div class="nav-section">Config</div>
+    <div class="nav-item" onclick="navigate('vulnerabilities')" data-page="vulnerabilities"><span class="nav-icon">🔥</span> Vulnerabilities</div>
+    <div class="nav-item" onclick="navigate('wordlists')" data-page="wordlists"><span class="nav-icon">📋</span> Wordlists</div>
+    <div class="nav-item" onclick="navigate('modifiers')" data-page="modifiers"><span class="nav-icon">✏️</span> Modifiers</div>
+    <div class="nav-item" onclick="navigate('comparators')" data-page="comparators"><span class="nav-icon">⚖️</span> Comparators</div>
+  </nav>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ══════════════════ PROGRAMS ══════════════════ -->
+    <div class="page active" id="page-programs">
+      <div class="page-header">
+        <div class="page-title">Programs</div>
+        <div class="page-subtitle">Bug bounty programs across platforms</div>
+      </div>
+
+      <div class="split-view">
+        <!-- List -->
+        <div>
+          <div class="section-label">All Programs</div>
+          <div class="filter-bar">
+            <input class="form-input" id="prog-search" placeholder="Search…" oninput="loadPrograms()">
+            <button class="btn btn-primary btn-sm" onclick="loadPrograms()">↻ Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table id="programs-table">
+              <thead><tr><th>Name</th><th>Platform</th><th>Rate Limit</th><th>Actions</th></tr></thead>
+              <tbody id="programs-tbody"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="programs-pagination"></div>
+        </div>
+
+        <!-- Create -->
+        <div>
+          <div class="section-label">Create Program</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-programs" checked onchange="updateValidation('programs')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-programs-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/programs — body: {name, link, programRateLimit, platform, outOfScopeVulns} -->
+              <div class="form-group">
+                <label class="form-label">Name <span class="req" data-val="programs">*</span></label>
+                <input class="form-input" id="prog-name" placeholder="HackerOne Main Program" data-required="programs">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Link <span class="opt">(optional)</span></label>
+                <input class="form-input" id="prog-link" placeholder="https://hackerone.com/...">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Platform <span class="opt">(optional)</span></label>
+                  <select class="form-select" id="prog-platform">
+                    <option value="">-- none --</option>
+                    <option value="HACKERONE">HackerOne</option>
+                    <option value="BUGCROWD">Bugcrowd</option>
+                    <option value="INTIGRITI">Intigriti</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Rate Limit <span class="opt">(req/s)</span></label>
+                  <input class="form-input" type="number" id="prog-rate" placeholder="10">
+                </div>
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-primary" onclick="createProgram()">Create Program</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ HOSTS ══════════════════ -->
+    <div class="page" id="page-hosts">
+      <div class="page-header">
+        <div class="page-title">Hosts</div>
+        <div class="page-subtitle">Target hosts within programs</div>
+      </div>
+      <div class="split-view">
+        <div>
+          <div class="section-label">All Hosts</div>
+          <div class="filter-bar">
+            <input class="form-input" id="host-search" placeholder="Search…" oninput="loadHosts()">
+            <select class="form-select" id="host-prog-filter" onchange="loadHosts()">
+              <option value="">All Programs</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="loadHosts()">↻</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Host</th><th>Scope</th><th>Program</th><th>Rate Limits</th><th>Actions</th></tr></thead>
+              <tbody id="hosts-tbody"><tr class="empty-row"><td colspan="5">Select a program to load</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="hosts-pagination"></div>
+        </div>
+        <div>
+          <div class="section-label">Add Host</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-hosts" checked onchange="updateValidation('hosts')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-hosts-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/hosts — body: {host, scope, level, hostRateLimit, shortRateLimit, longRateLimit, programId} -->
+              <div class="form-group">
+                <label class="form-label">Host <span class="req" data-val="hosts">*</span></label>
+                <input class="form-input" id="host-host" placeholder="*.example.com" data-required="hosts">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Scope <span class="req" data-val="hosts">*</span></label>
+                  <select class="form-select" id="host-scope" data-required="hosts">
+                    <option value="">-- select --</option>
+                    <option value="WILDCARD">WILDCARD</option>
+                    <option value="FQDN">FQDN</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Program <span class="req" data-val="hosts">*</span></label>
+                  <select class="form-select" id="host-program-id" data-required="hosts">
+                    <option value="">-- select --</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Level <span class="opt">(integer, default 0)</span></label>
+                <input class="form-input" type="number" id="host-level" placeholder="0" min="0" value="0">
+              </div>
+              <div class="form-row-3">
+                <div class="form-group">
+                  <label class="form-label">Host RL <span class="opt">(req/s)</span></label>
+                  <input class="form-input" type="number" id="host-rl" placeholder="5">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Short RL</label>
+                  <input class="form-input" type="number" id="host-srl" placeholder="30">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Long RL</label>
+                  <input class="form-input" type="number" id="host-lrl" placeholder="100">
+                </div>
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-primary" onclick="createHost()">Add Host</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ TENANTS ══════════════════ -->
+    <div class="page" id="page-tenants">
+      <div class="page-header">
+        <div class="page-title">Tenants</div>
+        <div class="page-subtitle">Users/accounts per host, with authentications</div>
+      </div>
+      <div class="split-view">
+        <div>
+          <div class="section-label">Tenants</div>
+          <div class="filter-bar">
+            <select class="form-select" id="tenant-host-filter" onchange="loadTenants()">
+              <option value="">-- Select Host --</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="loadTenants()">↻</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Email</th><th>Created</th><th>Auth</th><th>Actions</th></tr></thead>
+              <tbody id="tenants-tbody"><tr class="empty-row"><td colspan="5">Select a host</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="tenants-pagination"></div>
+        </div>
+        <div>
+          <div class="section-label">Create Tenant</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-tenants" checked onchange="updateValidation('tenants')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-tenants-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/tenants — body: {name, email, hostId} -->
+              <div class="form-group">
+                <label class="form-label">Name <span class="opt">(optional)</span></label>
+                <input class="form-input" id="tenant-name" placeholder="admin_user">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email <span class="opt">(optional)</span></label>
+                <input class="form-input" id="tenant-email" placeholder="admin@example.com">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Host <span class="req" data-val="tenants">*</span></label>
+                <select class="form-select" id="tenant-host-id" data-required="tenants">
+                  <option value="">-- select host --</option>
+                </select>
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-primary" onclick="createTenant()">Create Tenant</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ REQUESTS ══════════════════ -->
+    <div class="page" id="page-requests">
+      <div class="page-header">
+        <div class="page-title">Requests</div>
+        <div class="page-subtitle">Captured HTTP traffic and raw request ingestion</div>
+      </div>
+
+      <div class="section-label">Filter & Browse</div>
+      <div class="filter-bar">
+        <select class="form-select" id="req-filter-method" onchange="loadRequests()" style="width:120px">
+          <option value="">All Methods</option>
+          <option value="GET">GET</option><option value="POST">POST</option>
+          <option value="PUT">PUT</option><option value="PATCH">PATCH</option>
+          <option value="DELETE">DELETE</option><option value="HEAD">HEAD</option>
+        </select>
+        <select class="form-select" id="req-filter-source" onchange="loadRequests()" style="width:130px">
+          <option value="">All Sources</option>
+          <option value="MANUAL">MANUAL</option><option value="WAYBACK">WAYBACK</option>
+        </select>
+        <select class="form-select" id="req-filter-ctype" onchange="loadRequests()" style="width:140px">
+          <option value="">All Content-Types</option>
+          <option value="JSON">JSON</option><option value="MULTIPART">MULTIPART</option>
+          <option value="FORM">FORM</option><option value="UNSUPPORTED">UNSUPPORTED</option>
+        </select>
+        <input class="form-input" id="req-filter-path" placeholder="Path filter…" oninput="loadRequests()">
+        <button class="btn btn-primary btn-sm" onclick="loadRequests()">↻</button>
+        <button class="btn btn-secondary btn-sm" onclick="openModal('modal-raw-request')">+ Add Raw</button>
+        <span class="results-count" id="req-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Method</th><th>Path</th><th>Extension</th><th>Content-Type</th><th>Source</th><th>Host</th><th>Actions</th></tr></thead>
+          <tbody id="requests-tbody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="requests-pagination"></div>
+    </div>
+
+    <!-- ══════════════════ RESPONSES ══════════════════ -->
+    <div class="page" id="page-responses">
+      <div class="page-header">
+        <div class="page-title">Responses</div>
+        <div class="page-subtitle">HTTP responses captured from requests</div>
+      </div>
+      <div class="filter-bar">
+        <input class="form-input" type="number" id="resp-filter-status" placeholder="Status code…" oninput="loadResponses()" style="width:140px">
+        <select class="form-select" id="resp-filter-ctype" onchange="loadResponses()" style="width:140px">
+          <option value="">All Content-Types</option>
+          <option value="JSON">JSON</option><option value="JS">JS</option><option value="UNSUPPORTED">UNSUPPORTED</option>
+        </select>
+        <input class="form-input" type="number" id="resp-filter-len" placeholder="Content length…" oninput="loadResponses()" style="width:150px">
+        <button class="btn btn-primary btn-sm" onclick="loadResponses()">↻</button>
+        <span class="results-count" id="resp-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Content-Type</th><th>Length</th><th>Date</th><th>Request ID</th><th>Actions</th></tr></thead>
+          <tbody id="responses-tbody"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="responses-pagination"></div>
+    </div>
+
+    <!-- ══════════════════ JOBS ══════════════════ -->
+    <div class="page" id="page-jobs">
+      <div class="page-header">
+        <div class="page-title">HTTP Jobs</div>
+        <div class="page-subtitle">Create and manage automated HTTP scan jobs</div>
+      </div>
+      <div class="split-view">
+        <div>
+          <div class="section-label">Active Jobs <span style="color:var(--text3);font-size:10px;font-weight:400">(manage queued/running jobs)</span></div>
+          <div class="card">
+            <div class="card-body">
+              <p style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:12px">Enter a job ID to manage its state:</p>
+              <!-- ENDPOINT CONFIG: Job management endpoints — path param: jobId -->
+              <div class="form-group">
+                <label class="form-label">Job ID</label>
+                <input class="form-input" id="job-id-input" type="number" placeholder="123">
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-success btn-sm" onclick="jobAction('queue', document.getElementById('job-id-input').value)">▶ Queue</button>
+                <button class="btn btn-secondary btn-sm" onclick="jobAction('pause', document.getElementById('job-id-input').value)">⏸ Pause</button>
+                <button class="btn btn-secondary btn-sm" onclick="jobAction('resume', document.getElementById('job-id-input').value)">▷ Resume</button>
+                <button class="btn btn-danger btn-sm" onclick="jobAction('cancel', document.getElementById('job-id-input').value)">✕ Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="section-label">Create New Job</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-jobs" checked onchange="updateValidation('jobs')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-jobs-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/jobs/http — body: {genericDetails:{routineId,verbosity,priority,rate,targetSelector,matchAndReplace,customConfig}, httpJobScope, narrowJobDetails:{duration,hostId,tenantId}, wideJobDetails:{programId}} -->
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Routine ID <span class="req" data-val="jobs">*</span></label>
+                  <input class="form-input" type="number" id="job-routine-id" placeholder="1" data-required="jobs">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Scope <span class="req" data-val="jobs">*</span></label>
+                  <select class="form-select" id="job-scope" data-required="jobs" onchange="toggleJobScopeFields()">
+                    <option value="">-- select --</option>
+                    <option value="NARROW">NARROW</option>
+                    <option value="WIDE">WIDE</option>
+                    <option value="GLOBAL">GLOBAL</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Verbosity</label>
+                  <select class="form-select" id="job-verbosity">
+                    <option value="SUMMARIZED">SUMMARIZED</option>
+                    <option value="VERBOSE">VERBOSE</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Priority</label>
+                  <input class="form-input" type="number" id="job-priority" placeholder="1">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Rate (req/s)</label>
+                <input class="form-input" type="number" id="job-rate" placeholder="10">
+              </div>
+              <!-- NARROW fields -->
+              <div id="job-narrow-fields" style="display:none">
+                <hr class="divider">
+                <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:8px">NARROW SCOPE DETAILS</div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Host ID</label>
+                    <input class="form-input" type="number" id="job-host-id" placeholder="1">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Tenant ID</label>
+                    <input class="form-input" type="number" id="job-tenant-id" placeholder="1">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Duration</label>
+                  <select class="form-select" id="job-duration">
+                    <option value="">-- none --</option>
+                    <option value="SHORT">SHORT</option>
+                    <option value="LONG">LONG</option>
+                  </select>
+                </div>
+              </div>
+              <!-- WIDE fields -->
+              <div id="job-wide-fields" style="display:none">
+                <hr class="divider">
+                <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:8px">WIDE SCOPE DETAILS</div>
+                <div class="form-group">
+                  <label class="form-label">Program ID</label>
+                  <input class="form-input" type="number" id="job-program-id" placeholder="1">
+                </div>
+              </div>
+              <div class="btn-group" style="margin-top:8px">
+                <button class="btn btn-primary" onclick="createJob()">Create Job</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ ROUTINES ══════════════════ -->
+    <div class="page" id="page-routines">
+      <div class="page-header">
+        <div class="page-title">Routines</div>
+        <div class="page-subtitle">Automated security scan routines</div>
+      </div>
+      <div class="split-view">
+        <div>
+          <div class="section-label">All Routines</div>
+          <div class="filter-bar">
+            <input class="form-input" id="routine-search" placeholder="Search…" oninput="loadRoutines()">
+            <button class="btn btn-primary btn-sm" onclick="loadRoutines()">↻</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Key</th><th>Overhead</th><th>Protocol</th><th>Scope</th><th>Vulnerability</th><th>Actions</th></tr></thead>
+              <tbody id="routines-tbody"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="routines-pagination"></div>
+        </div>
+        <div>
+          <div class="section-label">Create Routine</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-routines" checked onchange="updateValidation('routines')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-routines-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/routines — body: {key, description, isAvailableAtConsumer, overhead, protocol, permittedScope, vulnerabilityId} -->
+              <div class="form-group">
+                <label class="form-label">Key</label>
+                <input class="form-input" id="routine-key" placeholder="SQL Injection Scanner">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-textarea" id="routine-desc" placeholder="Describe what this routine does…" style="min-height:60px"></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Overhead</label>
+                  <select class="form-select" id="routine-overhead">
+                    <option value="">-- none --</option>
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Protocol</label>
+                  <select class="form-select" id="routine-protocol">
+                    <option value="">-- none --</option>
+                    <option value="HTTP">HTTP</option>
+                    <option value="NETWORK">NETWORK</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Permitted Scope</label>
+                  <select class="form-select" id="routine-scope">
+                    <option value="">-- none --</option>
+                    <option value="GLOBAL">GLOBAL</option>
+                    <option value="PROGRAM">PROGRAM</option>
+                    <option value="HOST">HOST</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Vulnerability ID</label>
+                  <input class="form-input" type="number" id="routine-vuln-id" placeholder="optional">
+                </div>
+              </div>
+              <div class="form-group" style="display:flex;align-items:center;gap:8px">
+                <label class="toggle" style="flex-shrink:0"><input type="checkbox" id="routine-available"><span class="toggle-slider"></span></label>
+                <span style="font-size:12px;color:var(--text2)">Available at Consumer</span>
+              </div>
+              <div class="btn-group" style="margin-top:4px">
+                <button class="btn btn-primary" onclick="createRoutine()">Create Routine</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ VULNERABILITIES ══════════════════ -->
+    <div class="page" id="page-vulnerabilities">
+      <div class="page-header">
+        <div class="page-title">Vulnerabilities</div>
+        <div class="page-subtitle">Vulnerability taxonomy tree</div>
+      </div>
+      <div class="split-view">
+        <div>
+          <div class="section-label">All Vulnerabilities</div>
+          <div class="filter-bar">
+            <input class="form-input" id="vuln-search" placeholder="Search…" oninput="loadVulnerabilities()">
+            <button class="btn btn-primary btn-sm" onclick="loadVulnerabilities()">↻</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Parent</th><th>Actions</th></tr></thead>
+              <tbody id="vulnerabilities-tbody"><tr class="empty-row"><td colspan="3">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="vulnerabilities-pagination"></div>
+        </div>
+        <div>
+          <div class="section-label">Create Vulnerability</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-vulnerabilities" checked onchange="updateValidation('vulnerabilities')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-vulnerabilities-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/vulnerabilities — body: {name, parentId} -->
+              <div class="form-group">
+                <label class="form-label">Name <span class="req" data-val="vulnerabilities">*</span></label>
+                <input class="form-input" id="vuln-name" placeholder="SQL Injection" data-required="vulnerabilities">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Parent ID <span class="opt">(optional)</span></label>
+                <input class="form-input" type="number" id="vuln-parent-id" placeholder="leave blank for root">
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-primary" onclick="createVulnerability()">Create</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ WORDLISTS ══════════════════ -->
+    <div class="page" id="page-wordlists">
+      <div class="page-header">
+        <div class="page-title">Wordlists</div>
+        <div class="page-subtitle">Fuzzing wordlists associated with vulnerabilities</div>
+      </div>
+      <div class="split-view">
+        <div>
+          <div class="section-label">All Wordlists</div>
+          <div class="filter-bar">
+            <input class="form-input" id="wl-search" placeholder="Search…" oninput="loadWordlists()">
+            <button class="btn btn-primary btn-sm" onclick="loadWordlists()">↻</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Path</th><th>Lines</th><th>Vulnerabilities</th><th>Actions</th></tr></thead>
+              <tbody id="wordlists-tbody"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="wordlists-pagination"></div>
+        </div>
+        <div>
+          <div class="section-label">Create Wordlist</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-wordlists" checked onchange="updateValidation('wordlists')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-wordlists-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/wordlists — body: {path, name, numberOfLines} -->
+              <div class="form-group">
+                <label class="form-label">Path <span class="opt">(optional)</span></label>
+                <input class="form-input" id="wl-path" placeholder="/usr/share/wordlists/sqli.txt">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Name <span class="opt">(optional)</span></label>
+                <input class="form-input" id="wl-name" placeholder="SQL Injection Payloads">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Number of Lines <span class="opt">(optional)</span></label>
+                <input class="form-input" type="number" id="wl-lines" placeholder="1000">
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-primary" onclick="createWordlist()">Create Wordlist</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ MODIFIERS ══════════════════ -->
+    <div class="page" id="page-modifiers">
+      <div class="page-header">
+        <div class="page-title">Modifiers</div>
+        <div class="page-subtitle">Request modification rules</div>
+      </div>
+      <div class="split-view">
+        <div>
+          <div class="section-label">All Modifiers</div>
+          <div class="filter-bar">
+            <select class="form-select" id="mod-filter-target" onchange="loadModifiers()" style="width:140px">
+              <option value="">All Targets</option>
+              <option value="METHOD">METHOD</option><option value="PATH">PATH</option>
+              <option value="QUERYSTRING">QUERYSTRING</option><option value="BODY">BODY</option>
+            </select>
+            <select class="form-select" id="mod-filter-schema" onchange="loadModifiers()" style="width:130px">
+              <option value="">All Schemas</option>
+              <option value="REST">REST</option><option value="GRAPHQL">GRAPHQL</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="loadModifiers()">↻</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Target</th><th>Schema</th><th>Priority</th><th>Available</th><th>Description</th><th>Actions</th></tr></thead>
+              <tbody id="modifiers-tbody"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="modifiers-pagination"></div>
+        </div>
+        <div>
+          <div class="section-label">Create Modifier</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-modifiers" checked onchange="updateValidation('modifiers')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-modifiers-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/modifiers — body: {target, description, priority, schema, available} -->
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Target <span class="opt">(optional)</span></label>
+                  <select class="form-select" id="mod-target">
+                    <option value="">-- none --</option>
+                    <option value="METHOD">METHOD</option>
+                    <option value="PATH">PATH</option>
+                    <option value="QUERYSTRING">QUERYSTRING</option>
+                    <option value="BODY">BODY</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Schema <span class="opt">(optional)</span></label>
+                  <select class="form-select" id="mod-schema">
+                    <option value="">-- none --</option>
+                    <option value="REST">REST</option>
+                    <option value="GRAPHQL">GRAPHQL</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Priority <span class="opt">(optional)</span></label>
+                  <input class="form-input" type="number" id="mod-priority" placeholder="1">
+                </div>
+                <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:2px">
+                  <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);cursor:pointer">
+                    <label class="toggle"><input type="checkbox" id="mod-available" checked><span class="toggle-slider"></span></label>
+                    Available
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Description <span class="opt">(optional)</span></label>
+                <textarea class="form-textarea" id="mod-desc" placeholder="Describe what this modifier does…" style="min-height:60px"></textarea>
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-primary" onclick="createModifier()">Create Modifier</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ COMPARATORS ══════════════════ -->
+    <div class="page" id="page-comparators">
+      <div class="page-header">
+        <div class="page-title">Comparators</div>
+        <div class="page-subtitle">Request comparison configurations with modifiers</div>
+      </div>
+      <div class="split-view">
+        <div>
+          <div class="section-label">All Comparators</div>
+          <div class="filter-bar">
+            <select class="form-select" id="comp-filter-schema" onchange="loadComparators()" style="width:130px">
+              <option value="">All Schemas</option>
+              <option value="REST">REST</option><option value="GRAPHQL">GRAPHQL</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="loadComparators()">↻</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Schema</th><th>Program</th><th>Host</th><th>Modifiers</th><th>Actions</th></tr></thead>
+              <tbody id="comparators-tbody"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination" id="comparators-pagination"></div>
+        </div>
+        <div>
+          <div class="section-label">Create Comparator</div>
+          <div class="card">
+            <div class="card-body">
+              <div class="validation-row">
+                <span class="validation-label">Client-side validation</span>
+                <div class="toggle-wrap">
+                  <label class="toggle"><input type="checkbox" id="val-comparators" checked onchange="updateValidation('comparators')"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" id="val-comparators-txt">ON</span>
+                </div>
+              </div>
+              <!-- ENDPOINT CONFIG: POST /api/comparators — body: {name, schema, modifiers:[], program:{id}, host:{id}} -->
+              <div class="form-group">
+                <label class="form-label">Name <span class="opt">(optional)</span></label>
+                <input class="form-input" id="comp-name" placeholder="REST Baseline Comparator">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Schema <span class="opt">(optional)</span></label>
+                  <select class="form-select" id="comp-schema">
+                    <option value="">-- none --</option>
+                    <option value="REST">REST</option>
+                    <option value="GRAPHQL">GRAPHQL</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Program ID <span class="opt">(optional)</span></label>
+                  <input class="form-input" type="number" id="comp-program-id" placeholder="">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Host ID <span class="opt">(optional)</span></label>
+                <input class="form-input" type="number" id="comp-host-id" placeholder="">
+              </div>
+              <div class="btn-group">
+                <button class="btn btn-primary" onclick="createComparator()">Create Comparator</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- ══════════════════ SIDE PANEL (Request Log) ══════════════════ -->
+  <div class="side-panel" id="side-panel">
+    <div class="panel-header">
+      <span class="panel-title" id="panel-title">⚡ REQUEST LOG</span>
+      <div class="panel-actions">
+        <button class="btn btn-secondary btn-xs" onclick="clearLog()" title="Clear log">✕ Clear</button>
+        <button class="btn btn-secondary btn-xs" onclick="togglePanel()" title="Collapse">◀</button>
+      </div>
+    </div>
+    <div class="panel-body" id="log-body">
+      <div class="panel-empty" id="log-empty">No requests yet.<br>Start interacting with the app.</div>
+    </div>
+  </div>
+
+</div><!-- /layout -->
+
+<!-- ══════════════════ MODALS ══════════════════ -->
+
+<!-- Raw Request Modal -->
+<div class="modal-overlay" id="modal-raw-request">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Add Raw Request</span>
+      <button class="modal-close" onclick="closeModal('modal-raw-request')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="validation-row">
+        <span class="validation-label">Client-side validation</span>
+        <div class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" id="val-rawreq" checked onchange="updateValidation('rawreq')"><span class="toggle-slider"></span></label>
+          <span class="toggle-text" id="val-rawreq-txt">ON</span>
+        </div>
+      </div>
+      <!-- ENDPOINT CONFIG: POST /api/requests/raw — body: {requestBase64, source, hostId, tenantId, responseBase64} -->
+      <div class="form-group">
+        <label class="form-label">Request (Base64) <span class="req" data-val="rawreq">*</span></label>
+        <textarea class="form-textarea" id="raw-req-b64" placeholder="Base64 encoded raw HTTP request…" data-required="rawreq" style="min-height:100px;font-family:var(--mono);font-size:11px"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Source <span class="opt">(optional)</span></label>
+          <select class="form-select" id="raw-req-source">
+            <option value="">-- none --</option>
+            <option value="MANUAL">MANUAL</option>
+            <option value="WAYBACK">WAYBACK</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Host ID <span class="opt">(optional)</span></label>
+          <input class="form-input" type="number" id="raw-req-host-id" placeholder="">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tenant ID <span class="opt">(optional)</span></label>
+          <input class="form-input" type="number" id="raw-req-tenant-id" placeholder="">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Response (Base64) <span class="opt">(optional)</span></label>
+          <input class="form-input" id="raw-req-resp-b64" placeholder="optional response">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-raw-request')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitRawRequest()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Authentication Modal -->
+<div class="modal-overlay" id="modal-auth">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Manage Authentication</span>
+      <button class="modal-close" onclick="closeModal('modal-auth')">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="auth-tenant-info" style="margin-bottom:16px;font-size:11px;color:var(--text2);font-family:var(--mono)"></div>
+      <div class="section-label">Create Authentication</div>
+      <div class="validation-row">
+        <span class="validation-label">Client-side validation</span>
+        <div class="toggle-wrap">
+          <label class="toggle"><input type="checkbox" id="val-auth" checked onchange="updateValidation('auth')"><span class="toggle-slider"></span></label>
+          <span class="toggle-text" id="val-auth-txt">ON</span>
+        </div>
+      </div>
+      <!-- ENDPOINT CONFIG: POST /api/tenants/{tenantId}/authentications — body: {authData:{data:{headers:[],cookies:[],queryParameters:[]}, lifeTimeInSeconds, populatedAt}, isDynamicPopulationAvailable, code:{code}} -->
+      <div class="form-group" style="display:flex;align-items:center;gap:8px">
+        <label class="toggle"><input type="checkbox" id="auth-dynamic"><span class="toggle-slider"></span></label>
+        <span style="font-size:12px;color:var(--text2)">Dynamic Population Available</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dynamic Code <span class="opt">(optional)</span></label>
+        <textarea class="form-textarea" id="auth-code" placeholder="JavaScript code for dynamic auth population…" style="min-height:60px"></textarea>
+      </div>
+      <div style="margin-top:8px">
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px">Headers</div>
+        <div class="pair-list" id="auth-headers"></div>
+        <button class="btn btn-secondary btn-sm add-pair-btn" onclick="addPair('auth-headers')">+ Add Header</button>
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px">Cookies</div>
+        <div class="pair-list" id="auth-cookies"></div>
+        <button class="btn btn-secondary btn-sm add-pair-btn" onclick="addPair('auth-cookies')">+ Add Cookie</button>
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:11px;color:var(--text2);font-family:var(--mono);margin-bottom:8px">Query Parameters</div>
+        <div class="pair-list" id="auth-queryparams"></div>
+        <button class="btn btn-secondary btn-sm add-pair-btn" onclick="addPair('auth-queryparams')">+ Add Param</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-auth')">Close</button>
+      <button class="btn btn-primary" onclick="createAuthentication()">Create Auth</button>
+    </div>
+  </div>
+</div>
+
+<!-- Equalize Modal -->
+<div class="modal-overlay" id="modal-equalize">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Equalize Requests</span>
+      <button class="modal-close" onclick="closeModal('modal-equalize')">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- ENDPOINT CONFIG: POST /api/requests/equalize — query params: {hostId, requestsIds:[], comparatorId} -->
+      <div class="form-group">
+        <label class="form-label">Host ID</label>
+        <input class="form-input" type="number" id="eq-host-id" placeholder="">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Comparator ID</label>
+        <input class="form-input" type="number" id="eq-comparator-id" placeholder="">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Request IDs <span class="opt">(comma-separated)</span></label>
+        <input class="form-input" id="eq-request-ids" placeholder="1,2,3,4">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-equalize')">Cancel</button>
+      <button class="btn btn-primary" onclick="equalizeRequests()">Equalize</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal" style="width:600px">
+    <div class="modal-header">
+      <span class="modal-title" id="detail-title">Details</span>
+      <button class="modal-close" onclick="closeModal('modal-detail')">×</button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-detail')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CORE API CLIENT
+// ═══════════════════════════════════════════════════
+const requestLog = [];
+let panelCollapsed = false;
+const paginations = {};
+
+function baseUrl() {
+  return document.getElementById('baseUrl').value.replace(/\/$/, '');
+}
+
+async function api(method, path, body = null, queryParams = null) {
+  let url = baseUrl() + path;
+  if (queryParams) {
+    const params = new URLSearchParams();
+    Object.entries(queryParams).forEach(([k, v]) => {
+      if (v !== null && v !== undefined && v !== '') {
+        if (Array.isArray(v)) v.forEach(i => params.append(k, i));
+        else params.append(k, v);
+      }
+    });
+    const qs = params.toString();
+    if (qs) url += '?' + qs;
+  }
+
+  const entry = { method, path: path + (queryParams ? '?…' : ''), status: null, pending: true, ts: Date.now() };
+  requestLog.unshift(entry);
+  updateLog();
+
+  const opts = { method, headers: {} };
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+
+  try {
+    const res = await fetch(url, opts);
+    entry.pending = false;
+    entry.status = res.status;
+    updateLog();
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try { const e = await res.json(); msg = e.message || JSON.stringify(e); } catch {}
+      toast(msg, 'error');
+      return null;
+    }
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) return await res.json();
+    return true;
+  } catch (e) {
+    entry.pending = false;
+    entry.status = 'ERR';
+    updateLog();
+    toast('Network error: ' + e.message, 'error');
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// REQUEST LOG PANEL
+// ═══════════════════════════════════════════════════
+function updateLog() {
+  document.getElementById('logCount').textContent = requestLog.length;
+  const body = document.getElementById('log-body');
+  const empty = document.getElementById('log-empty');
+  if (requestLog.length === 0) { empty.style.display = ''; body.querySelectorAll('.log-item').forEach(el => el.remove()); return; }
+  empty.style.display = 'none';
+
+  // Rebuild
+  const existing = body.querySelectorAll('.log-item');
+  existing.forEach(el => el.remove());
+
+  requestLog.slice(0, 200).forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'log-item';
+    const methodColor = {GET:'#3fb950',POST:'#58a6ff',PUT:'#d29922',PATCH:'#bc8cff',DELETE:'#f85149',HEAD:'#39d353'}[entry.method] || '#768390';
+    let statusHtml = '';
+    if (entry.pending) {
+      statusHtml = `<span class="log-pending">···</span>`;
+    } else {
+      const sc = entry.status;
+      const cls = sc === 'ERR' ? 'status-err' : sc >= 500 ? 'status-5xx' : sc >= 400 ? 'status-4xx' : sc >= 300 ? 'status-3xx' : 'status-2xx';
+      statusHtml = `<span class="log-status ${cls}">${sc}</span>`;
+    }
+    item.innerHTML = `
+      <span class="log-method" style="color:${methodColor}">${entry.method}</span>
+      <span class="log-path" title="${entry.path}">${entry.path}</span>
+      ${statusHtml}
+    `;
+    body.appendChild(item);
+  });
+}
+
+function clearLog() {
+  requestLog.length = 0;
+  updateLog();
+}
+
+function togglePanel() {
+  panelCollapsed = !panelCollapsed;
+  const panel = document.getElementById('side-panel');
+  const title = document.getElementById('panel-title');
+  panel.classList.toggle('collapsed', panelCollapsed);
+  title.style.opacity = panelCollapsed ? '0' : '1';
+}
+
+// ═══════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════
+function navigate(page) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
+  document.getElementById('page-' + page)?.classList.add('active');
+  loadPage(page);
+}
+
+function loadPage(page) {
+  const loaders = {
+    programs: loadPrograms,
+    hosts: () => { loadProgramSelects(); loadHosts(); },
+    tenants: () => { loadHostSelects(); loadTenants(); },
+    requests: loadRequests,
+    responses: loadResponses,
+    jobs: () => {},
+    routines: loadRoutines,
+    vulnerabilities: loadVulnerabilities,
+    wordlists: loadWordlists,
+    modifiers: loadModifiers,
+    comparators: loadComparators,
+  };
+  loaders[page]?.();
+}
+
+// ═══════════════════════════════════════════════════
+// VALIDATION TOGGLE
+// ═══════════════════════════════════════════════════
+function updateValidation(formKey) {
+  const on = document.getElementById('val-' + formKey)?.checked;
+  document.getElementById('val-' + formKey + '-txt').textContent = on ? 'ON' : 'OFF';
+  // Update visual indicators
+  document.querySelectorAll(`[data-val="${formKey}"]`).forEach(el => {
+    el.style.display = on ? '' : 'none';
+  });
+}
+
+function isValidationOn(formKey) {
+  return document.getElementById('val-' + formKey)?.checked !== false;
+}
+
+function validateForm(fields, formKey) {
+  if (!isValidationOn(formKey)) return true;
+  let valid = true;
+  fields.forEach(({ el, required }) => {
+    const input = typeof el === 'string' ? document.getElementById(el) : el;
+    if (!input) return;
+    input.classList.remove('invalid');
+    if (required && !input.value.trim()) {
+      input.classList.add('invalid');
+      valid = false;
+    }
+  });
+  if (!valid) toast('Please fill in required fields', 'error');
+  return valid;
+}
+
+// ═══════════════════════════════════════════════════
+// MODALS & TOASTS
+// ═══════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span> ${msg}`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.animation = 'slideOut 0.3s ease forwards'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+// ═══════════════════════════════════════════════════
+// PAGINATION HELPER
+// ═══════════════════════════════════════════════════
+function buildPagination(containerId, totalPages, currentPage, onPageChange) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+  let html = `<button class="page-btn" onclick="(${onPageChange.toString()})(${currentPage - 1})" ${currentPage === 0 ? 'disabled' : ''}>‹</button>`;
+  const start = Math.max(0, currentPage - 2);
+  const end = Math.min(totalPages - 1, currentPage + 2);
+  for (let i = start; i <= end; i++) {
+    html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="(${onPageChange.toString()})(${i})">${i + 1}</button>`;
+  }
+  html += `<button class="page-btn" onclick="(${onPageChange.toString()})(${currentPage + 1})" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>›</button>`;
+  html += `<span class="page-info">Page ${currentPage + 1} of ${totalPages}</span>`;
+  el.innerHTML = html;
+}
+
+function pageable(page = 0, size = 20) {
+  return { page, size };
+}
+
+// ═══════════════════════════════════════════════════
+// PROGRAMS
+// ═══════════════════════════════════════════════════
+let programsPage = 0;
+async function loadPrograms(page = 0) {
+  programsPage = page;
+  const query = document.getElementById('prog-search')?.value || '';
+  // ENDPOINT: GET /api/programs?query=&page=&size=
+  const data = await api('GET', '/api/programs', null, { query, ...pageable(page) });
+  const tbody = document.getElementById('programs-tbody');
+  if (!data || !data.content?.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="4">No programs found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.content.map(p => `
+    <tr>
+      <td><strong>${p.name || '—'}</strong>${p.link ? `<br><span style="font-size:10px;color:var(--text3)">${p.link}</span>` : ''}</td>
+      <td>${p.platform ? `<span class="badge platform-${p.platform}">${p.platform}</span>` : '—'}</td>
+      <td>${p.programRateLimit ?? '—'}</td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Program', ${JSON.stringify(p).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('program', ${p.id}, loadPrograms)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('programs-pagination', data.totalPages, page, (p) => loadPrograms(p));
+}
+
+async function createProgram() {
+  const name = document.getElementById('prog-name').value;
+  if (!validateForm([{el:'prog-name',required:true}], 'programs')) return;
+  // ENDPOINT: POST /api/programs — body properties: name(string), link(string|null), programRateLimit(int|null), platform(enum|null), outOfScopeVulns(array|null)
+  const body = { name };
+  const link = document.getElementById('prog-link').value;
+  const platform = document.getElementById('prog-platform').value;
+  const rate = document.getElementById('prog-rate').value;
+  if (link) body.link = link;
+  if (platform) body.platform = platform;
+  if (rate) body.programRateLimit = parseInt(rate);
+  const res = await api('POST', '/api/programs', body);
+  if (res) { toast('Program created', 'success'); loadPrograms(); ['prog-name','prog-link','prog-rate'].forEach(id => document.getElementById(id).value = ''); document.getElementById('prog-platform').value = ''; }
+}
+
+// ═══════════════════════════════════════════════════
+// HOSTS
+// ═══════════════════════════════════════════════════
+let hostsPage = 0;
+async function loadProgramSelects() {
+  // ENDPOINT: GET /api/programs
+  const data = await api('GET', '/api/programs', null, { ...pageable(0, 100) });
+  if (!data) return;
+  const programs = data.content || [];
+  ['host-prog-filter','host-program-id','comp-program-id'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = el.value;
+    el.innerHTML = (id === 'host-prog-filter' ? '<option value="">All Programs</option>' : '<option value="">-- select --</option>') +
+      programs.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    el.value = current;
+  });
+}
+
+async function loadHosts(page = 0) {
+  hostsPage = page;
+  const query = document.getElementById('host-search')?.value || '';
+  const programId = document.getElementById('host-prog-filter')?.value;
+  if (!programId) { document.getElementById('hosts-tbody').innerHTML = '<tr class="empty-row"><td colspan="5">Select a program to filter hosts</td></tr>'; return; }
+  // ENDPOINT: GET /api/hosts?query=&programId=&page=&size=
+  const data = await api('GET', '/api/hosts', null, { query, programId, ...pageable(page) });
+  const tbody = document.getElementById('hosts-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No hosts found</td></tr>'; return; }
+  tbody.innerHTML = data.content.map(h => `
+    <tr>
+      <td><span style="font-family:var(--mono)">${h.host}</span></td>
+      <td><span class="scope-chip scope-${h.scope}">${h.scope}</span></td>
+      <td>${h.program?.name || '—'}</td>
+      <td><span style="font-size:10px;color:var(--text2)">${h.hostRateLimit ?? '—'} / ${h.shortRateLimit ?? '—'} / ${h.longRateLimit ?? '—'}</span></td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Host', ${JSON.stringify(h).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('host', ${h.id}, loadHosts)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('hosts-pagination', data.totalPages, page, (p) => loadHosts(p));
+}
+
+async function createHost() {
+  if (!validateForm([{el:'host-host',required:true},{el:'host-scope',required:true},{el:'host-program-id',required:true}], 'hosts')) return;
+  // ENDPOINT: POST /api/hosts — body properties: host(string*required), scope(enum*required: WILDCARD/FQDN), level(int, default 0), hostRateLimit(int|null), shortRateLimit(int|null), longRateLimit(int|null), programId(int*required)
+  const levelVal = document.getElementById('host-level').value;
+  const body = {
+    host: document.getElementById('host-host').value,
+    scope: document.getElementById('host-scope').value,
+    programId: parseInt(document.getElementById('host-program-id').value),
+    level: levelVal !== '' ? parseInt(levelVal) : 0,
+  };
+  const rl = document.getElementById('host-rl').value;
+  const srl = document.getElementById('host-srl').value;
+  const lrl = document.getElementById('host-lrl').value;
+  if (rl) body.hostRateLimit = parseInt(rl);
+  if (srl) body.shortRateLimit = parseInt(srl);
+  if (lrl) body.longRateLimit = parseInt(lrl);
+  const res = await api('POST', '/api/hosts', body);
+  if (res) { toast('Host added', 'success'); ['host-host','host-rl','host-srl','host-lrl'].forEach(id => document.getElementById(id).value = ''); document.getElementById('host-level').value = '0'; document.getElementById('host-scope').value = ''; loadHosts(); }
+}
+
+// ═══════════════════════════════════════════════════
+// TENANTS
+// ═══════════════════════════════════════════════════
+let tenantsPage = 0; let currentAuthTenantId = null;
+
+async function loadHostSelects() {
+  // We need hosts but they require programId; load all programs then hosts lazily
+  const progData = await api('GET', '/api/programs', null, { ...pageable(0, 100) });
+  if (!progData?.content?.length) return;
+  // load hosts from first program for select
+  const allHosts = [];
+  for (const prog of progData.content.slice(0,5)) {
+    const hData = await api('GET', '/api/hosts', null, { programId: prog.id, ...pageable(0, 100) });
+    if (hData?.content) allHosts.push(...hData.content);
+  }
+  ['tenant-host-filter','tenant-host-id'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const blank = id === 'tenant-host-filter' ? '<option value="">-- Select Host --</option>' : '<option value="">-- select host --</option>';
+    el.innerHTML = blank + allHosts.map(h => `<option value="${h.id}">${h.host}</option>`).join('');
+  });
+}
+
+async function loadTenants(page = 0) {
+  tenantsPage = page;
+  const hostId = document.getElementById('tenant-host-filter')?.value;
+  if (!hostId) { document.getElementById('tenants-tbody').innerHTML = '<tr class="empty-row"><td colspan="5">Select a host</td></tr>'; return; }
+  // ENDPOINT: GET /api/tenants?hostId=&page=&size=
+  const data = await api('GET', '/api/tenants', null, { hostId, ...pageable(page) });
+  const tbody = document.getElementById('tenants-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No tenants found</td></tr>'; return; }
+  tbody.innerHTML = data.content.map(t => `
+    <tr>
+      <td>${t.name || '—'}</td>
+      <td>${t.email || '—'}</td>
+      <td style="font-size:10px;color:var(--text2)">${t.creationDate || '—'}</td>
+      <td><button class="btn btn-secondary btn-xs" onclick="openAuthModal(${t.id})">Auth ›</button></td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Tenant', ${JSON.stringify(t).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('tenant', ${t.id}, loadTenants)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('tenants-pagination', data.totalPages, page, (p) => loadTenants(p));
+}
+
+async function createTenant() {
+  if (!validateForm([{el:'tenant-host-id',required:true}], 'tenants')) return;
+  // ENDPOINT: POST /api/tenants — body properties: name(string|null), email(string|null), hostId(int*required)
+  const body = { hostId: parseInt(document.getElementById('tenant-host-id').value) };
+  const name = document.getElementById('tenant-name').value;
+  const email = document.getElementById('tenant-email').value;
+  if (name) body.name = name;
+  if (email) body.email = email;
+  const res = await api('POST', '/api/tenants', body);
+  if (res) { toast('Tenant created', 'success'); ['tenant-name','tenant-email'].forEach(id => document.getElementById(id).value = ''); loadTenants(); }
+}
+
+function openAuthModal(tenantId) {
+  currentAuthTenantId = tenantId;
+  document.getElementById('auth-tenant-info').textContent = `Tenant ID: ${tenantId}`;
+  ['auth-headers','auth-cookies','auth-queryparams'].forEach(id => document.getElementById(id).innerHTML = '');
+  openModal('modal-auth');
+}
+
+async function createAuthentication() {
+  if (!currentAuthTenantId) return;
+  // ENDPOINT: POST /api/tenants/{tenantId}/authentications — body properties: authData:{data:{headers:[{name,value}], cookies:[{name,value}], queryParameters:[{name,value}]}, lifeTimeInSeconds(datetime|null), populatedAt(datetime|null)}, isDynamicPopulationAvailable(bool|null), code:{code(string)}(optional)
+  const headers = getPairs('auth-headers');
+  const cookies = getPairs('auth-cookies');
+  const queryParameters = getPairs('auth-queryparams');
+  const code = document.getElementById('auth-code').value;
+  const body = {
+    authData: { data: { headers, cookies, queryParameters } },
+    isDynamicPopulationAvailable: document.getElementById('auth-dynamic').checked,
+  };
+  if (code) body.code = { code };
+  const res = await api('POST', `/api/tenants/${currentAuthTenantId}/authentications`, body);
+  if (res) { toast('Authentication created', 'success'); closeModal('modal-auth'); }
+}
+
+// ═══════════════════════════════════════════════════
+// REQUESTS
+// ═══════════════════════════════════════════════════
+let requestsPage = 0;
+async function loadRequests(page = 0) {
+  requestsPage = page;
+  // ENDPOINT: GET /api/requests — query: filter.hostId, filter.programId, filter.tenantId, filter.source, filter.method, filter.computatedPath, filter.extension, filter.contentType
+  const filter = {};
+  const method = document.getElementById('req-filter-method')?.value;
+  const source = document.getElementById('req-filter-source')?.value;
+  const ctype = document.getElementById('req-filter-ctype')?.value;
+  const path = document.getElementById('req-filter-path')?.value;
+  if (method) filter['filter.method'] = method;
+  if (source) filter['filter.source'] = source;
+  if (ctype) filter['filter.contentType'] = ctype;
+  if (path) filter['filter.computatedPath'] = path;
+  const data = await api('GET', '/api/requests', null, { ...filter, ...pageable(page) });
+  const tbody = document.getElementById('requests-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No requests found</td></tr>'; document.getElementById('req-count').textContent = ''; return; }
+  document.getElementById('req-count').textContent = `${data.totalElements} total`;
+  tbody.innerHTML = data.content.map(r => `
+    <tr>
+      <td><span class="method-badge method-${r.method}">${r.method}</span></td>
+      <td style="font-family:var(--mono);font-size:11px;max-width:200px" class="truncate" title="${r.computatedPath||''}">${r.computatedPath || '—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.extension || '—'}</td>
+      <td>${r.contentType ? `<span class="badge badge-gray">${r.contentType}</span>` : '—'}</td>
+      <td>${r.source ? `<span class="badge ${r.source==='MANUAL'?'badge-blue':'badge-gray'}">${r.source}</span>` : '—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.hostId ? `#${r.hostId}` : '—'}</td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Request', ${JSON.stringify(r).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('request', ${r.responseId}, loadRequests)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('requests-pagination', data.totalPages, page, (p) => loadRequests(p));
+}
+
+async function submitRawRequest() {
+  const b64 = document.getElementById('raw-req-b64').value;
+  if (!validateForm([{el:'raw-req-b64',required:true}], 'rawreq')) return;
+  // ENDPOINT: POST /api/requests/raw — body properties: requestBase64(string*required), source(enum|null: MANUAL/WAYBACK), hostId(int|null), tenantId(int|null), responseBase64(string|null)
+  const body = { requestBase64: b64 };
+  const src = document.getElementById('raw-req-source').value;
+  const hid = document.getElementById('raw-req-host-id').value;
+  const tid = document.getElementById('raw-req-tenant-id').value;
+  const rb64 = document.getElementById('raw-req-resp-b64').value;
+  if (src) body.source = src;
+  if (hid) body.hostId = parseInt(hid);
+  if (tid) body.tenantId = parseInt(tid);
+  if (rb64) body.responseBase64 = rb64;
+  const res = await api('POST', '/api/requests/raw', body);
+  if (res) { toast('Raw request submitted', 'success'); closeModal('modal-raw-request'); loadRequests(); }
+}
+
+async function equalizeRequests() {
+  // ENDPOINT: POST /api/requests/equalize — query params: hostId(int), requestsIds(array<int>), comparatorId(int)
+  const hostId = document.getElementById('eq-host-id').value;
+  const comparatorId = document.getElementById('eq-comparator-id').value;
+  const ids = document.getElementById('eq-request-ids').value.split(',').map(s => parseInt(s.trim())).filter(Boolean);
+  const params = {};
+  if (hostId) params.hostId = hostId;
+  if (comparatorId) params.comparatorId = comparatorId;
+  if (ids.length) params.requestsIds = ids;
+  const res = await api('POST', '/api/requests/equalize', null, params);
+  if (res !== null) { toast('Equalization triggered', 'success'); closeModal('modal-equalize'); }
+}
+
+// ═══════════════════════════════════════════════════
+// RESPONSES
+// ═══════════════════════════════════════════════════
+let responsesPage = 0;
+async function loadResponses(page = 0) {
+  responsesPage = page;
+  // ENDPOINT: GET /api/responses — query: filter.statusCode, filter.contentType, filter.contentLength, filter.hostId
+  const filter = {};
+  const sc = document.getElementById('resp-filter-status')?.value;
+  const ct = document.getElementById('resp-filter-ctype')?.value;
+  const len = document.getElementById('resp-filter-len')?.value;
+  if (sc) filter['filter.statusCode'] = sc;
+  if (ct) filter['filter.contentType'] = ct;
+  if (len) filter['filter.contentLength'] = len;
+  const data = await api('GET', '/api/responses', null, { ...filter, ...pageable(page) });
+  const tbody = document.getElementById('responses-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No responses found</td></tr>'; document.getElementById('resp-count').textContent = ''; return; }
+  document.getElementById('resp-count').textContent = `${data.totalElements} total`;
+  tbody.innerHTML = data.content.map(r => {
+    const sc2 = r.statusCode;
+    const cls = sc2 >= 500 ? 'status-5xx' : sc2 >= 400 ? 'status-4xx' : sc2 >= 300 ? 'status-3xx' : 'status-2xx';
+    return `
+      <tr>
+        <td><span class="status-code ${cls}">${r.statusCode}</span></td>
+        <td>${r.contentType ? `<span class="badge badge-gray">${r.contentType}</span>` : '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px">${r.contentLength ?? '—'}</td>
+        <td style="font-size:11px;color:var(--text2)">${r.insertionDate || '—'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--text2)">${r.requestId ? `#${r.requestId}` : '—'}</td>
+        <td>
+          <div class="flex gap-8">
+            <button class="btn btn-secondary btn-xs" onclick="showDetail('Response', ${JSON.stringify(r).replace(/"/g,'&quot;')})">View</button>
+            <button class="btn btn-danger btn-xs" onclick="deleteItem('response', ${r.requestId}, loadResponses)">Del</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+  buildPagination('responses-pagination', data.totalPages, page, (p) => loadResponses(p));
+}
+
+// ═══════════════════════════════════════════════════
+// JOBS
+// ═══════════════════════════════════════════════════
+function toggleJobScopeFields() {
+  const scope = document.getElementById('job-scope').value;
+  document.getElementById('job-narrow-fields').style.display = scope === 'NARROW' ? '' : 'none';
+  document.getElementById('job-wide-fields').style.display = scope === 'WIDE' ? '' : 'none';
+}
+
+async function createJob() {
+  if (!validateForm([{el:'job-routine-id',required:true},{el:'job-scope',required:true}], 'jobs')) return;
+  const scope = document.getElementById('job-scope').value;
+  // ENDPOINT: POST /api/jobs/http — body properties: genericDetails:{verbosity(enum), priority(int), rate(int), routineId(int*required), targetSelector:{selectorType,selector}, matchAndReplace, customConfig}, httpJobScope(enum*required: NARROW/WIDE/GLOBAL), narrowJobDetails:{duration(enum), hostId(int), tenantId(int)}, wideJobDetails:{programId(int)}, globalJobDetails:{}
+  const body = {
+    httpJobScope: scope,
+    genericDetails: {
+      routineId: parseInt(document.getElementById('job-routine-id').value),
+      verbosity: document.getElementById('job-verbosity').value,
+    }
+  };
+  const priority = document.getElementById('job-priority').value;
+  const rate = document.getElementById('job-rate').value;
+  if (priority) body.genericDetails.priority = parseInt(priority);
+  if (rate) body.genericDetails.rate = parseInt(rate);
+
+  if (scope === 'NARROW') {
+    body.narrowJobDetails = {};
+    const dur = document.getElementById('job-duration').value;
+    const hid = document.getElementById('job-host-id').value;
+    const tid = document.getElementById('job-tenant-id').value;
+    if (dur) body.narrowJobDetails.duration = dur;
+    if (hid) body.narrowJobDetails.hostId = parseInt(hid);
+    if (tid) body.narrowJobDetails.tenantId = parseInt(tid);
+  } else if (scope === 'WIDE') {
+    body.wideJobDetails = {};
+    const pid = document.getElementById('job-program-id').value;
+    if (pid) body.wideJobDetails.programId = parseInt(pid);
+  } else if (scope === 'GLOBAL') {
+    body.globalJobDetails = {};
+  }
+
+  const res = await api('POST', '/api/jobs/http', body);
+  if (res !== null) toast('Job created', 'success');
+}
+
+async function jobAction(action, jobId) {
+  if (!jobId) { toast('Enter a job ID', 'error'); return; }
+  // ENDPOINTS: POST /api/jobs/http/{id}/queue|pause|resume|cancel
+  const endpointMap = { queue: 'queue', pause: 'pause', resume: 'resume', cancel: 'cancel' };
+  const res = await api('POST', `/api/jobs/http/${jobId}/${endpointMap[action]}`);
+  if (res !== null) toast(`Job ${action}d`, 'success');
+}
+
+// ═══════════════════════════════════════════════════
+// ROUTINES
+// ═══════════════════════════════════════════════════
+let routinesPage = 0;
+async function loadRoutines(page = 0) {
+  routinesPage = page;
+  const query = document.getElementById('routine-search')?.value || '';
+  // ENDPOINT: GET /api/routines?query=&vulnId=&page=&size=
+  const data = await api('GET', '/api/routines', null, { query, ...pageable(page) });
+  const tbody = document.getElementById('routines-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No routines found</td></tr>'; return; }
+  tbody.innerHTML = data.content.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:11px">${r.key || '—'}</td>
+      <td><span class="overhead-${r.overhead}" style="font-size:11px;font-weight:600">${r.overhead || '—'}</span></td>
+      <td>${r.protocol ? `<span class="badge badge-gray">${r.protocol}</span>` : '—'}</td>
+      <td>${r.scope ? `<span class="scope-chip scope-${r.scope}">${r.scope}</span>` : '—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${r.vulnerability?.name || '—'}</td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Routine', ${JSON.stringify(r).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('routine', ${r.id}, loadRoutines)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('routines-pagination', data.totalPages, page, (p) => loadRoutines(p));
+}
+
+async function createRoutine() {
+  // ENDPOINT: POST /api/routines — body properties: name(string|null), description(string|null), isAvailableAtConsumer(bool|null), overhead(enum|null: HIGH/MEDIUM/LOW), protocol(enum|null: NETWORK/HTTP), permittedScope(enum|null: GLOBAL/PROGRAM/HOST), vulnerabilityId(int|null)
+  const body = {};
+  const key = document.getElementById('routine-key').value;
+  const desc = document.getElementById('routine-desc').value;
+  const overhead = document.getElementById('routine-overhead').value;
+  const protocol = document.getElementById('routine-protocol').value;
+  const scope = document.getElementById('routine-scope').value;
+  const vulnId = document.getElementById('routine-vuln-id').value;
+  if (key) body.key = key;
+  if (desc) body.description = desc;
+  if (overhead) body.overhead = overhead;
+  if (protocol) body.protocol = protocol;
+  if (scope) body.scope = scope;
+  if (vulnId) body.vulnerabilityId = parseInt(vulnId);
+  body.isAvailableAtConsumer = document.getElementById('routine-available').checked;
+  const res = await api('POST', '/api/routines', body);
+  if (res) { toast('Routine created', 'success'); loadRoutines(); }
+}
+
+// ═══════════════════════════════════════════════════
+// VULNERABILITIES
+// ═══════════════════════════════════════════════════
+let vulnerabilitiesPage = 0;
+async function loadVulnerabilities(page = 0) {
+  vulnerabilitiesPage = page;
+  const query = document.getElementById('vuln-search')?.value || '';
+  // ENDPOINT: GET /api/vulnerabilities?query=&parentVulnId=&page=&size=
+  const data = await api('GET', '/api/vulnerabilities', null, { query, ...pageable(page) });
+  const tbody = document.getElementById('vulnerabilities-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="3">No vulnerabilities found</td></tr>'; return; }
+  tbody.innerHTML = data.content.map(v => `
+    <tr>
+      <td><strong>${v.name || '—'}</strong></td>
+      <td style="font-size:11px;color:var(--text2)">${v.parent?.name || '—'}</td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Vulnerability', ${JSON.stringify(v).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('vulnerability', ${v.id}, loadVulnerabilities)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('vulnerabilities-pagination', data.totalPages, page, (p) => loadVulnerabilities(p));
+}
+
+async function createVulnerability() {
+  if (!validateForm([{el:'vuln-name',required:true}], 'vulnerabilities')) return;
+  // ENDPOINT: POST /api/vulnerabilities — body properties: name(string*required), parentId(int|null)
+  const body = { name: document.getElementById('vuln-name').value };
+  const pid = document.getElementById('vuln-parent-id').value;
+  if (pid) body.parentId = parseInt(pid);
+  const res = await api('POST', '/api/vulnerabilities', body);
+  if (res) { toast('Vulnerability created', 'success'); ['vuln-name','vuln-parent-id'].forEach(id => document.getElementById(id).value = ''); loadVulnerabilities(); }
+}
+
+// ═══════════════════════════════════════════════════
+// WORDLISTS
+// ═══════════════════════════════════════════════════
+let wordlistsPage = 0;
+async function loadWordlists(page = 0) {
+  wordlistsPage = page;
+  const query = document.getElementById('wl-search')?.value || '';
+  // ENDPOINT: GET /api/wordlists?query=&vulnId=&page=&size=
+  const data = await api('GET', '/api/wordlists', null, { query, ...pageable(page) });
+  const tbody = document.getElementById('wordlists-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No wordlists found</td></tr>'; return; }
+  tbody.innerHTML = data.content.map(w => `
+    <tr>
+      <td>${w.name || '—'}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text2);max-width:180px" class="truncate" title="${w.path||''}">${w.path || '—'}</td>
+      <td style="font-family:var(--mono)">${w.numberOfLines ?? '—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${(w.vulnerabilities||[]).map(v => v.name).join(', ') || '—'}</td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Wordlist', ${JSON.stringify(w).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('wordlist', ${w.id}, loadWordlists)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('wordlists-pagination', data.totalPages, page, (p) => loadWordlists(p));
+}
+
+async function createWordlist() {
+  // ENDPOINT: POST /api/wordlists — body properties: path(string|null), name(string|null), numberOfLines(int|null)
+  const body = {};
+  const path = document.getElementById('wl-path').value;
+  const name = document.getElementById('wl-name').value;
+  const lines = document.getElementById('wl-lines').value;
+  if (path) body.path = path;
+  if (name) body.name = name;
+  if (lines) body.numberOfLines = parseInt(lines);
+  const res = await api('POST', '/api/wordlists', body);
+  if (res) { toast('Wordlist created', 'success'); ['wl-path','wl-name','wl-lines'].forEach(id => document.getElementById(id).value = ''); loadWordlists(); }
+}
+
+// ═══════════════════════════════════════════════════
+// MODIFIERS
+// ═══════════════════════════════════════════════════
+let modifiersPage = 0;
+async function loadModifiers(page = 0) {
+  modifiersPage = page;
+  const target = document.getElementById('mod-filter-target')?.value;
+  const schema = document.getElementById('mod-filter-schema')?.value;
+  // ENDPOINT: GET /api/modifiers?target=&schema=&page=&size=
+  const params = { ...pageable(page) };
+  if (target) params.target = target;
+  if (schema) params.schema = schema;
+  const data = await api('GET', '/api/modifiers', null, params);
+  const tbody = document.getElementById('modifiers-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No modifiers found</td></tr>'; return; }
+  tbody.innerHTML = data.content.map(m => `
+    <tr>
+      <td>${m.target ? `<span class="badge badge-gray">${m.target}</span>` : '—'}</td>
+      <td>${m.schema ? `<span class="badge badge-blue">${m.schema}</span>` : '—'}</td>
+      <td style="font-family:var(--mono)">${m.priority ?? '—'}</td>
+      <td>${m.available ? `<span class="text-green">✓</span>` : `<span class="text-dim">✕</span>`}</td>
+      <td style="font-size:11px;color:var(--text2);max-width:160px" class="truncate">${m.description || '—'}</td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Modifier', ${JSON.stringify(m).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('modifier', ${m.id}, loadModifiers)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('modifiers-pagination', data.totalPages, page, (p) => loadModifiers(p));
+}
+
+async function createModifier() {
+  // ENDPOINT: POST /api/modifiers — body properties: target(enum|null: METHOD/PATH/QUERYSTRING/BODY), description(string|null), priority(int|null), schema(enum|null: REST/GRAPHQL), available(bool|null)
+  const body = { available: document.getElementById('mod-available').checked };
+  const target = document.getElementById('mod-target').value;
+  const schema = document.getElementById('mod-schema').value;
+  const priority = document.getElementById('mod-priority').value;
+  const desc = document.getElementById('mod-desc').value;
+  if (target) body.target = target;
+  if (schema) body.schema = schema;
+  if (priority) body.priority = parseInt(priority);
+  if (desc) body.description = desc;
+  const res = await api('POST', '/api/modifiers', body);
+  if (res) { toast('Modifier created', 'success'); ['mod-priority','mod-desc'].forEach(id => document.getElementById(id).value = ''); document.getElementById('mod-target').value=''; document.getElementById('mod-schema').value=''; loadModifiers(); }
+}
+
+// ═══════════════════════════════════════════════════
+// COMPARATORS
+// ═══════════════════════════════════════════════════
+let comparatorsPage = 0;
+async function loadComparators(page = 0) {
+  comparatorsPage = page;
+  const schema = document.getElementById('comp-filter-schema')?.value;
+  // ENDPOINT: GET /api/comparators?schema=&programId=&hostId=&page=&size=
+  const params = { ...pageable(page) };
+  if (schema) params.schema = schema;
+  const data = await api('GET', '/api/comparators', null, params);
+  const tbody = document.getElementById('comparators-tbody');
+  if (!data || !data.content?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No comparators found</td></tr>'; return; }
+  tbody.innerHTML = data.content.map(c => `
+    <tr>
+      <td>${c.name || '—'}</td>
+      <td>${c.schema ? `<span class="badge badge-blue">${c.schema}</span>` : '—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${c.program?.name || '—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${c.host?.host || '—'}</td>
+      <td style="font-size:11px;color:var(--text2)">${(c.modifiers||[]).length} modifier(s)</td>
+      <td>
+        <div class="flex gap-8">
+          <button class="btn btn-secondary btn-xs" onclick="showDetail('Comparator', ${JSON.stringify(c).replace(/"/g,'&quot;')})">View</button>
+          <button class="btn btn-danger btn-xs" onclick="deleteItem('comparator', ${c.id}, loadComparators)">Del</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+  buildPagination('comparators-pagination', data.totalPages, page, (p) => loadComparators(p));
+}
+
+async function createComparator() {
+  // ENDPOINT: POST /api/comparators — body properties: name(string|null), schema(enum|null: REST/GRAPHQL), modifiers(array|null), program:{id}(object|null), host:{id}(object|null)
+  const body = {};
+  const name = document.getElementById('comp-name').value;
+  const schema = document.getElementById('comp-schema').value;
+  const progId = document.getElementById('comp-program-id').value;
+  const hostId = document.getElementById('comp-host-id').value;
+  if (name) body.name = name;
+  if (schema) body.schema = schema;
+  if (progId) body.program = { id: parseInt(progId) };
+  if (hostId) body.host = { id: parseInt(hostId) };
+  const res = await api('POST', '/api/comparators', body);
+  if (res) { toast('Comparator created', 'success'); ['comp-name','comp-program-id','comp-host-id'].forEach(id => document.getElementById(id).value = ''); document.getElementById('comp-schema').value = ''; loadComparators(); }
+}
+
+// ═══════════════════════════════════════════════════
+// DELETE HELPER
+// ═══════════════════════════════════════════════════
+const endpointMap = {
+  program: 'programs', host: 'hosts', tenant: 'tenants',
+  routine: 'routines', vulnerability: 'vulnerabilities',
+  wordlist: 'wordlists', modifier: 'modifiers', comparator: 'comparators',
+  request: 'requests', response: 'responses',
+};
+async function deleteItem(type, id, reload) {
+  if (!confirm(`Delete this ${type}?`)) return;
+  // ENDPOINT: DELETE /api/{type}s/{id}
+  const res = await api('DELETE', `/api/${endpointMap[type]}/${id}`);
+  if (res !== null) { toast(`${type} deleted`, 'success'); reload(); }
+}
+
+// ═══════════════════════════════════════════════════
+// DETAIL MODAL
+// ═══════════════════════════════════════════════════
+function showDetail(title, obj) {
+  document.getElementById('detail-title').textContent = title + ' Details';
+  const body = document.getElementById('detail-body');
+  body.innerHTML = Object.entries(obj).map(([k, v]) => {
+    let display = v;
+    if (v === null || v === undefined) display = '<span style="color:var(--text3)">null</span>';
+    else if (typeof v === 'object') display = `<pre style="font-size:10px;color:var(--text2);white-space:pre-wrap;word-break:break-all">${JSON.stringify(v, null, 2)}</pre>`;
+    else if (typeof v === 'boolean') display = v ? '<span class="text-green">true</span>' : '<span class="text-dim">false</span>';
+    return `<div class="detail-row"><span class="detail-key">${k}</span><span class="detail-val">${display}</span></div>`;
+  }).join('');
+  openModal('modal-detail');
+}
+
+// ═══════════════════════════════════════════════════
+// AUTH PAIR LIST HELPERS
+// ═══════════════════════════════════════════════════
+function addPair(containerId) {
+  const el = document.getElementById(containerId);
+  const div = document.createElement('div');
+  div.className = 'pair-item';
+  div.innerHTML = `<input class="form-input" placeholder="Name"><input class="form-input" placeholder="Value"><button class="pair-remove" onclick="this.parentElement.remove()">✕</button>`;
+  el.appendChild(div);
+}
+
+function getPairs(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} .pair-item`)).map(row => {
+    const inputs = row.querySelectorAll('input');
+    return { name: inputs[0]?.value || '', value: inputs[1]?.value || '' };
+  }).filter(p => p.name);
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+loadPrograms();
+</script>
+</body>
+</html>
