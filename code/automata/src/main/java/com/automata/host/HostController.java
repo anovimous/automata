@@ -1,5 +1,7 @@
 package com.automata.host;
 
+import java.net.URI;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.host.common.dto.HostCreationRequest;
+import com.automata.host.common.dto.HostDetailedResponse;
+import com.automata.host.common.dto.HostSummaryResponse;
 import com.automata.host.common.dto.PatchHostRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -28,22 +32,25 @@ import lombok.RequiredArgsConstructor;
 public class HostController {
 
 	private final HostService hostService;
-	
+
 	private final ObjectMapper mapper;
 
 	@GetMapping("/{hostId}")
-	public ResponseEntity<Host> getHost(@PathVariable Long hostId) {
+	public ResponseEntity<HostDetailedResponse> getHost(@PathVariable Long hostId) {
 
 		Host host = hostService.getHostById(hostId);
 
-		return ResponseEntity.ok(host);
+		HostDetailedResponse response = HostMapper.toDetailedResponse(host);
+
+		return ResponseEntity.ok(response);
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<Host>> getHosts(@RequestParam(defaultValue = "") String query,
-			@RequestParam Long programId,
-			@PageableDefault(size = 10, sort = { "insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
+	public ResponseEntity<PageHolderResponse<HostSummaryResponse>> getHosts(
+			@RequestParam(defaultValue = "") String query, @RequestParam Long programId,
+			@PageableDefault(size = 10, sort = {
+					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Host> hosts;
 
@@ -52,42 +59,40 @@ public class HostController {
 		else
 			hosts = hostService.getProgramHostsPagedAndFilteredOnQueryString(programId, query, pageable);
 
-		return ResponseEntity.ok(new PageHolderResponse<>(hosts));
+		Page<HostSummaryResponse> hostsResponse = HostMapper.toSummaryResponse(hosts);
+
+		return ResponseEntity.ok(new PageHolderResponse<>(hostsResponse));
 
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Host> createHost(@RequestBody HostCreationRequest request) {
+	public ResponseEntity<Void> createHost(@RequestBody HostCreationRequest request) {
 
 		Host toBeCreatedHost = mapper.convertValue(request, Host.class);
 
 		Long programId = request.programId();
 
-		Host createdHost = hostService.createHost(toBeCreatedHost, programId);
+		Host host = hostService.createHost(toBeCreatedHost, programId);
 
-		return ResponseEntity.status(201).body(createdHost);
+		return ResponseEntity.status(201).location(URI.create(String.format("/api/hosts/%d", host.getId()))).build();
 
 	}
 
 	@PatchMapping("/{hostId}")
-	public ResponseEntity<Host> patchHost(@PathVariable Long hostId, @RequestBody PatchHostRequest patchRequest)
+	public ResponseEntity<Void> patchHost(@PathVariable Long hostId, @RequestBody PatchHostRequest patchRequest)
 			throws Exception {
 
-		Host host = hostService.patchHost(hostId, patchRequest);
+		hostService.patchHost(hostId, patchRequest);
 
-		return ResponseEntity.ok(host);
+		return ResponseEntity.status(204).build();
 	}
 
 	@DeleteMapping("/{hostId}")
 	public ResponseEntity<Void> deleteHost(@PathVariable Long hostId) {
 
-		return ResponseEntity.status(503).build();
+		hostService.deleteHost(hostId);
 
-//		waiting for service implementation
-
-//		hostService.deleteHost(hostId);
-//		
-//		return ResponseEntity.status(204).build();
+		return ResponseEntity.status(204).build();
 
 	}
 

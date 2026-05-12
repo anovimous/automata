@@ -1,5 +1,7 @@
 package com.automata.routine;
 
+import java.net.URI;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -17,7 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.routine.common.dto.RoutineCreationRequest;
+import com.automata.routine.common.dto.RoutineDetailedResponseDto;
 import com.automata.routine.common.dto.RoutinePatchRequest;
+import com.automata.routine.common.dto.RoutineSummaryResponseDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -28,21 +32,21 @@ import lombok.RequiredArgsConstructor;
 public class RoutineController {
 
 	private final RoutineService routineService;
-	
+
 	private final ObjectMapper mapper;
 
 	@GetMapping("/{routineId}")
-	public ResponseEntity<Routine> getRoutine(@PathVariable Long routineId) {
+	public ResponseEntity<RoutineDetailedResponseDto> getRoutine(@PathVariable Long routineId) {
 
 		Routine routine = routineService.getRoutineById(routineId);
 
-		return ResponseEntity.ok(routine);
+		return ResponseEntity.ok(RoutineMapper.toDetailedResponse(routine));
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<Routine>> getRoutines(@RequestParam(defaultValue = "") String query,
-			@RequestParam(required = false) Long vulnId,
+	public ResponseEntity<PageHolderResponse<RoutineSummaryResponseDto>> getRoutines(
+			@RequestParam(defaultValue = "") String query, @RequestParam(required = false) Long vulnId,
 			@PageableDefault(size = 30, sort = { "key" }, direction = Sort.Direction.ASC) Pageable pageable) {
 
 		Page<Routine> routines;
@@ -52,12 +56,14 @@ public class RoutineController {
 		else
 			routines = routineService.getVulnerabilityRoutinesPagedAndFilteredOnQueryString(vulnId, query, pageable);
 
-		return ResponseEntity.ok(new PageHolderResponse<>(routines));
+		Page<RoutineSummaryResponseDto> routineResponses = RoutineMapper.toSummaryResponse(routines);
+
+		return ResponseEntity.ok(new PageHolderResponse<>(routineResponses));
 
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Routine> createRoutine(@RequestBody RoutineCreationRequest request) {
+	public ResponseEntity<Void> createRoutine(@RequestBody RoutineCreationRequest request) {
 
 		Routine toBeCreatedRoutine = mapper.convertValue(request, Routine.class);
 
@@ -65,17 +71,18 @@ public class RoutineController {
 
 		Routine createdRoutine = routineService.createRoutine(toBeCreatedRoutine, vulnId);
 
-		return ResponseEntity.status(201).body(createdRoutine);
+		return ResponseEntity.status(201)
+				.location(URI.create(String.format("/api/routines/%d", createdRoutine.getId()))).build();
 
 	}
 
 	@PatchMapping("/{routineId}")
-	public ResponseEntity<Routine> patchRoutine(@PathVariable Long routineId,
+	public ResponseEntity<Void> patchRoutine(@PathVariable Long routineId,
 			@RequestBody RoutinePatchRequest patchRequest) {
 
-		Routine routine = routineService.patchRoutine(routineId, patchRequest);
+		routineService.patchRoutine(routineId, patchRequest);
 
-		return ResponseEntity.ok(routine);
+		return ResponseEntity.status(204).build();
 	}
 
 	@DeleteMapping("/{routineId}")

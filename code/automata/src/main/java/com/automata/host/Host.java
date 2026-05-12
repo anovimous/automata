@@ -15,7 +15,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -40,15 +39,13 @@ public class Host {
 	@Column(nullable = false, updatable = false)
 	private LocalDate insertionDate;
 
-	@NotNull
 	@Column(nullable = false, unique = true)
 	private String host;
 
 	// 0 for root domains, incremental for others
-	@NotNull
+	@Column(nullable = false)
 	private Integer level;
 
-	@NotNull
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private Scope scope;

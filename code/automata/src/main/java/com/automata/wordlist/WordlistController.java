@@ -1,5 +1,6 @@
 package com.automata.wordlist;
 
+import java.net.URI;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -18,7 +19,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.wordlist.common.dto.WordlistCreationRequest;
+import com.automata.wordlist.common.dto.WordlistDetailedResponseDto;
 import com.automata.wordlist.common.dto.WordlistPatchRequest;
+import com.automata.wordlist.common.dto.WordlistSummaryResponseDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -33,17 +36,17 @@ public class WordlistController {
 	private final ObjectMapper mapper;
 
 	@GetMapping("/{wordlistId}")
-	public ResponseEntity<Wordlist> getWordlist(@PathVariable Long wordlistId) {
+	public ResponseEntity<WordlistDetailedResponseDto> getWordlist(@PathVariable Long wordlistId) {
 
 		Wordlist wordlist = wordlistService.getWordlistById(wordlistId);
 
-		return ResponseEntity.ok(wordlist);
+		return ResponseEntity.ok(WordlistMapper.toDetailedResponse(wordlist));
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<Wordlist>> getWordlists(@RequestParam(required = false) Long vulnId,
-			@RequestParam(defaultValue = "") String query,
+	public ResponseEntity<PageHolderResponse<WordlistSummaryResponseDto>> getWordlists(
+			@RequestParam(required = false) Long vulnId, @RequestParam(defaultValue = "") String query,
 			@PageableDefault(size = 30, sort = { "name", "path" }, direction = Sort.Direction.ASC) Pageable pageable) {
 
 		Page<Wordlist> wordlists;
@@ -53,12 +56,14 @@ public class WordlistController {
 		else
 			wordlists = wordlistService.getVulnerabilityWordlistsPagedAndFilteredOnQueryString(vulnId, query, pageable);
 
-		return ResponseEntity.ok(new PageHolderResponse<>(wordlists));
+		Page<WordlistSummaryResponseDto> wordlistResponses = WordlistMapper.toSummaryResponse(wordlists);
+
+		return ResponseEntity.ok(new PageHolderResponse<>(wordlistResponses));
 
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Wordlist> createWordlist(@RequestBody WordlistCreationRequest request) {
+	public ResponseEntity<Void> createWordlist(@RequestBody WordlistCreationRequest request) {
 
 		Wordlist toBeCreatedWordlist = mapper.convertValue(request, Wordlist.class);
 
@@ -66,17 +71,18 @@ public class WordlistController {
 
 		Wordlist createdWordlist = wordlistService.createWordlist(toBeCreatedWordlist, vulnIds);
 
-		return ResponseEntity.status(201).body(createdWordlist);
+		return ResponseEntity.status(201)
+				.location(URI.create(String.format("/api/wordlists/%d", createdWordlist.getId()))).build();
 
 	}
 
 	@PatchMapping("/{wordlistId}")
-	public ResponseEntity<Wordlist> patchWordlist(@PathVariable Long wordlistId,
+	public ResponseEntity<Void> patchWordlist(@PathVariable Long wordlistId,
 			@RequestBody WordlistPatchRequest patchRequest) {
 
-		Wordlist wordlist = wordlistService.patchWordlist(wordlistId, patchRequest);
+		wordlistService.patchWordlist(wordlistId, patchRequest);
 
-		return ResponseEntity.ok(wordlist);
+		return ResponseEntity.status(204).build();
 	}
 
 	@DeleteMapping("/{wordlistId}")

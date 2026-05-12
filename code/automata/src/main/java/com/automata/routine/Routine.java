@@ -2,14 +2,16 @@ package com.automata.routine;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Set;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.springframework.lang.Nullable;
+import org.hibernate.type.SqlTypes;
 
 import com.automata.routine.common.enums.Overhead;
-import com.automata.routine.common.enums.PermittedScope;
 import com.automata.routine.common.enums.Protocol;
+import com.automata.routine.common.enums.TargetCardinalityPair;
 import com.automata.vulnerability.Vulnerability;
 
 import jakarta.persistence.Column;
@@ -41,7 +43,6 @@ public class Routine {
 	@Column(nullable = false, updatable = false, unique = true)
 	private String key;
 
-	@Nullable
 	private String description;
 
 	@UpdateTimestamp
@@ -49,7 +50,6 @@ public class Routine {
 
 	private boolean isAvailableAtConsumer;
 
-	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)
 	private Overhead overhead;
 
@@ -57,11 +57,10 @@ public class Routine {
 	@Enumerated(EnumType.STRING)
 	private Protocol protocol;
 
-	@Column(nullable = false)
-	@Enumerated(EnumType.STRING)
-	private PermittedScope scope;
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "jsonb", nullable = false)
+	private Set<TargetCardinalityPair> allowedTargets;
 
-	@Nullable
 	@ManyToOne
 	private Vulnerability vulnerability;
 

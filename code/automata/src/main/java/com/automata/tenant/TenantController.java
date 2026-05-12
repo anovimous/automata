@@ -1,5 +1,7 @@
 package com.automata.tenant;
 
+import java.net.URI;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -22,6 +24,7 @@ import com.automata.tenant.authentication.AuthenticationDto;
 import com.automata.tenant.authentication.AuthenticationMapper;
 import com.automata.tenant.authentication.AuthenticationPatchRequest;
 import com.automata.tenant.authentication.AuthenticationService;
+import com.automata.tenant.common.dto.TenantSummaryResponseDto;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,30 +40,30 @@ public class TenantController {
 	// Tenant specific endpoints ->:
 
 	@GetMapping("/{tenantId}")
-	public ResponseEntity<TenantResponse> getTenant(@PathVariable Long tenantId) {
+	public ResponseEntity<TenantDetailedResponseDto> getTenant(@PathVariable Long tenantId) {
 
 		Tenant tenant = tenantService.getTenantById(tenantId);
 
-		TenantResponse tenantResponse = TenantMapper.toTenantResponse(tenant);
+		TenantDetailedResponseDto tenantResponse = TenantMapper.toDetailedResponse(tenant);
 
 		return ResponseEntity.ok(tenantResponse);
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<TenantResponse>> getTenants(@RequestParam Long hostId,
+	public ResponseEntity<PageHolderResponse<TenantSummaryResponseDto>> getTenants(@RequestParam Long hostId,
 			@PageableDefault(size = 10, sort = { "creationDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Tenant> tenants = tenantService.getHostTenantsPage(hostId, pageable);
 
-		Page<TenantResponse> tenantResponses = tenants.map(TenantMapper::toTenantResponse);
+		Page<TenantSummaryResponseDto> tenantResponses = TenantMapper.toSummaryResponse(tenants);
 
 		return ResponseEntity.ok(new PageHolderResponse<>(tenantResponses));
 
 	}
 
 	@PostMapping("")
-	public ResponseEntity<TenantResponse> createTenant(@RequestBody TenantCreationRequest request) {
+	public ResponseEntity<Void> createTenant(@RequestBody TenantCreationRequest request) {
 
 		Tenant toBeCreatedTenant = TenantMapper.toTenant(request);
 
@@ -68,21 +71,17 @@ public class TenantController {
 
 		Tenant createdTenant = tenantService.createTenant(toBeCreatedTenant, hostId);
 
-		TenantResponse tenantResponse = TenantMapper.toTenantResponse(createdTenant);
-
-		return ResponseEntity.status(201).body(tenantResponse);
+		return ResponseEntity.status(201).location(URI.create(String.format("/api/tenants/%d", createdTenant.getId())))
+				.build();
 
 	}
 
 	@PatchMapping("/{tenantId}")
-	public ResponseEntity<TenantResponse> patchTenant(@PathVariable Long tenantId,
-			@RequestBody TenantPatchRequest patchRequest) {
+	public ResponseEntity<Void> patchTenant(@PathVariable Long tenantId, @RequestBody TenantPatchRequest patchRequest) {
 
-		Tenant tenant = tenantService.patchTenant(tenantId, patchRequest);
+		tenantService.patchTenant(tenantId, patchRequest);
 
-		TenantResponse tenantResponse = TenantMapper.toTenantResponse(tenant);
-
-		return ResponseEntity.ok(tenantResponse);
+		return ResponseEntity.status(204).build();
 	}
 
 	@DeleteMapping("/{tenantId}")
@@ -109,28 +108,26 @@ public class TenantController {
 	}
 
 	@PostMapping("/{tenantId}/authentication")
-	public ResponseEntity<AuthenticationDto> createAuthentication(@PathVariable Long tenantId,
+	public ResponseEntity<Void> createAuthentication(@PathVariable Long tenantId,
 			@RequestBody AuthenticationCreationRequest request) {
 
 		Authentication toBeCreatedAuthentication = AuthenticationMapper.toAuthentication(request);
 
 		Authentication createdAuthentication = authService.createAuthentication(toBeCreatedAuthentication, tenantId);
 
-		AuthenticationDto authenticationResponse = AuthenticationMapper.toAuthenticationDto(createdAuthentication);
-
-		return ResponseEntity.status(201).body(authenticationResponse);
-
+		return ResponseEntity.status(201)
+				.location(URI.create(
+						String.format("/api/tenants/%d/authentication", createdAuthentication.getTenant().getId())))
+				.build();
 	}
 
 	@PatchMapping("/{tenantId}/authentication")
-	public ResponseEntity<AuthenticationDto> patchAuthentication(@PathVariable Long tenantId,
+	public ResponseEntity<Void> patchAuthentication(@PathVariable Long tenantId,
 			@RequestBody AuthenticationPatchRequest patchRequest) {
 
-		Authentication authentication = authService.patchAuthentication(patchRequest, tenantId);
+		authService.patchAuthentication(patchRequest, tenantId);
 
-		AuthenticationDto authenticationResponse = AuthenticationMapper.toAuthenticationDto(authentication);
-
-		return ResponseEntity.ok(authenticationResponse);
+		return ResponseEntity.status(204).build();
 	}
 
 	@DeleteMapping("/{tenantId}/authentication")

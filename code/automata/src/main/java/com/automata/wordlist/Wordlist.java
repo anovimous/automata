@@ -3,8 +3,6 @@ package com.automata.wordlist;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.springframework.lang.Nullable;
-
 import com.automata.vulnerability.Vulnerability;
 
 import jakarta.persistence.Column;
@@ -30,10 +28,8 @@ public class Wordlist {
 	@Column(nullable = false, unique = true)
 	private String path;
 
-	@Nullable
 	private String name;
 
-	@Nullable
 	private Integer numberOfLines;
 
 	@ManyToMany
