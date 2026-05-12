@@ -70,7 +70,8 @@ public class RoutineService {
 
 		patchRequest.overhead().ifPresent(routine::setOverhead);
 
-		patchRequest.permittedScope().ifPresent(routine::setScope);
+		if (patchRequest.allowedTargets() != null && !patchRequest.allowedTargets().isEmpty())
+			routine.setAllowedTargets(patchRequest.allowedTargets());
 
 		patchRequest.protocol().ifPresent(routine::setProtocol);
 
@@ -93,13 +94,15 @@ public class RoutineService {
 	@Transactional
 	public void deleteRoutine(Long routineId) {
 
-		Routine routine = routineRepo.findById(routineId)
-				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
+		throw new RuntimeException("Delete operation not implemented yet");
+
+//		Routine routine = routineRepo.findById(routineId)
+//				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
 
 //		IF (JOBREPO.EXISTSBYROUTINE(ROUTINE))
 //			THROW NEW RUNTIMEEXCEPTION("ROUTINE CAN'T BE DELETED IF ANY JOB IS TIED TO IT");
 
-		routineRepo.delete(routine);
+//		routineRepo.delete(routine);
 
 	}
 
