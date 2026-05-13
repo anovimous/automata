@@ -1,0 +1,24 @@
+# =============================================================
+# Paste this into the services: block of your existing
+# docker-compose.yml (next to postgres / rabbitmq / rustfs / app).
+# Keep the same `networks: backend` from your existing file.
+# =============================================================
+
+  frontend:
+    build: ./automata-frontend          # adjust if you place the dir elsewhere
+    container_name: automata-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
+    # OPTIONAL: live-edit routine-specs.json on the host without rebuilding.
+    # Uncomment + adjust the path. The file inside the image lives at
+    # /usr/share/nginx/html/routine-specs.json
+    #
+    # volumes:
+    #   - ./automata-frontend/public/routine-specs.json:/usr/share/nginx/html/routine-specs.json:ro

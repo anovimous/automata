@@ -110,6 +110,17 @@ services:
         condition: service_healthy
       rustfs-init:
         condition: service_completed_successfully
+  frontend:
+    build: ./frontend          # adjust if you place the dir elsewhere
+    container_name: automata-frontend
+    ports:
+      - "3000:80"
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
 
 networks:
   backend:
