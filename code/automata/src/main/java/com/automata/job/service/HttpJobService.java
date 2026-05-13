@@ -146,8 +146,10 @@ public class HttpJobService {
 
 		builder.program(host.getProgram());
 
-		Tenant tenant = tenantRepo.findById(narrowDto.tenantId())
-				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+		Tenant tenant = null;
+		if (narrowDto.tenantId() != null)
+			tenant = tenantRepo.findById(narrowDto.tenantId())
+					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
 		builder.tenant(tenant);
 

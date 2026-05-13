@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -47,6 +48,7 @@ import com.automata.routine.Routine;
 import com.automata.routine.RoutineRepository;
 import com.automata.tenant.authentication.Authentication;
 import com.automata.tenant.authentication.AuthenticationRepository;
+import com.automata.tenant.authentication.StaticAuthData;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -131,19 +133,23 @@ public class JobConfigFileService {
 		Routine routine = routineRepo.findById(job.getRoutine().getId())
 				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
 
-		Authentication auth = new Authentication();
+		StaticAuthData authData = null;
 
 		if (job.getGenericDetails().getHttpJobScope() == HttpJobScope.NARROW) {
 			NarrowHttpJob castedJob = (NarrowHttpJob) job;
-			auth = authRepo.findByTenant(castedJob.getTenant());
+			if (castedJob.getTenant() != null) {
+				Optional<Authentication> auth = authRepo.findByTenant(castedJob.getTenant());
+				if (auth.isPresent())
+					authData = auth.get().getAuthData();
+
+			}
 		}
 
 		Set<String> wordlistsPaths = httpJobRepo.findWordlistPathsByJobId(job.getId());
 
 		return JobDetailsFileContainer.builder().jobId(job.getId()).rate(job.getGenericDetails().getRate())
 				.verbosity(job.getGenericDetails().getVerbosity()).targetType(targetType).routineKey(routine.getKey())
-				.auth(auth.getAuthData()).wordlistsPaths(wordlistsPaths)
-				.customConfig(job.getGenericDetails().getCustomConfig())
+				.auth(authData).wordlistsPaths(wordlistsPaths).customConfig(job.getGenericDetails().getCustomConfig())
 				.genericConfig(job.getGenericDetails().getGenericConfig()).build();
 
 	}

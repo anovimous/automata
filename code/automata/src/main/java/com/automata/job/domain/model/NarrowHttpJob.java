@@ -37,7 +37,7 @@ public class NarrowHttpJob extends HttpJob {
 	private Host host;
 
 	// Tenant is mainly for authentication purposes for now
-	@ManyToOne(optional = false)
+	@ManyToOne
 	private Tenant tenant;
 
 }
