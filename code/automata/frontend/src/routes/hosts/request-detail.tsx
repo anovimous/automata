@@ -56,9 +56,25 @@ export function HostRequestDetailRoute() {
   );
 
   const r = reqQ.data;
-  const rawResponseText = rawRespQ.data?.responseBase64
-    ? fromBase64(rawRespQ.data.responseBase64)
-    : rawRespQ.data?.raw ?? "";
+  const rawRequestText = React.useMemo(() => {
+    if (!r?.base64Request) return "";
+    try {
+      return fromBase64(r.base64Request);
+    } catch {
+      return "";
+    }
+  }, [r?.base64Request]);
+  const rawResponseText = React.useMemo(() => {
+    const b64 = rawRespQ.data?.responseBase64;
+    if (b64) {
+      try {
+        return fromBase64(b64);
+      } catch {
+        return "";
+      }
+    }
+    return rawRespQ.data?.raw ?? "";
+  }, [rawRespQ.data?.responseBase64, rawRespQ.data?.raw]);
 
   return (
     <FullBleed>
@@ -142,17 +158,17 @@ export function HostRequestDetailRoute() {
                 Request
               </div>
             </div>
-            <pre className="p-4 text-[11px] font-mono whitespace-pre-wrap break-all leading-relaxed text-foreground/90 overflow-auto max-h-[70vh]">
-              {r?.method ?? ""} {r?.computatedPath ?? ""} {r?.version ?? ""}
-              {"\n"}
-              {hostQ.data?.host ? `Host: ${hostQ.data.host}\n` : ""}
-              {/* The backend only returns metadata, not the raw body — show a hint */}
-              {"\n"}
-              <span className="text-muted-foreground">
-                {/* Backend exposes parsed metadata; raw body not directly returned */}
-                # Raw request body not exposed by API. Only parsed metadata is available.
-              </span>
-            </pre>
+            {reqQ.isLoading ? (
+              <div className="p-6 text-xs text-muted-foreground text-center">Loading…</div>
+            ) : rawRequestText ? (
+              <pre className="p-4 text-[11px] font-mono whitespace-pre-wrap break-all leading-relaxed text-foreground/90 overflow-auto max-h-[70vh]">
+                {rawRequestText}
+              </pre>
+            ) : (
+              <div className="p-6 text-xs text-muted-foreground text-center">
+                No raw request body returned by the API.
+              </div>
+            )}
           </CardContent>
         </Card>
 

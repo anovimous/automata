@@ -267,6 +267,7 @@ export const RequestResponse = z.object({
   tenantId: z.number().optional().nullable(),
   programId: z.number().optional().nullable(),
   responseId: z.number().optional().nullable(),
+  base64Request: z.string().optional().nullable(),
 });
 export type RequestResponse = z.infer<typeof RequestResponse>;
 
