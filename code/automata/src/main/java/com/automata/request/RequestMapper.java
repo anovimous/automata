@@ -17,7 +17,7 @@ public abstract class RequestMapper {
 
 		RequestResponseBuilder builder = RequestResponse.builder();
 
-		builder.method(request.getMethod()).computatedPath(request.getComputatedPath())
+		builder.requestId(request.getId()).method(request.getMethod()).computatedPath(request.getComputatedPath())
 				.extension(request.getExtension()).version(request.getVersion())
 				.numberOfProperties(request.getNumberOfProperties()).contentType(request.getContentType())
 				.source(request.getSource()).hostId(request.getHost().getId()).programId(request.getProgram().getId());
