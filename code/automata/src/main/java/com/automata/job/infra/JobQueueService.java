@@ -1,4 +1,4 @@
-package com.automata.job.service;
+package com.automata.job.infra;
 
 import org.springframework.amqp.core.AmqpTemplate;
 import org.springframework.stereotype.Service;
