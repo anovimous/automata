@@ -32,6 +32,8 @@ public class HostService {
 		Program program = programRepo.findById(programId)
 				.orElseThrow(() -> new EntityNotFoundException("Program not found"));
 
+		host.setHost(host.getHost().toLowerCase());
+
 		HostUtils.validateHostFormat(host.getHost())
 				.ifNotValidThrow(() -> new IllegalArgumentException("Host is of invalid format"));
 
