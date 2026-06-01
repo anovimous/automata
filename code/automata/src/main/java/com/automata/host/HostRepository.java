@@ -1,6 +1,7 @@
 package com.automata.host;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -35,5 +36,7 @@ public interface HostRepository extends JpaRepository<Host, Long> {
 
 	@Query("SELECT new com.automata.host.common.dto.HostAllRateLimitsInternalDto(h.id, h.hostRateLimit, h.shortRateLimit, h.longRateLimit) FROM Host h WHERE h.id = :hostId")
 	HostAllRateLimitsInternalDto findRateLimitsAllDtoById(@Param(value = "hostId") Long hostId);
+
+	Optional<Host> findByHost(String host);
 
 }
