@@ -63,6 +63,12 @@ public class ResponseService {
 
 	}
 
+	public Response getResponseOfRequest(Long requestId) {
+
+		return responseRepo.getByRequestId(requestId).orElse(null);
+
+	}
+
 	public Page<Response> getResponsesFilteredAndPaged(ResponseFilter filter, Pageable pageable) {
 
 		ResponseUtils.validateResponseFilter(filter)
