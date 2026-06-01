@@ -21,6 +21,7 @@ import com.automata.request.common.dto.RequestRawResponse;
 import com.automata.request.common.dto.RequestResponse;
 import com.automata.request.common.dto.RequestsEqualizationDto;
 import com.automata.response.RawResponseAdditionDto;
+import com.automata.response.Response;
 import com.automata.response.ResponseService;
 
 import lombok.RequiredArgsConstructor;
@@ -41,7 +42,9 @@ public class RequestController {
 
 		String rawRequestBase64 = requestService.getRawRequestBase64(requestId);
 
-		RequestRawResponse response = new RequestRawResponse(rawRequestBase64);
+		Response res = responseService.getResponseOfRequest(requestId);
+
+		RequestRawResponse response = new RequestRawResponse(rawRequestBase64, res != null ? res.getId() : null);
 
 		return ResponseEntity.ok(response);
 
