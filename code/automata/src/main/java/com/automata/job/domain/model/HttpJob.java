@@ -1,6 +1,7 @@
 package com.automata.job.domain.model;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -56,6 +57,6 @@ public abstract class HttpJob {
 	private Routine routine;
 
 	@ManyToMany
-	private List<Wordlist> wordlists;
+	private List<Wordlist> wordlists = new ArrayList<>();
 
 }
