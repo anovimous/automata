@@ -24,6 +24,7 @@ import com.automata.job.domain.valueobject.NarrowHttpJobRateInternalDto;
 import com.automata.job.domain.valueobject.ProgramCurrentWideRateDto;
 import com.automata.job.domain.valueobject.ProgramRateDto;
 import com.automata.job.domain.valueobject.ProgramSummaryRatesDto;
+import com.automata.job.infra.JobQueueService;
 import com.automata.job.repository.HttpJobRepository;
 import com.automata.job.repository.NarrowHttpJobRepository;
 import com.automata.job.repository.WideHttpJobRepository;
