@@ -100,7 +100,8 @@ public class RequestService {
 
 		String host = request.getHost().getHost();
 
-		String rawRequest = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, host));
+		String rawRequest = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, host),
+				request.getVersion());
 
 		return Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8));
 
