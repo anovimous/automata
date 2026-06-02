@@ -151,7 +151,7 @@ public class JobDataTmpStorageService {
 
 					// OPT: apply preemptive match and replace rules here
 
-					String rawRequest = RequestUtils.composeRawRequest(apacheRequest);
+					String rawRequest = RequestUtils.composeRawRequest(apacheRequest, dto.getVersion());
 
 					RequestData singleRequestData = new RequestData(dto.getRequestId(),
 							Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8)));

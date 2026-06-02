@@ -103,6 +103,15 @@ public abstract class RequestUtils {
 
 	public static RequestParseResult parseRawRequest(String rawRequest) {
 
+		String version = "HTTP/1.1";
+
+		if (rawRequest.contains("HTTP/2")) {
+			version = "HTTP/2";
+			// replace with 1.1 just in apache.parse since it doesn't accept HTTP/2
+			// original version will still be persisted in request entity
+			rawRequest = rawRequest.replaceFirst("HTTP/2", "HTTP/1.1");
+		}
+
 		ByteArrayInputStream stream = new ByteArrayInputStream(rawRequest.getBytes(StandardCharsets.UTF_8));
 
 		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192);
@@ -163,9 +172,6 @@ public abstract class RequestUtils {
 			queryStringParseResult = QueryParameterUtils.parseQueryString(queryString);
 		else
 			queryStringParseResult = new QueryStringParseResult();
-
-		// Version
-		String version = request.getVersion().format();
 
 		// Headers
 
@@ -234,14 +240,11 @@ public abstract class RequestUtils {
 		else
 			uri = stringUriBuilder.toString();
 
-		String version = internalDto.getVersion();
-
 		ClassicHttpRequest apacheRequest = new BasicClassicHttpRequest(method, URI.create(uri));
 
 		apacheRequest.setAuthority(new URIAuthority(host));
 
-		apacheRequest.setVersion(new ProtocolVersion("HTTP", Character.getNumericValue(version.charAt(5)),
-				Character.getNumericValue(version.charAt(7))));
+		apacheRequest.setVersion(new ProtocolVersion("HTTP", 1, 1));
 
 		apacheRequest.setHeader(HttpHeaders.HOST, host);
 
@@ -271,7 +274,7 @@ public abstract class RequestUtils {
 
 	}
 
-	public static String composeRawRequest(ClassicHttpRequest apacheCoreRequest) {
+	public static String composeRawRequest(ClassicHttpRequest apacheCoreRequest, String version) {
 
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		SessionOutputBufferImpl buffer = new SessionOutputBufferImpl(8192);
@@ -293,6 +296,9 @@ public abstract class RequestUtils {
 		}
 
 		String rawRequest = baos.toString(StandardCharsets.UTF_8);
+		
+		if (version.equals("HTTP/2"))
+			rawRequest = rawRequest.replaceFirst("HTTP/1.1", "HTTP/2");
 
 		return rawRequest;
 
