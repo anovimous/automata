@@ -99,12 +99,11 @@ public abstract class BodyUtils {
 
 	private static String composeRawJsonBody(List<BodyPropertyInternalDto> bodyPropertyDtos) {
 
-		Map<String, Object> flattenedMap = bodyPropertyDtos.stream()
-				.collect(Collectors.toMap(dto -> dto.fullPath(), (dto) -> {
-
-					return getOriginalObject(dto.value(), dto.type());
-
-				}));
+		Map<String, Object> flattenedMap = new LinkedHashMap<>();
+		
+		bodyPropertyDtos.forEach(dto -> 
+		    flattenedMap.put(dto.fullPath(), getOriginalObject(dto.value(), dto.type()))
+		);
 
 		return JsonUnflattener.unflatten(flattenedMap);
 
