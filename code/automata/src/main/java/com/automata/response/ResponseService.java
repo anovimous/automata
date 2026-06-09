@@ -96,7 +96,10 @@ public class ResponseService {
 		parseResult.validationResult()
 				.ifNotValidThrow(() -> new IllegalArgumentException(parseResult.validationResult().getMessage()));
 
-		headerService.addHeaders(parseResult.headers(), request.getHost());
+		try {
+			headerService.addHeaders(parseResult.headers(), request.getHost());
+		} catch (Exception e) {
+		}
 
 		InternalResponsePersistanceDto dto = InternalResponsePersistanceDto.builder()
 				.statusCode(parseResult.statusCode()).contentLength(parseResult.contentLength())
