@@ -40,7 +40,7 @@ public abstract class ResponseUtils {
 
 	public static ResponseParseResult parseResponse(String rawResponse) {
 
-		ByteArrayInputStream stream = new ByteArrayInputStream(rawResponse.getBytes(StandardCharsets.ISO_8859_1));
+		ByteArrayInputStream stream = new ByteArrayInputStream(rawResponse.getBytes(StandardCharsets.UTF_8));
 
 		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192);
 
@@ -227,7 +227,7 @@ public abstract class ResponseUtils {
 
 	public static boolean isContentTypeParseble(String contentType) {
 //For now only JSON response bodies are stored
-		return contentType.toLowerCase().equals(ResponseContentType.JSON.getRaw());
+		return contentType.toLowerCase().contains(ResponseContentType.JSON.getRaw());
 
 	}
 

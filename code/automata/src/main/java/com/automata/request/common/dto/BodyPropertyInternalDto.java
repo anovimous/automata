@@ -1,5 +1,8 @@
 package com.automata.request.common.dto;
 
-public record BodyPropertyInternalDto(String fullPath, String value, Long requestId, Long responseId) {
+import com.automata.request.common.enums.PropertyValueType;
+
+public record BodyPropertyInternalDto(String fullPath, String value, PropertyValueType type, Long requestId,
+		Long responseId) {
 
 }

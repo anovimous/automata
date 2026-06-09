@@ -10,6 +10,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.automata.host.Host;
@@ -71,7 +73,7 @@ public class HttpJobService {
 
 	private final JobTargetConfigService targetConfigService;
 
-	private final JobConfigFileService configFileService;
+	private final JobConfigFileAsyncService configFileService;
 
 	private final S3Service s3;
 
@@ -146,8 +148,10 @@ public class HttpJobService {
 
 		builder.program(host.getProgram());
 
-		Tenant tenant = tenantRepo.findById(narrowDto.tenantId())
-				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+		Tenant tenant = null;
+		if (narrowDto.tenantId() != null)
+			tenant = tenantRepo.findById(narrowDto.tenantId())
+					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
 		builder.tenant(tenant);
 
@@ -179,7 +183,12 @@ public class HttpJobService {
 
 		};
 
-		configFileService.createNarrowConfigFile(fullyConfiguredJob);
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				configFileService.createNarrowConfigFile(fullyConfiguredJob);
+			}
+		});
 
 		return fullyConfiguredJob;
 

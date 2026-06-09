@@ -100,7 +100,8 @@ public class RequestService {
 
 		String host = request.getHost().getHost();
 
-		String rawRequest = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, host));
+		String rawRequest = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, host),
+				request.getVersion());
 
 		return Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8));
 
@@ -134,7 +135,10 @@ public class RequestService {
 		parseResult.getValidationResult()
 				.ifNotValidThrow(() -> new IllegalArgumentException(parseResult.getValidationResult().getMessage()));
 
-		headerService.addHeaders(parseResult.getHeaders(), host);
+		try {
+			headerService.addHeaders(parseResult.getHeaders(), host);
+		} catch (Exception e) {
+		}
 
 		InternalRequestPersistanceDto internalDto = InternalRequestPersistanceDto.builder().source(dto.source())
 				.method(parseResult.getMethod()).version(parseResult.getVersion())

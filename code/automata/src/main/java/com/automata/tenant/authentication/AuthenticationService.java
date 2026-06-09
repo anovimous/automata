@@ -42,6 +42,10 @@ public class AuthenticationService {
 
 		tenant.setAuthentication(persistedAuth);
 
+		tenantRepo.save(tenant);
+		
+		persistedAuth.setTenant(tenant);
+
 		return persistedAuth;
 
 	}

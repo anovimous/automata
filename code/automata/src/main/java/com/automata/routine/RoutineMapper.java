@@ -12,7 +12,8 @@ public abstract class RoutineMapper {
 				.key(routine.getKey()).description(routine.getDescription()).updatedAt(routine.getUpdatedAt())
 				.isAvailableAtConsumer(routine.isAvailableAtConsumer()).overhead(routine.getOverhead())
 				.protocol(routine.getProtocol()).allowedTargets(routine.getAllowedTargets())
-				.vulnerabilityId(routine.getVulnerability().getId()).build();
+				.vulnerabilityId(routine.getVulnerability() != null ? routine.getVulnerability().getId() : null)
+				.build();
 	}
 
 	public static Page<RoutineSummaryResponseDto> toSummaryResponse(Page<Routine> routines) {

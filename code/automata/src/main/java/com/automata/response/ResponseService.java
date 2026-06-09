@@ -63,6 +63,12 @@ public class ResponseService {
 
 	}
 
+	public Response getResponseOfRequest(Long requestId) {
+
+		return responseRepo.getByRequestId(requestId).orElse(null);
+
+	}
+
 	public Page<Response> getResponsesFilteredAndPaged(ResponseFilter filter, Pageable pageable) {
 
 		ResponseUtils.validateResponseFilter(filter)
@@ -90,7 +96,10 @@ public class ResponseService {
 		parseResult.validationResult()
 				.ifNotValidThrow(() -> new IllegalArgumentException(parseResult.validationResult().getMessage()));
 
-		headerService.addHeaders(parseResult.headers(), request.getHost());
+		try {
+			headerService.addHeaders(parseResult.headers(), request.getHost());
+		} catch (Exception e) {
+		}
 
 		InternalResponsePersistanceDto dto = InternalResponsePersistanceDto.builder()
 				.statusCode(parseResult.statusCode()).contentLength(parseResult.contentLength())

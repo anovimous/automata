@@ -16,6 +16,7 @@ public interface BodyPropertyRepository extends JpaRepository<BodyProperty, Long
 			SELECT new com.automata.request.common.dto.BodyPropertyInternalDto(
 			    b.fullPath,
 			    b.value,
+			    b.propertyValueType,
 			    b.request.id,
 			    CAST(null AS Long)
 			)
@@ -28,6 +29,7 @@ public interface BodyPropertyRepository extends JpaRepository<BodyProperty, Long
 			SELECT new com.automata.request.common.dto.BodyPropertyInternalDto(
 			    b.fullPath,
 			    b.value,
+			    b.propertyValueType,
 			    CAST(null AS Long),
 			    b.response.id
 			)
@@ -36,7 +38,7 @@ public interface BodyPropertyRepository extends JpaRepository<BodyProperty, Long
 			""")
 	List<BodyPropertyInternalDto> getBodyPropertyDtosByResponseIds(@Param("ids") List<Long> ids);
 
-	// --- Export queries ---
+	// Export queries
 
 	@Query("""
 			SELECT DISTINCT b.fullPath

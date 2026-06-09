@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -14,26 +13,18 @@ import org.apache.hc.core5.http.ClassicHttpRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.common.dto.HostInternalDto;
-import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.WideHttpJob;
 import com.automata.job.domain.model.embedded.NarrowTargetConfig;
-import com.automata.job.domain.model.enums.TargetType;
-import com.automata.job.domain.model.enums.HttpJobScope;
-import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.valueobject.HostData;
-import com.automata.job.domain.valueobject.JobDetailsFileContainer;
 import com.automata.job.domain.valueobject.RequestData;
 import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.job.infra.JobDataJsonLinesWriter;
-import com.automata.job.infra.S3Service;
-import com.automata.job.repository.HttpJobRepository;
 import com.automata.job.repository.NarrowJobTargetRequestRepository;
 import com.automata.job.repository.WideJobTargetHostRepository;
 import com.automata.request.RequestUtils;
@@ -43,34 +34,20 @@ import com.automata.request.common.dto.PathVariableInternalDto;
 import com.automata.request.common.dto.QueryParameterInternalDto;
 import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.path.PathVariableRepository;
-import com.automata.routine.Routine;
-import com.automata.routine.RoutineRepository;
-import com.automata.tenant.authentication.Authentication;
-import com.automata.tenant.authentication.AuthenticationRepository;
-
-import jakarta.persistence.EntityNotFoundException;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
-@Slf4j
-public class JobConfigFileService {
+public class JobDataTmpStorageService {
 
-	public JobConfigFileService(@Value("${com.automata.files.tmp.location}") String tmpDir,
+	public JobDataTmpStorageService(@Value("${com.automata.files.tmp.location}") String tmpDir,
 			NarrowJobTargetRequestRepository narrowJobTargetRequestRepo,
 			WideJobTargetHostRepository wideJobTargetHostRepo, PathVariableRepository pathVariableRepo,
-			QueryParameterRepository queryParameterRepo, BodyPropertyRepository bodyPropertyRepo,
-			HttpJobRepository httpJobRepo, AuthenticationRepository authRepo, S3Service s3Service,
-			RoutineRepository routineRepo) {
+			QueryParameterRepository queryParameterRepo, BodyPropertyRepository bodyPropertyRepo) {
 		this.TMP_DIR = tmpDir;
 		this.narrowJobTargetRequestRepo = narrowJobTargetRequestRepo;
 		this.wideJobTargetHostRepo = wideJobTargetHostRepo;
 		this.pathVariableRepo = pathVariableRepo;
 		this.queryParameterRepo = queryParameterRepo;
 		this.bodyPropertyRepo = bodyPropertyRepo;
-		this.httpJobRepo = httpJobRepo;
-		this.authRepo = authRepo;
-		this.routineRepo = routineRepo;
-		this.s3Service = s3Service;
 	}
 
 	@Value("${com.automata.files.tmp.location}")
@@ -85,68 +62,6 @@ public class JobConfigFileService {
 	private final QueryParameterRepository queryParameterRepo;
 
 	private final BodyPropertyRepository bodyPropertyRepo;
-
-	private final HttpJobRepository httpJobRepo;
-
-	private final AuthenticationRepository authRepo;
-
-	private final RoutineRepository routineRepo;
-
-	private final S3Service s3Service;
-
-	@Async("fileConstructionExecutor")
-	public void createNarrowConfigFile(NarrowHttpJob fullyConfiguredJob) {
-
-		JobDetailsFileContainer container = this.createJobDetailsContainer(fullyConfiguredJob);
-
-		s3Service.storeJobDetailsObject(container);
-
-		String dataTempFileLocation = this.tempStoreNarrowJobTargetData(fullyConfiguredJob);
-
-		s3Service.storeJobDataFile(dataTempFileLocation, fullyConfiguredJob.getId());
-
-	}
-
-	@Async("fileConstructionExecutor")
-	public void createWideConfigFile(WideHttpJob fullyConfiguredJob) {
-
-		JobDetailsFileContainer container = this.createJobDetailsContainer(fullyConfiguredJob);
-
-		s3Service.storeJobDetailsObject(container);
-
-		String dataTempFileLocation = this.tempStoreWideJobTargetData(fullyConfiguredJob);
-
-		s3Service.storeJobDataFile(dataTempFileLocation, fullyConfiguredJob.getId());
-
-	}
-
-	@Transactional(readOnly = true)
-	public JobDetailsFileContainer createJobDetailsContainer(HttpJob job) {
-
-		TargetType targetType = switch (job.getGenericDetails().getTargetSelector().getSelectorType()) {
-		case SelectorType.SINGLE_HOST, SelectorType.MULTIPLE_HOSTS -> TargetType.HOST;
-		default -> TargetType.REQUEST;
-
-		};
-		Routine routine = routineRepo.findById(job.getRoutine().getId())
-				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
-
-		Authentication auth = new Authentication();
-
-		if (job.getGenericDetails().getHttpJobScope() == HttpJobScope.NARROW) {
-			NarrowHttpJob castedJob = (NarrowHttpJob) job;
-			auth = authRepo.findByTenant(castedJob.getTenant());
-		}
-
-		Set<String> wordlistsPaths = httpJobRepo.findWordlistPathsByJobId(job.getId());
-
-		return JobDetailsFileContainer.builder().jobId(job.getId()).rate(job.getGenericDetails().getRate())
-				.verbosity(job.getGenericDetails().getVerbosity()).targetType(targetType).routineKey(routine.getKey())
-				.auth(auth.getAuthData()).wordlistsPaths(wordlistsPaths)
-				.customConfig(job.getGenericDetails().getCustomConfig())
-				.genericConfig(job.getGenericDetails().getGenericConfig()).build();
-
-	}
 
 	@Transactional(readOnly = true)
 	public String tempStoreNarrowJobTargetData(NarrowHttpJob fullyConfiguredJob) {
@@ -236,7 +151,7 @@ public class JobConfigFileService {
 
 					// OPT: apply preemptive match and replace rules here
 
-					String rawRequest = RequestUtils.composeRawRequest(apacheRequest);
+					String rawRequest = RequestUtils.composeRawRequest(apacheRequest, dto.getVersion());
 
 					RequestData singleRequestData = new RequestData(dto.getRequestId(),
 							Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8)));
