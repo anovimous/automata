@@ -30,8 +30,10 @@ public class BodyProperty {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	@Column(length = 500)
 	private String fullPath;
 
+	@Column(columnDefinition = "text")
 	private String value;
 
 	private Boolean isArrayElement;
