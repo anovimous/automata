@@ -1,5 +1,5 @@
 package com.automata.response;
 
-public record RawResponseDto(String base64Response) {
+public record RawResponseDto(String responseBase64) {
 
 }

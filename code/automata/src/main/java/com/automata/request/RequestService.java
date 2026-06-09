@@ -135,7 +135,10 @@ public class RequestService {
 		parseResult.getValidationResult()
 				.ifNotValidThrow(() -> new IllegalArgumentException(parseResult.getValidationResult().getMessage()));
 
-		headerService.addHeaders(parseResult.getHeaders(), host);
+		try {
+			headerService.addHeaders(parseResult.getHeaders(), host);
+		} catch (Exception e) {
+		}
 
 		InternalRequestPersistanceDto internalDto = InternalRequestPersistanceDto.builder().source(dto.source())
 				.method(parseResult.getMethod()).version(parseResult.getVersion())
