@@ -20,6 +20,7 @@ import com.automata.request.common.dto.RequestFilter;
 import com.automata.request.common.dto.RequestRawResponse;
 import com.automata.request.common.dto.RequestResponse;
 import com.automata.request.common.dto.RequestsEqualizationDto;
+import com.automata.request.equalityset.RequestEqualityService;
 import com.automata.response.RawResponseAdditionDto;
 import com.automata.response.Response;
 import com.automata.response.ResponseService;

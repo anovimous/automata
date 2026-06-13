@@ -1,4 +1,4 @@
-package com.automata.request;
+package com.automata.request.equalityset;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -12,14 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
+import com.automata.request.RequestRepository;
 import com.automata.request.common.dto.RequestsEqualizationDto;
 import com.automata.request.comparator.Comparator;
 import com.automata.request.comparator.ComparatorRepository;
 import com.automata.request.comparator.Modifier;
 import com.automata.request.comparator.hash.HashStrategyResolver;
 import com.automata.request.comparator.hash.strategy.HashStrategy;
-import com.automata.request.equalityset.RequestEqualitySet;
-import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
