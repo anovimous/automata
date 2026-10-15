@@ -2,6 +2,7 @@ package com.automata.request;
 
 import java.util.List;
 
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.automata.common.dto.RawHttpMessage;
 import com.automata.common.dto.response.ListHolderResponse;
 import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.request.common.dto.EqualizationResponse;
@@ -31,6 +33,8 @@ import com.automata.request.equalityset.EqualizationMapper;
 import com.automata.request.equalityset.RequestEqualityService;
 import com.automata.response.RawResponseAdditionDto;
 import com.automata.response.Response;
+import com.automata.storage.BodyDownloads;
+import com.automata.storage.StoredBody;
 import com.automata.response.ResponseService;
 
 import lombok.RequiredArgsConstructor;
@@ -49,13 +53,23 @@ public class RequestController {
 	@GetMapping("/{requestId}")
 	public ResponseEntity<RequestRawResponse> getRequest(@PathVariable Long requestId) {
 
-		String rawRequestBase64 = requestService.getRawRequestBase64(requestId);
+		RawHttpMessage rawRequest = requestService.getRawRequest(requestId);
 
 		Response res = responseService.getResponseOfRequest(requestId);
 
-		RequestRawResponse response = new RequestRawResponse(rawRequestBase64, res != null ? res.getId() : null);
+		RequestRawResponse response = new RequestRawResponse(rawRequest.rawHeadBase64(), rawRequest.rawBodyBase64(),
+				rawRequest.bodyStoredAsFile(), res != null ? res.getId() : null);
 
 		return ResponseEntity.ok(response);
+
+	}
+
+	@GetMapping("/{requestId}/body")
+	public ResponseEntity<InputStreamResource> downloadRequestBody(@PathVariable Long requestId) {
+
+		StoredBody body = requestService.getRequestBodyFile(requestId);
+
+		return BodyDownloads.attachment(body, "request-" + requestId);
 
 	}
 

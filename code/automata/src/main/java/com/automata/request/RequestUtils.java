@@ -2,7 +2,6 @@ package com.automata.request;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -19,7 +18,6 @@ import org.apache.hc.core5.http.ProtocolVersion;
 import org.apache.hc.core5.http.impl.BasicHttpTransportMetrics;
 import org.apache.hc.core5.http.impl.io.SessionInputBufferImpl;
 import org.apache.hc.core5.http.impl.io.SessionOutputBufferImpl;
-import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.message.BasicClassicHttpRequest;
 import org.apache.hc.core5.net.URIAuthority;
@@ -27,6 +25,7 @@ import org.apache.hc.core5.http.impl.io.DefaultHttpRequestParser;
 import org.apache.hc.core5.http.impl.io.DefaultHttpRequestWriter;
 import org.springframework.data.jpa.domain.Specification;
 
+import com.automata.common.utils.HttpMessageUtils;
 import com.automata.common.utils.ValidationResult;
 import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.request.body.BodyParseResult;
@@ -101,18 +100,31 @@ public abstract class RequestUtils {
 
 	}
 
-	public static RequestParseResult parseRawRequest(String rawRequest) {
+	public static RequestParseResult parseRawRequest(byte[] rawRequest) {
+
+		HttpMessageUtils.SplitMessage parts = HttpMessageUtils.split(rawRequest);
+
+		byte[] head = parts.head();
+
+		byte[] body = parts.body();
 
 		String version = "HTTP/1.1";
 
-		if (rawRequest.contains("HTTP/2")) {
+		byte[] parseableHead = head;
+
+		// HTTP/2 is only looked for in the request line, headers may contain it as text
+		String headText = new String(head, StandardCharsets.ISO_8859_1);
+
+		int firstLineEnd = headText.indexOf('\n');
+
+		String firstLine = firstLineEnd < 0 ? headText : headText.substring(0, firstLineEnd);
+
+		if (firstLine.contains("HTTP/2")) {
 			version = "HTTP/2";
 			// replace with 1.1 just in apache.parse since it doesn't accept HTTP/2
 			// original version will still be persisted in request entity
-			rawRequest = rawRequest.replaceFirst("HTTP/2", "HTTP/1.1");
+			parseableHead = headText.replaceFirst("HTTP/2(\\.0)?", "HTTP/1.1").getBytes(StandardCharsets.ISO_8859_1);
 		}
-
-		ByteArrayInputStream stream = new ByteArrayInputStream(rawRequest.getBytes(StandardCharsets.UTF_8));
 
 		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192);
 
@@ -120,38 +132,11 @@ public abstract class RequestUtils {
 
 		ClassicHttpRequest request;
 		try {
-			request = parser.parse(buffer, stream);
+			request = parser.parse(buffer, new ByteArrayInputStream(parseableHead));
 		} catch (Exception e) {
 			return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
 		}
 
-		if (request.getFirstHeader(HttpHeaders.CONTENT_TYPE) != null) {
-
-			if (!isContentTypeParseble(request.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue()))
-				return RequestParseResult.builder()
-						.validationResult(ValidationResult.invalid("Content Type not supported")).build();
-
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-			// Drain internal buffer first
-			int available = buffer.length();
-			byte[] bufferBytes = new byte[available];
-			try {
-				buffer.read(bufferBytes, 0, available, stream);
-				out.write(bufferBytes);
-				// Then drain the stream
-				out.write(stream.readAllBytes());
-			} catch (IOException e) {
-				RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
-			}
-
-			byte[] bodyBytes = out.toByteArray();
-
-			if (bodyBytes.length > 0) {
-				request.setEntity(new ByteArrayEntity(bodyBytes,
-						org.apache.hc.core5.http.ContentType.parse(request.getFirstHeader("Content-Type").getValue())));
-			}
-		}
 		// Here starts construction of RequestParseResult components:
 
 		// Method
@@ -183,40 +168,39 @@ public abstract class RequestUtils {
 			return header;
 		}).collect(Collectors.toList());
 
-		// Body
+		// Body: detailed components are only stored for JSON and FORM bodies, a
+		// MULTIPART body is stored as a file, any other body only lives in the raw
 
-		Optional<HttpEntity> optionalEntity = Optional.ofNullable(request.getEntity());
-
-		BodyParseResult bodyParseResult;
+		BodyParseResult bodyParseResult = new BodyParseResult();
 
 		RequestContentType customContentType = null;
 
-		if (optionalEntity.isPresent()) {
+		String bodyContentType = null;
 
-			String body;
+		boolean bodyStoredAsFile = false;
 
-			try {
-				body = new String(optionalEntity.get().getContent().readAllBytes(), StandardCharsets.UTF_8);
-			} catch (Exception e) {
-				return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
+		if (body.length > 0 && request.containsHeader(HttpHeaders.CONTENT_TYPE)) {
+
+			bodyContentType = request.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
+
+			customContentType = HeaderUtils.detectRequestContentType(HeaderUtils.extractMimeType(bodyContentType));
+
+			switch (customContentType) {
+			case JSON -> bodyParseResult = BodyUtils.parseJsonBody(new String(body, StandardCharsets.UTF_8));
+			case FORM -> bodyParseResult = BodyUtils.parseFormBody(new String(body, StandardCharsets.UTF_8));
+			case MULTIPART -> bodyStoredAsFile = true;
+			default -> {
+			}
 			}
 
-			customContentType = HeaderUtils.detectRequestContentType(
-					org.apache.hc.core5.http.ContentType.parse(optionalEntity.get().getContentType()).getMimeType());
-
-			if (customContentType == RequestContentType.JSON)
-				bodyParseResult = BodyUtils.parseJsonBody(body);
-			else
-				bodyParseResult = BodyUtils.parseFormBody(body);
-
-		} else
-			bodyParseResult = new BodyParseResult();
+		}
 
 		// Final result construction
 
 		RequestParseResult finalParseResult = RequestParseResult.builder().method(customMethod).version(version)
 				.contentType(customContentType).pathParseResult(pathParseResult)
 				.queryStringParseResult(queryStringParseResult).bodyParseResult(bodyParseResult).headers(headers)
+				.rawHead(head).rawBody(body).bodyStoredAsFile(bodyStoredAsFile).bodyContentType(bodyContentType)
 				.validationResult(ValidationResult.valid()).build();
 
 		return finalParseResult;
@@ -302,12 +286,6 @@ public abstract class RequestUtils {
 
 		return rawRequest;
 
-	}
-
-	public static boolean isContentTypeParseble(String contentType) {
-		// For now only JSON and FORM request bodies are supported
-		return contentType.toLowerCase().equals(RequestContentType.JSON.getRaw())
-				|| contentType.toLowerCase().equals(RequestContentType.FORM.getRaw());
 	}
 
 }

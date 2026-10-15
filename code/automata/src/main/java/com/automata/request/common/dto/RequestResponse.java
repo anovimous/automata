@@ -9,6 +9,6 @@ import lombok.Builder;
 @Builder
 public record RequestResponse(Long requestId, Method method, String computatedPath, String extension, String version,
 		int numberOfProperties, RequestContentType contentType, Source source, Long hostId, Long tenantId,
-		Long programId, Long responseId) {
+		Long programId, Long responseId, boolean bodyStoredAsFile, long bodySizeBytes) {
 
 }

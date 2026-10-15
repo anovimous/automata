@@ -6,5 +6,5 @@ import lombok.Builder;
 
 @Builder
 public record ResponseDto(Integer statusCode, ResponseContentType contentType, Integer contentLength,
-		LocalDate insertionDate, Long requestId) {
+		LocalDate insertionDate, Long requestId, boolean bodyStoredAsFile, long bodySizeBytes) {
 }

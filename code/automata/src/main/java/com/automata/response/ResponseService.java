@@ -8,12 +8,16 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.automata.common.dto.RawHttpMessage;
 import com.automata.common.utils.Base64Utils;
+import com.automata.common.utils.HttpMessageUtils;
 import com.automata.request.Request;
 import com.automata.request.RequestRepository;
 import com.automata.request.body.BodyProperty;
 import com.automata.request.body.BodyPropertyService;
 import com.automata.request.header.HeaderService;
+import com.automata.storage.BodyObjectStorage;
+import com.automata.storage.StoredBody;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +36,8 @@ public class ResponseService {
 
 	private final BodyPropertyService bodyService;
 
+	private final BodyObjectStorage bodyStorage;
+
 	public Response getResponseById(Long responseId) {
 
 		return responseRepo.findById(responseId).orElseThrow(() -> new EntityNotFoundException("Response not found"));
@@ -39,10 +45,24 @@ public class ResponseService {
 	}
 
 	@Transactional(readOnly = true)
-	public String getRawResponse(Long responseId) {
+	public RawHttpMessage getRawResponse(Long responseId) {
 
-		return responseRawRepo.findById(responseId).orElseThrow(() -> new EntityNotFoundException("Response not found"))
-				.getRawBase64();
+		ResponseRaw raw = responseRawRepo.findById(responseId)
+				.orElseThrow(() -> new EntityNotFoundException("Response not found"));
+
+		return new RawHttpMessage(raw.getRawHeadBase64(), raw.getRawBodyBase64(),
+				raw.getResponse().isBodyStoredAsFile());
+
+	}
+
+	public StoredBody getResponseBodyFile(Long responseId) {
+
+		Response response = this.getResponseById(responseId);
+
+		if (!response.isBodyStoredAsFile())
+			throw new EntityNotFoundException("Response has no body file");
+
+		return bodyStorage.downloadResponseBody(responseId);
 
 	}
 
@@ -72,7 +92,7 @@ public class ResponseService {
 		if (responseBase64 == null)
 			return;
 
-		String rawResponse = Base64Utils.decode(responseBase64);
+		byte[] rawResponse = Base64Utils.decodeToBytes(responseBase64);
 
 		ResponseParseResult parseResult = ResponseUtils.parseResponse(rawResponse);
 
@@ -86,11 +106,17 @@ public class ResponseService {
 
 		InternalResponsePersistanceDto dto = InternalResponsePersistanceDto.builder()
 				.statusCode(parseResult.statusCode()).contentLength(parseResult.contentLength())
-				.contentType(parseResult.contentType()).bodyParseResult(parseResult.bodyParseResult()).build();
+				.contentType(parseResult.contentType()).bodyParseResult(parseResult.bodyParseResult())
+				.bodyStoredAsFile(parseResult.bodyStoredAsFile()).bodySizeBytes(parseResult.rawBody().length).build();
 
 		Response persistedResponse = this.internalPersistResponse(dto, request);
 
-		responseRawRepo.save(new ResponseRaw(persistedResponse, responseBase64));
+		responseRawRepo.save(new ResponseRaw(persistedResponse, Base64Utils.encode(parseResult.rawHead()),
+				HttpMessageUtils.encodeInlineBody(parseResult.rawBody(), parseResult.bodyStoredAsFile())));
+
+		if (parseResult.bodyStoredAsFile())
+			bodyStorage.storeResponseBody(persistedResponse.getId(), parseResult.rawBody(),
+					parseResult.bodyContentType());
 
 		request.setResponse(persistedResponse);
 
@@ -104,7 +130,8 @@ public class ResponseService {
 	private Response internalPersistResponse(InternalResponsePersistanceDto dto, Request request) {
 
 		Response response = Response.builder().statusCode(dto.statusCode()).contentLength(dto.contentLength())
-				.contentType(dto.contentType()).build();
+				.contentType(dto.contentType()).bodyStoredAsFile(dto.bodyStoredAsFile())
+				.bodySizeBytes(dto.bodySizeBytes()).build();
 
 		response.setRequest(request);
 

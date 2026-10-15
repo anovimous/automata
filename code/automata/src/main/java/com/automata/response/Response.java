@@ -40,7 +40,8 @@ public class Response {
 	@Column(nullable = false, updatable = false)
 	private LocalDate insertionDate;
 
-	// For now, response will only support JSON responses
+	// Detailed body properties are only stored for JSON responses, any other body is
+	// kept in object storage
 
 	@Column(nullable = false)
 	private Integer statusCode;
@@ -50,6 +51,11 @@ public class Response {
 
 	@Column(nullable = false)
 	private Integer contentLength;
+
+	// True when the body is kept in object storage (and not in the raw table)
+	private boolean bodyStoredAsFile;
+
+	private long bodySizeBytes;
 
 	@OneToOne(optional = false)
 	private Request request;

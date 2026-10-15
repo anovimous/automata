@@ -6,6 +6,6 @@ import lombok.Builder;
 
 @Builder
 public record InternalResponsePersistanceDto(int statusCode, ResponseContentType contentType, int contentLength,
-		BodyParseResult bodyParseResult) {
+		BodyParseResult bodyParseResult, boolean bodyStoredAsFile, long bodySizeBytes) {
 
 }
