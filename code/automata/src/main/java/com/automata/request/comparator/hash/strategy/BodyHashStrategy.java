@@ -13,7 +13,10 @@ import com.automata.request.comparator.hash.HashTarget;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Component
+@Slf4j
 public class BodyHashStrategy implements HashStrategy {
 
 	@Override
@@ -66,11 +69,11 @@ public class BodyHashStrategy implements HashStrategy {
 		StringBuilder builder = new StringBuilder();
 
 		stringsOfEachGroupLowercase.forEach((str) -> builder.append(str));
-
+		log.info("BodyHashStrategy: normalized-string = " + builder.toString());
 		return builder.toString();
 
 	}
-
+// COMPLETE HERE: ERROR is raised at line 58 getIsArrayElement
 	private String computeLastObjectParent(String fullPath, Boolean isArrayElement) {
 
 		if (!fullPath.contains("."))
