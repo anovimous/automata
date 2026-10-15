@@ -25,6 +25,8 @@ import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.dto.RequestFilter;
 import com.automata.request.common.dto.RequestPatchDto;
 import com.automata.request.comparator.ComparatorRepository;
+import com.automata.request.equalityset.RequestEqualityRelationRepository;
+import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.automata.request.header.HeaderService;
 import com.automata.request.parameter.QueryParameter;
@@ -58,6 +60,8 @@ public class RequestService {
 	private final QueryParameterRepository queryParameterRepo;
 
 	private final BodyPropertyRepository bodyPropertyRepo;
+
+	private final RequestEqualityRelationRepository equalityRelationRepo;
 
 	private final PathService pathService;
 
@@ -115,6 +119,15 @@ public class RequestService {
 		Specification<Request> spec = RequestUtils.buildSpecification(filter);
 
 		return requestRepo.findAll(spec, pageable);
+
+	}
+
+	public Page<Request> getEqualRequestsPaged(Long equalitySetId, Pageable pageable) {
+
+		RequestEqualitySet set = equalitySetRepo.findById(equalitySetId)
+				.orElseThrow(() -> new EntityNotFoundException("EqualitySet not found"));
+
+		return equalityRelationRepo.findAllInSet(set, pageable);
 
 	}
 

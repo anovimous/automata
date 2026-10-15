@@ -13,7 +13,6 @@ import com.automata.request.body.BodyProperty;
 import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.Source;
-import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.parameter.QueryParameter;
 import com.automata.request.path.PathVariable;
 import com.automata.response.Response;
@@ -26,7 +25,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
@@ -99,8 +97,5 @@ public class Request {
 
 	@OneToMany(mappedBy = "request")
 	private List<QueryParameter> parameters = new ArrayList<>();
-
-	@ManyToMany(mappedBy = "requests")
-	private List<RequestEqualitySet> equalitySets = new ArrayList<>();
 
 }
