@@ -88,9 +88,7 @@ public class RequestController {
 	@PostMapping("/raw")
 	public ResponseEntity<RequestResponse> addRawRequestWithResponse(@RequestBody RawRequestAdditionDto dto) {
 
-		Request request = requestService.addRawRequest(dto);
-
-		responseService.addResponseToRequest(dto.responseBase64(), request);
+		Request request = requestService.addRawRequestWithResponse(dto);
 
 		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
 
@@ -124,7 +122,7 @@ public class RequestController {
 	}
 
 	@PostMapping("/equalizations")
-	public ResponseEntity<Void> createEqualizationObject(RequestsEqualizationDto dto) {
+	public ResponseEntity<Void> createEqualizationObject(@RequestBody RequestsEqualizationDto dto) {
 
 		requestEqualityService.createEqualizationTask(dto);
 
@@ -143,7 +141,7 @@ public class RequestController {
 	}
 
 	@PostMapping("/equalizations/run")
-	public ResponseEntity<Void> equalizeRequests(Long equalizationId) {
+	public ResponseEntity<Void> equalizeRequests(@RequestParam Long equalizationId) {
 
 		requestEqualityService.equalizeRequestsIntoEqualityGroups(equalizationId);
 

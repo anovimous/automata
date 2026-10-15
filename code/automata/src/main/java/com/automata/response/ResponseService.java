@@ -1,7 +1,5 @@
 package com.automata.response;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -14,9 +12,7 @@ import com.automata.common.utils.Base64Utils;
 import com.automata.request.Request;
 import com.automata.request.RequestRepository;
 import com.automata.request.body.BodyProperty;
-import com.automata.request.body.BodyPropertyRepository;
 import com.automata.request.body.BodyPropertyService;
-import com.automata.request.common.dto.BodyPropertyInternalDto;
 import com.automata.request.header.HeaderService;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -30,7 +26,7 @@ public class ResponseService {
 
 	private final RequestRepository requestRepo;
 
-	private final BodyPropertyRepository bodyPropertyRepo;
+	private final ResponseRawRepository responseRawRepo;
 
 	private final HeaderService headerService;
 
@@ -45,21 +41,8 @@ public class ResponseService {
 	@Transactional(readOnly = true)
 	public String getRawResponse(Long responseId) {
 
-		Response response = responseRepo.findById(responseId)
-				.orElseThrow(() -> new EntityNotFoundException("Response not found"));
-
-		ResponseInternalDto dto = ResponseInternalDto.builder().id(response.getId())
-				.statusCode(response.getStatusCode()).contentType(response.getContentType())
-				.contentLength(response.getContentLength()).build();
-
-		List<Long> ids = List.of(response.getId());
-
-		List<BodyPropertyInternalDto> bodyProperties = bodyPropertyRepo.getBodyPropertyDtosByResponseIds(ids);
-
-		String rawResponse = ResponseUtils
-				.composeRawResponse(ResponseUtils.composeApacheCoreResponse(dto, bodyProperties));
-
-		return Base64.getEncoder().encodeToString(rawResponse.getBytes(StandardCharsets.UTF_8));
+		return responseRawRepo.findById(responseId).orElseThrow(() -> new EntityNotFoundException("Response not found"))
+				.getRawBase64();
 
 	}
 
@@ -106,6 +89,8 @@ public class ResponseService {
 				.contentType(parseResult.contentType()).bodyParseResult(parseResult.bodyParseResult()).build();
 
 		Response persistedResponse = this.internalPersistResponse(dto, request);
+
+		responseRawRepo.save(new ResponseRaw(persistedResponse, responseBase64));
 
 		request.setResponse(persistedResponse);
 
