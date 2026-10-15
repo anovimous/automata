@@ -8,7 +8,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.automata.common.dto.RawHttpMessage;
 import com.automata.common.utils.Base64Utils;
+import com.automata.common.utils.HttpMessageUtils;
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.request.body.BodyProperty;
@@ -26,6 +28,8 @@ import com.automata.request.parameter.QueryParameterService;
 import com.automata.request.path.PathService;
 import com.automata.request.path.PathVariable;
 import com.automata.response.ResponseService;
+import com.automata.storage.BodyObjectStorage;
+import com.automata.storage.StoredBody;
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
 
@@ -50,6 +54,8 @@ public class RequestService {
 
 	private final ResponseService responseService;
 
+	private final BodyObjectStorage bodyStorage;
+
 	private final RequestEqualityRelationRepository equalityRelationRepo;
 
 	private final PathService pathService;
@@ -67,10 +73,24 @@ public class RequestService {
 	}
 
 	@Transactional(readOnly = true)
-	public String getRawRequestBase64(Long requestId) {
+	public RawHttpMessage getRawRequest(Long requestId) {
 
-		return requestRawRepo.findById(requestId).orElseThrow(() -> new EntityNotFoundException("Request not found"))
-				.getRawBase64();
+		RequestRaw raw = requestRawRepo.findById(requestId)
+				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+
+		return new RawHttpMessage(raw.getRawHeadBase64(), raw.getRawBodyBase64(),
+				raw.getRequest().isBodyStoredAsFile());
+
+	}
+
+	public StoredBody getRequestBodyFile(Long requestId) {
+
+		Request request = this.getRequestById(requestId);
+
+		if (!request.isBodyStoredAsFile())
+			throw new EntityNotFoundException("Request has no body file");
+
+		return bodyStorage.downloadRequestBody(requestId);
 
 	}
 
@@ -116,7 +136,7 @@ public class RequestService {
 			tenant = tenantRepo.findById(dto.tenantId())
 					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
-		String rawRequest = Base64Utils.decode(dto.requestBase64());
+		byte[] rawRequest = Base64Utils.decodeToBytes(dto.requestBase64());
 
 		RequestParseResult parseResult = RequestUtils.parseRawRequest(rawRequest);
 
@@ -135,7 +155,12 @@ public class RequestService {
 
 		Request persistedRequest = this.internalPersistRequest(internalDto);
 
-		requestRawRepo.save(new RequestRaw(persistedRequest, dto.requestBase64()));
+		requestRawRepo.save(new RequestRaw(persistedRequest, Base64Utils.encode(parseResult.getRawHead()),
+				HttpMessageUtils.encodeInlineBody(parseResult.getRawBody(), parseResult.isBodyStoredAsFile())));
+
+		if (parseResult.isBodyStoredAsFile())
+			bodyStorage.storeRequestBody(persistedRequest.getId(), parseResult.getRawBody(),
+					parseResult.getBodyContentType());
 
 		return persistedRequest;
 
@@ -171,6 +196,10 @@ public class RequestService {
 
 		request.setNumberOfProperties(
 				internalDto.getRequestParseResult().getBodyParseResult().getBodyProperties().size());
+
+		request.setBodyStoredAsFile(internalDto.getRequestParseResult().isBodyStoredAsFile());
+
+		request.setBodySizeBytes(internalDto.getRequestParseResult().getRawBody().length);
 
 		request.setProgram(internalDto.getProgram());
 

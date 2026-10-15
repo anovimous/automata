@@ -18,9 +18,10 @@ import lombok.Setter;
 @Setter
 public class RequestRaw {
 
-	public RequestRaw(Request request, String rawBase64) {
+	public RequestRaw(Request request, String rawHeadBase64, String rawBodyBase64) {
 		this.request = request;
-		this.rawBase64 = rawBase64;
+		this.rawHeadBase64 = rawHeadBase64;
+		this.rawBodyBase64 = rawBodyBase64;
 	}
 
 	@Id
@@ -30,8 +31,13 @@ public class RequestRaw {
 	@OneToOne(optional = false, fetch = FetchType.LAZY)
 	private Request request;
 
-	// Base64 of the original request, exactly as received
+	// Base64 of the start line + headers + blank line
 	@Column(nullable = false, columnDefinition = "text")
-	private String rawBase64;
+	private String rawHeadBase64;
+
+	// Base64 of the body. Null when there is no body, or when it is stored as a file
+	// (see Request.bodyStoredAsFile)
+	@Column(columnDefinition = "text")
+	private String rawBodyBase64;
 
 }

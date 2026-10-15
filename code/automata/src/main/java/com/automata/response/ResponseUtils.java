@@ -2,7 +2,6 @@ package com.automata.response;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,11 +14,11 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.impl.BasicHttpTransportMetrics;
 import org.apache.hc.core5.http.impl.io.SessionInputBufferImpl;
 import org.apache.hc.core5.http.impl.io.SessionOutputBufferImpl;
-import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.message.BasicClassicHttpResponse;
 import org.springframework.data.jpa.domain.Specification;
 
+import com.automata.common.utils.HttpMessageUtils;
 import com.automata.common.utils.ValidationResult;
 import com.automata.host.Host;
 import com.automata.request.Request;
@@ -38,9 +37,13 @@ import org.apache.hc.core5.http.impl.io.DefaultHttpResponseWriter;
 
 public abstract class ResponseUtils {
 
-	public static ResponseParseResult parseResponse(String rawResponse) {
+	public static ResponseParseResult parseResponse(byte[] rawResponse) {
 
-		ByteArrayInputStream stream = new ByteArrayInputStream(rawResponse.getBytes(StandardCharsets.UTF_8));
+		HttpMessageUtils.SplitMessage parts = HttpMessageUtils.split(rawResponse);
+
+		byte[] head = parts.head();
+
+		byte[] body = parts.body();
 
 		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192);
 
@@ -49,35 +52,11 @@ public abstract class ResponseUtils {
 		ClassicHttpResponse response;
 
 		try {
-			response = parser.parse(buffer, stream);
+			response = parser.parse(buffer, new ByteArrayInputStream(head));
 		} catch (Exception e) {
 			return ResponseParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
 		}
 
-		if (response.getFirstHeader(HttpHeaders.CONTENT_TYPE) != null
-				&& isContentTypeParseble(response.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue())) {
-
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
-
-			// Drain internal buffer first
-			int available = buffer.length();
-			byte[] bufferBytes = new byte[available];
-			try {
-				buffer.read(bufferBytes, 0, available, stream);
-				out.write(bufferBytes);
-				// Then drain the stream
-				out.write(stream.readAllBytes());
-			} catch (IOException e) {
-				ResponseParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
-			}
-
-			byte[] bodyBytes = out.toByteArray();
-
-			if (bodyBytes.length > 0) {
-				response.setEntity(new ByteArrayEntity(bodyBytes, org.apache.hc.core5.http.ContentType
-						.parse(response.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue())));
-			}
-		}
 		// status code
 
 		int statusCode = response.getCode();
@@ -101,36 +80,38 @@ public abstract class ResponseUtils {
 		else
 			contentLength = 0;
 
-		// body and content type
+		// body and content type: only a JSON body is broken down into properties, any
+		// other body is stored as a file
 
-		Optional<HttpEntity> optionalEntity = Optional.ofNullable(response.getEntity());
-
-		BodyParseResult bodyParseResult;
+		BodyParseResult bodyParseResult = new BodyParseResult();
 
 		ResponseContentType customContentType = null;
 
-		if (optionalEntity.isPresent()) {
+		String bodyContentType = null;
 
-			String body;
+		boolean bodyStoredAsFile = false;
 
-			try {
-				body = new String(optionalEntity.get().getContent().readAllBytes(), StandardCharsets.UTF_8);
-			} catch (Exception e) {
-				return ResponseParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
+		if (body.length > 0) {
+
+			if (response.containsHeader(HttpHeaders.CONTENT_TYPE)) {
+
+				bodyContentType = response.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
+
+				customContentType = HeaderUtils.detectResponseContentType(HeaderUtils.extractMimeType(bodyContentType));
+
 			}
 
-			customContentType = HeaderUtils.detectResponseContentType(
-					org.apache.hc.core5.http.ContentType.parse(optionalEntity.get().getContentType()).getMimeType());
+			if (customContentType == ResponseContentType.JSON)
+				bodyParseResult = BodyUtils.parseJsonBody(new String(body, StandardCharsets.UTF_8));
+			else
+				bodyStoredAsFile = true;
 
-			// no if conditionals here since only JSON response is supported
-			bodyParseResult = BodyUtils.parseJsonBody(body);
-
-		} else
-			bodyParseResult = new BodyParseResult();
+		}
 
 		ResponseParseResult finalParseResult = ResponseParseResult.builder().statusCode(statusCode)
 				.contentLength(contentLength).contentType(customContentType).headers(headers)
-				.bodyParseResult(bodyParseResult).validationResult(ValidationResult.valid()).build();
+				.bodyParseResult(bodyParseResult).rawHead(head).rawBody(body).bodyStoredAsFile(bodyStoredAsFile)
+				.bodyContentType(bodyContentType).validationResult(ValidationResult.valid()).build();
 
 		return finalParseResult;
 
@@ -223,12 +204,6 @@ public abstract class ResponseUtils {
 			return cb.and(predicates.toArray(Predicate[]::new));
 
 		};
-	}
-
-	public static boolean isContentTypeParseble(String contentType) {
-//For now only JSON response bodies are stored
-		return contentType.toLowerCase().contains(ResponseContentType.JSON.getRaw());
-
 	}
 
 }

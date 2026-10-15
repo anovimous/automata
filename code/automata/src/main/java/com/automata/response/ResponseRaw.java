@@ -18,9 +18,10 @@ import lombok.Setter;
 @Setter
 public class ResponseRaw {
 
-	public ResponseRaw(Response response, String rawBase64) {
+	public ResponseRaw(Response response, String rawHeadBase64, String rawBodyBase64) {
 		this.response = response;
-		this.rawBase64 = rawBase64;
+		this.rawHeadBase64 = rawHeadBase64;
+		this.rawBodyBase64 = rawBodyBase64;
 	}
 
 	@Id
@@ -30,8 +31,13 @@ public class ResponseRaw {
 	@OneToOne(optional = false, fetch = FetchType.LAZY)
 	private Response response;
 
-	// Base64 of the original response, exactly as received
+	// Base64 of the start line + headers + blank line
 	@Column(nullable = false, columnDefinition = "text")
-	private String rawBase64;
+	private String rawHeadBase64;
+
+	// Base64 of the body. Null when there is no body, or when it is stored as a file
+	// (see Response.bodyStoredAsFile)
+	@Column(columnDefinition = "text")
+	private String rawBodyBase64;
 
 }

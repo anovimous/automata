@@ -12,7 +12,8 @@ public class ResponseMapper {
 
 		builder.insertionDate(response.getInsertionDate()).statusCode(response.getStatusCode())
 				.contentLength(response.getContentLength()).contentType(response.getContentType())
-				.requestId(response.getRequest().getId()).build();
+				.requestId(response.getRequest().getId()).bodyStoredAsFile(response.isBodyStoredAsFile())
+				.bodySizeBytes(response.getBodySizeBytes());
 
 		return builder.build();
 

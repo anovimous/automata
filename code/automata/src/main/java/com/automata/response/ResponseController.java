@@ -1,5 +1,6 @@
 package com.automata.response;
 
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -12,7 +13,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.automata.common.dto.RawHttpMessage;
 import com.automata.common.dto.response.PageHolderResponse;
+import com.automata.storage.BodyDownloads;
+import com.automata.storage.StoredBody;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,11 +41,21 @@ public class ResponseController {
 	@GetMapping("/{responseId}/raw")
 	public ResponseEntity<RawResponseDto> getRawResponse(@PathVariable Long responseId) {
 
-		String responseBase64 = responseService.getRawResponse(responseId);
+		RawHttpMessage rawResponse = responseService.getRawResponse(responseId);
 
-		RawResponseDto responseDto = new RawResponseDto(responseBase64);
+		RawResponseDto responseDto = new RawResponseDto(rawResponse.rawHeadBase64(), rawResponse.rawBodyBase64(),
+				rawResponse.bodyStoredAsFile());
 
 		return ResponseEntity.ok(responseDto);
+
+	}
+
+	@GetMapping("/{responseId}/body")
+	public ResponseEntity<InputStreamResource> downloadResponseBody(@PathVariable Long responseId) {
+
+		StoredBody body = responseService.getResponseBodyFile(responseId);
+
+		return BodyDownloads.attachment(body, "response-" + responseId);
 
 	}
 

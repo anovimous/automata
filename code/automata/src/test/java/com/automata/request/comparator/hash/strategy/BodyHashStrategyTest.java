@@ -175,4 +175,35 @@ class BodyHashStrategyTest {
 	void formAndJsonWithSameKeysHashEqual() {
 		assertEquals(hashForm("a=1&b=2"), hashJson("{\"a\":1,\"b\":2}"));
 	}
+
+	// Bodies without properties are told apart by their content type
+
+	private HashCode hashWithoutProperties(RequestContentType type) {
+		return hash(new BodyParseResult(), type);
+	}
+
+	@Test
+	void noProperties_sameContentType_sameHash() {
+		assertEquals(hashWithoutProperties(RequestContentType.MULTIPART),
+				hashWithoutProperties(RequestContentType.MULTIPART));
+	}
+
+	@Test
+	void noProperties_differentContentTypes_differentHash() {
+		assertNotEquals(hashWithoutProperties(RequestContentType.MULTIPART),
+				hashWithoutProperties(RequestContentType.XML));
+	}
+
+	@Test
+	void noProperties_noContentType_doesNotThrow_andDiffersFromAContentType() {
+		assertDoesNotThrow(() -> hashWithoutProperties(null));
+		assertNotEquals(hashWithoutProperties(null), hashWithoutProperties(RequestContentType.OTHER));
+	}
+
+	@Test
+	void noProperties_neverEqualsAPropertyPath() {
+		// a form field literally named like the marker must not collide
+		assertNotEquals(hashWithoutProperties(RequestContentType.MULTIPART), hashForm("content-type:multipart=1"));
+	}
+
 }
