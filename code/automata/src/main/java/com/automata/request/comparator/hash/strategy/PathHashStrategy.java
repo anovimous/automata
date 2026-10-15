@@ -1,6 +1,6 @@
 package com.automata.request.comparator.hash.strategy;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 import org.springframework.stereotype.Component;
 
@@ -23,7 +23,7 @@ public class PathHashStrategy implements HashStrategy {
 
 		String computatedPath = request.getComputatedPath();
 
-		HashCode hash = function.hashString(computatedPath, Charset.defaultCharset());
+		HashCode hash = function.hashString(computatedPath, StandardCharsets.UTF_8);
 
 		return hash;
 
