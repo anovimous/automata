@@ -65,7 +65,7 @@ public class Request {
 	// Includes the Protocol
 	private String version;
 
-	// This is automatically set, equals bodyProperties.length()-1
+	// This is automatically set, equals the number of body properties
 	private int numberOfProperties;
 
 	// For now, request will only support JSON and POST form data

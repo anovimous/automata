@@ -67,7 +67,7 @@ public abstract class BodyUtils {
 		List<NameValuePair> pairs = WWWFormCodec.parse(body, StandardCharsets.UTF_8);
 
 		List<BodyProperty> bodyProperties = pairs.stream().map((pair) -> BodyProperty.builder().fullPath(pair.getName())
-				.value(pair.getValue()).propertyValueType(PropertyValueType.STRING).build())
+				.value(pair.getValue()).isArrayElement(false).propertyValueType(PropertyValueType.STRING).build())
 				.collect(Collectors.toList());
 
 		BodyParseResult result = new BodyParseResult();

@@ -7,7 +7,6 @@ import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.enums.Source;
-import com.automata.response.ResponseService;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -20,17 +19,13 @@ public class BurpAdapterService {
 
 	private final RequestService requestService;
 
-	private final ResponseService responseService;
-
 	@Transactional
 	public void addRawRequest(String requestBase64, String host, String responseBase64) {
 
 		Host requestHost = hostRepo.findByHost(host).orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
-		Request request = requestService.addRawRequest(
+		requestService.addRawRequestWithResponse(
 				new RawRequestAdditionDto(requestBase64, Source.BURP, requestHost.getId(), null, responseBase64));
-
-		responseService.addResponseToRequest(responseBase64, request);
 
 	}
 
