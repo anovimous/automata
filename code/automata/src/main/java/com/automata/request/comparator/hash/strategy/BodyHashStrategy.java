@@ -19,6 +19,10 @@ public class BodyHashStrategy implements HashStrategy {
 
 	private static final String ROOT_ARRAY = "[]";
 
+	// Stands in for the body paths when there are none. Starts with a control
+	// character, so it can never be equal to a path.
+	private static final String NO_PROPERTIES_MARKER = "\u0000content-type:";
+
 	@Override
 	public HashTarget supports() {
 
@@ -37,8 +41,12 @@ public class BodyHashStrategy implements HashStrategy {
 
 	// Only the structure of the body matters: values, value types, key order and
 	// everything inside an array (length, order, element contents) are ignored. An
-	// array is represented by its name alone.
+	// array is represented by its name alone. A body without properties (multipart,
+	// XML, text, ... or no body at all) is represented by its content type.
 	private String normalize(List<BodyProperty> properties, RequestContentType contentType) {
+
+		if (properties.isEmpty())
+			return NO_PROPERTIES_MARKER + (contentType == null ? "none" : contentType.name());
 
 		Set<String> paths = new TreeSet<>();
 
