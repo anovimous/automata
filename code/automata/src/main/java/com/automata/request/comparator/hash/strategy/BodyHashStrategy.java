@@ -1,23 +1,23 @@
 package com.automata.request.comparator.hash.strategy;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.TreeSet;
 
 import org.springframework.stereotype.Component;
 
 import com.automata.request.Request;
 import com.automata.request.body.BodyProperty;
 import com.automata.request.comparator.hash.HashTarget;
+import com.automata.request.common.enums.RequestContentType;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.HashFunction;
 
-import lombok.extern.slf4j.Slf4j;
-
 @Component
-@Slf4j
 public class BodyHashStrategy implements HashStrategy {
+
+	private static final String ROOT_ARRAY = "[]";
 
 	@Override
 	public HashTarget supports() {
@@ -29,67 +29,43 @@ public class BodyHashStrategy implements HashStrategy {
 	@Override
 	public HashCode hashStrategyTarget(Request request, HashFunction function) {
 
-		String normalizedInput = this.normalize(request.getBodyProperties());
+		String normalizedInput = this.normalize(request.getBodyProperties(), request.getContentType());
 
-		HashCode hash = function.hashString(normalizedInput, Charset.defaultCharset());
-
-		return hash;
+		return function.hashString(normalizedInput, StandardCharsets.UTF_8);
 
 	}
 
-	private String normalize(List<BodyProperty> properties) {
+	// Only the structure of the body matters: values, value types, key order and
+	// everything inside an array (length, order, element contents) are ignored. An
+	// array is represented by its name alone.
+	private String normalize(List<BodyProperty> properties, RequestContentType contentType) {
 
-		Map<String, List<BodyProperty>> propertiesGroupedOnParentId = properties.stream().collect(Collectors.groupingBy(
-				(property) -> this.computeLastObjectParent(property.getFullPath(), property.getIsArrayElement())));
+		Set<String> paths = new TreeSet<>();
 
-		List<List<BodyProperty>> groupedPropertiesInnerSorted = propertiesGroupedOnParentId.values().stream()
-				.map((list) -> list.stream().sorted((prop1, prop2) -> this
-						.computeLastObjectParent(prop1.getFullPath(), prop1.getIsArrayElement()).compareToIgnoreCase(
-								this.computeLastObjectParent(prop2.getFullPath(), prop2.getIsArrayElement())))
-						.toList())
-				.toList();
+		for (BodyProperty property : properties) {
 
-		List<String> stringsOfEachGroupLowercase = groupedPropertiesInnerSorted.stream().map((list) -> {
+			String path = property.getFullPath().toLowerCase();
 
-			StringBuilder builder = new StringBuilder();
+			if (contentType == RequestContentType.JSON)
+				path = this.cutAtArray(path);
 
-			list.forEach((bodyProperty) -> {
-				String fullPath = bodyProperty.getFullPath();
-				if (bodyProperty.getIsArrayElement())
-					builder.append(fullPath.substring(0, fullPath.lastIndexOf("[")).toLowerCase());
-				else
-					builder.append(fullPath.toLowerCase());
-			});
+			paths.add(path);
 
-			return builder.toString();
-
-		}).sorted(String::compareTo).toList();
-
-		;
-		StringBuilder builder = new StringBuilder();
-
-		stringsOfEachGroupLowercase.forEach((str) -> builder.append(str));
-		log.info("BodyHashStrategy: normalized-string = " + builder.toString());
-		return builder.toString();
-
-	}
-// COMPLETE HERE: ERROR is raised at line 58 getIsArrayElement
-	private String computeLastObjectParent(String fullPath, Boolean isArrayElement) {
-
-		if (!fullPath.contains("."))
-			return "";
-
-		if (isArrayElement) {
-
-			int firstBracketIndex = fullPath.indexOf("[");
-
-			int lastPointBeforeBracket = fullPath.substring(0, firstBracketIndex).lastIndexOf(".");
-			return fullPath.substring(0, lastPointBeforeBracket);
-
-		} else {
-			int lastPointIndex = fullPath.lastIndexOf(".");
-			return fullPath.substring(0, lastPointIndex);
 		}
+
+		return String.join("\n", paths);
+
+	}
+
+	private String cutAtArray(String path) {
+
+		int bracketIndex = path.indexOf("[");
+
+		if (bracketIndex < 0)
+			return path;
+
+		return bracketIndex == 0 ? ROOT_ARRAY : path.substring(0, bracketIndex);
+
 	}
 
 }

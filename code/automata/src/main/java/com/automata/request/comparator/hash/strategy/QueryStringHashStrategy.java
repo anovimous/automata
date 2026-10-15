@@ -1,6 +1,6 @@
 package com.automata.request.comparator.hash.strategy;
 
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
@@ -26,7 +26,7 @@ public class QueryStringHashStrategy implements HashStrategy {
 
 		String normalizedInput = this.normalize(request.getParameters());
 
-		HashCode hash = function.hashString(normalizedInput, Charset.defaultCharset());
+		HashCode hash = function.hashString(normalizedInput, StandardCharsets.UTF_8);
 
 		return hash;
 
