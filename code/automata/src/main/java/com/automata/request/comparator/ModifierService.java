@@ -1,7 +1,11 @@
 package com.automata.request.comparator;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,6 +14,7 @@ import com.automata.request.comparator.common.enums.Schema;
 import com.automata.request.comparator.hash.HashTarget;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -30,16 +35,25 @@ public class ModifierService {
 
 	}
 
-	public Page<Modifier> getModifiersPagedAndFilteredOnHashTarget(HashTarget target, Pageable pageable) {
-
-		return modifierRepo.findByTarget(target, pageable);
-
-	}
-
 	public Page<Modifier> getModifiersPagedAndFilteredOnHashTargetAndSchema(HashTarget target, Schema schema,
 			Pageable pageable) {
 
-		return modifierRepo.findByTargetAndSchema(target, schema, pageable);
+		Specification<Modifier> spec = (root, query, cb) -> {
+
+			List<Predicate> predicates = new ArrayList<>();
+
+			if (target != null) {
+				predicates.add(cb.equal(root.get("target"), target));
+			}
+
+			if (schema != null) {
+				predicates.add(cb.equal(root.get("schema"), schema));
+			}
+
+			return cb.and(predicates.toArray(Predicate[]::new));
+		};
+
+		return modifierRepo.findAll(spec, pageable);
 
 	}
 
@@ -58,7 +72,7 @@ public class ModifierService {
 		return modifier;
 
 	}
-	
+
 	@Transactional
 	public void deleteModifier(Long modifierId) {
 

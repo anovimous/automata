@@ -1,5 +1,7 @@
 package com.automata.request.comparator;
 
+import java.net.URI;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,7 +18,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.automata.common.dto.response.PageHolderResponse;
+import com.automata.request.comparator.common.dto.ModifierCreationRequest;
+import com.automata.request.comparator.common.dto.ModifierDetailedResponse;
 import com.automata.request.comparator.common.dto.ModifierPatchRequest;
+import com.automata.request.comparator.common.dto.ModifierSummaryResponse;
 import com.automata.request.comparator.common.enums.Schema;
 import com.automata.request.comparator.hash.HashTarget;
 
@@ -30,46 +35,48 @@ public class ModifierController {
 	private final ModifierService modifierService;
 
 	@GetMapping("/{modifierId}")
-	public ResponseEntity<Modifier> getModifier(@PathVariable Long modifierId) {
+	public ResponseEntity<ModifierDetailedResponse> getModifier(@PathVariable Long modifierId) {
 
 		Modifier modifier = modifierService.getModifierById(modifierId);
 
-		return ResponseEntity.ok(modifier);
+		ModifierDetailedResponse response = ModifierMapper.toDetailedResponse(modifier);
+
+		return ResponseEntity.ok(response);
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<Modifier>> getModifiers(@RequestParam(required = false) HashTarget target,
-			@RequestParam(required = false) Schema schema,
-			@PageableDefault(size = 30, sort = {"creationDate"}, direction = Sort.Direction.DESC) Pageable pageable) {
+	public ResponseEntity<PageHolderResponse<ModifierSummaryResponse>> getModifiers(
+			@RequestParam(required = false) HashTarget target, @RequestParam(required = false) Schema schema,
+			@PageableDefault(size = 30, sort = { "creationDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
-		Page<Modifier> modifiers;
+		Page<Modifier> modifiers = modifierService.getModifiersPagedAndFilteredOnHashTargetAndSchema(target, schema,
+				pageable);
 
-		if (schema == null)
-			modifiers = modifierService.getModifiersPagedAndFilteredOnHashTarget(target, pageable);
-		else
-			modifiers = modifierService.getModifiersPagedAndFilteredOnHashTargetAndSchema(target, schema, pageable);
+		Page<ModifierSummaryResponse> respones = modifiers.map(ModifierMapper::toSummaryResponse);
 
-		return ResponseEntity.ok(new PageHolderResponse<>(modifiers));
+		return ResponseEntity.ok(new PageHolderResponse<>(respones));
 
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Modifier> createModifier(@RequestBody Modifier modifier) {
+	public ResponseEntity<Void> createModifier(@RequestBody ModifierCreationRequest req) {
 
-		Modifier createdModifier = modifierService.createModifier(modifier);
+		Modifier toCreateModifier = ModifierMapper.toModifier(req);
 
-		return ResponseEntity.status(201).body(createdModifier);
+		Modifier createdModifier = modifierService.createModifier(toCreateModifier);
+
+		return ResponseEntity.status(201).location(URI.create("/api/modifiers/" + createdModifier.getId())).build();
 
 	}
 
 	@PatchMapping("/{modifierId}")
-	public ResponseEntity<Modifier> patchModifier(@PathVariable Long modifierId,
+	public ResponseEntity<Void> patchModifier(@PathVariable Long modifierId,
 			@RequestBody ModifierPatchRequest patchRequest) {
 
-		Modifier modifier = modifierService.patchModifier(modifierId, patchRequest);
+		modifierService.patchModifier(modifierId, patchRequest);
 
-		return ResponseEntity.ok(modifier);
+		return ResponseEntity.status(204).build();
 	}
 
 	@DeleteMapping("/{modifierId}")

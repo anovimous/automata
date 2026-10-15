@@ -3,6 +3,7 @@ package com.automata.request.comparator;
 import java.time.LocalDate;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.lang.Nullable;
 
 import com.automata.request.comparator.common.enums.Schema;
 import com.automata.request.comparator.hash.HashTarget;
@@ -14,14 +15,18 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 @Setter
+@Builder
 public class Modifier {
 
 	@Id
@@ -44,7 +49,7 @@ public class Modifier {
 
 	private boolean isAvailable;
 
-	@Column(nullable = false)
+	@Nullable
 	@Enumerated(EnumType.STRING)
 	private Schema schema;
 }

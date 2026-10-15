@@ -6,6 +6,4 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface RequestEqualitySetRepository extends JpaRepository<RequestEqualitySet, Long> {
 
-	boolean existsByRequests_Id(Long requestId);
-
 }
