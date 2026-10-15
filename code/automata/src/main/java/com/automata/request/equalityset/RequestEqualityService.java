@@ -1,17 +1,21 @@
 package com.automata.request.equalityset;
 
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
+import com.automata.request.Request;
 import com.automata.request.RequestRepository;
 import com.automata.request.common.dto.RequestsEqualizationDto;
 import com.automata.request.comparator.Comparator;
@@ -32,6 +36,8 @@ public class RequestEqualityService {
 
 	private final HashFunction HASHFUNCTION = Hashing.murmur3_128();
 
+	private final EqualizationRepository equalizationRepo;
+
 	private final RequestRepository requestRepo;
 
 	private final HostRepository hostRepo;
@@ -40,96 +46,162 @@ public class RequestEqualityService {
 
 	private final RequestEqualitySetRepository equalitySetRepo;
 
+	private final RequestEqualityRelationRepository requestEqualityRelationRepo;
+
 	private final HashStrategyResolver resolver;
 
-	@Transactional
-	public void equalizeRequestsIntoEqualityGroups(RequestsEqualizationDto dto) {
+	public List<Equalization> getEqualizations(Long hostId) {
 
-		// NOTE: This operation until now only works correctly when there is 0 equality
-		// sets for the
-		// current host, aka never equalized before. Implement feature below.
+		Host host = hostRepo.findById(hostId).orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
-		// TODO(FEATURE):
-		// 1. Find all equalitySets under the same Host and Comparator
-		// 2. Find all request ids which are under these equalitySets
-		// 3.Remove past equalized request ids from the target ids and into their final
-		// equalized and combined form
-		// 4. Equalize the new ones into their final form
-		// 5. Merge the final new equality sets into the old ones if any were equal,
-		// else create a new equalitySet in the DB
+		return equalizationRepo.findAllByHost(host);
+
+	}
+
+	public void createEqualizationTask(RequestsEqualizationDto dto) {
 
 		Host host = hostRepo.findById(dto.hostId()).orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
 		Comparator comparator = comparatorRepo.findById(dto.comparatorId())
 				.orElseThrow(() -> new EntityNotFoundException("Comparator not found"));
 
-		List<Long> requestsIds = dto.requestsIds() != null && !dto.requestsIds().isEmpty() ? dto.requestsIds()
-				: requestRepo.findIdsByHost(host);
+		Equalization equalization = Equalization.builder().autoEqualize(dto.autoEqualize()).host(host)
+				.comparator(comparator).build();
 
-		if (requestsIds.size() > 200)
-			throw new RuntimeException(
-					"Only a max of 200 requests can be equalized at a time, you either provided more than 200 ids or the host contains more than that in case no ids were provided");
+		equalizationRepo.save(equalization);
+
+	}
+
+	public void updateEqualization(Long equalizationId, Boolean autoEqualize) {
+
+		Equalization equalization = equalizationRepo.findById(equalizationId)
+				.orElseThrow(() -> new EntityNotFoundException("Equalization not found"));
+
+		if (autoEqualize != null)
+			equalization.setAutoEqualize(autoEqualize);
+
+		equalizationRepo.save(equalization);
+
+	}
+
+	@Transactional
+	@Async("equalizationExecutor")
+	public void equalizeRequestsIntoEqualityGroups(Long equalizationId) {
+
+		Equalization equalization = equalizationRepo.findById(equalizationId)
+				.orElseThrow(() -> new EntityNotFoundException("Equalization not found"));
+
+		Host host = equalization.getHost();
+
+		Comparator comparator = comparatorRepo.findById(equalization.getComparator().getId()).orElse(null);
 
 		List<Modifier> modifiers = comparator.getModifiers().stream()
 				.sorted((first, second) -> Long.compare(first.getPriority(), second.getPriority()))
 				.collect(Collectors.toList());
 
-		List<Request> requests = requestRepo.findAllById(requestsIds);
+		HashSet<Long> requestsIds = requestRepo.findIdsByHost(host);
 
-		List<List<Request>> requestEqualityGroups = this.groupOnModifiers(requests, modifiers);
+		List<RequestEqualityRelationSummaryInternalDto> requestEqualitySetPairs = requestEqualityRelationRepo
+				.findRequestEqualitySetPairs(equalization.getId());
 
-		requestEqualityGroups.forEach((group) -> {
+		Map<Long, Long> equalitySetRepresentativeRequestPair = new LinkedHashMap<>();
 
-			RequestEqualitySet set = new RequestEqualitySet();
+		Map<Long, Long> representativeRequestEqualitySetPair = new LinkedHashMap<>();
 
-			set.setComparator(comparator);
+		requestEqualitySetPairs.forEach((pair) -> {
 
-			set.setCurrentNumberOfRequests(group.size());
+			requestsIds.remove(pair.requestId());
 
-			equalitySetRepo.save(set);
+			equalitySetRepresentativeRequestPair.putIfAbsent(pair.equalitySetId(), pair.requestId());
 
-			set.setHost(host);
-
-			set.setRequests(new HashSet<>(group));
+			representativeRequestEqualitySetPair.putIfAbsent(pair.requestId(), pair.equalitySetId());
 
 		});
 
-	}
+		List<RequestEqualitySet> oldSets = new ArrayList<>(
+				equalitySetRepo.findAllById(equalitySetRepresentativeRequestPair.keySet()));
 
-	private List<List<Request>> groupOnModifiers(List<Request> requests, List<Modifier> modifiers) {
+		Map<Long, RequestEqualitySet> setIdMap = oldSets.stream()
+				.collect(Collectors.toMap(set -> set.getId(), set -> set));
 
-		List<List<Request>> groups = new ArrayList<>();
+		Collection<Long> representativeRequestsIds = equalitySetRepresentativeRequestPair.values();
 
-		groups.add(requests);
+		List<Request> representativeRequests = requestRepo.findAllById(representativeRequestsIds);
 
-		for (Modifier modifier : modifiers) {
+		// Main Logic:
 
-			List<List<Request>> nextGroups = new ArrayList<>();
+		List<Request> unEqualizedRequests = requestRepo.findAllById(requestsIds);
 
-			for (List<Request> group : groups) {
+		Map<HashCode, Request> requestHashCodes = representativeRequests.stream()
+				.collect(Collectors.toMap((req) -> this.computeFullHashCode(req, modifiers), req -> req));
 
-				if (group.size() == 1) {
-					nextGroups.add(group);
-					continue;
-				}
+		List<RequestEqualityRelation> toPersistRelations = new ArrayList<>();
 
-				Map<HashCode, List<Request>> partition = new HashMap<>();
+		unEqualizedRequests.forEach((req) -> {
 
-				for (Request request : group) {
+			HashCode hash = this.computeFullHashCode(req, modifiers);
 
-					HashCode reqHash = this.HashBasedOnModifier(request, modifier);
+			if (requestHashCodes.containsKey(hash)) {
 
-					partition.computeIfAbsent(reqHash, key -> new ArrayList<>()).add(request);
+				Request representative = requestHashCodes.get(hash);
 
-				}
+				Long equalitySetId = representativeRequestEqualitySetPair.get(representative.getId());
 
-				nextGroups.addAll(partition.values());
+				RequestEqualitySet toAddToSet = setIdMap.get(equalitySetId);
+
+				toAddToSet.setNumberOfRequests(toAddToSet.getNumberOfRequests() + 1);
+
+				RequestEqualityRelation relation = RequestEqualityRelation.builder().request(req).set(toAddToSet)
+						.build();
+
+				toPersistRelations.add(relation);
+
+			} else {
+
+				RequestEqualitySet set = RequestEqualitySet.builder()
+						.alias(RequestEqualityUtils.computeAlias(req, modifiers)).equalization(equalization)
+						.numberOfRequests(1).build();
+
+				RequestEqualitySet persistedSet = equalitySetRepo.save(set);
+
+				requestHashCodes.put(hash, req);
+
+				representativeRequestEqualitySetPair.put(req.getId(), set.getId());
+
+				setIdMap.put(persistedSet.getId(), persistedSet);
+
+				oldSets.add(persistedSet);
+
+				RequestEqualityRelation relation = RequestEqualityRelation.builder().request(req).set(persistedSet)
+						.build();
+
+				toPersistRelations.add(relation);
+
 			}
 
-			groups = nextGroups;
-		}
+		});
 
-		return groups;
+		equalitySetRepo.saveAll(oldSets);
+
+		requestEqualityRelationRepo.saveAll(toPersistRelations);
+
+		equalization.setLastRun(Instant.now());
+
+		equalizationRepo.save(equalization);
+
+	}
+
+	private HashCode computeFullHashCode(Request request, List<Modifier> modifiers) {
+
+		List<HashCode> codes = new ArrayList<>();
+
+		modifiers.forEach((mod) -> {
+
+			codes.add(this.HashBasedOnModifier(request, mod));
+
+		});
+
+		return Hashing.combineUnordered(codes);
 	}
 
 	private HashCode HashBasedOnModifier(Request request, Modifier modifier) {

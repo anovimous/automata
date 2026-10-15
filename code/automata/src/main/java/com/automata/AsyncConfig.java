@@ -21,4 +21,15 @@ public class AsyncConfig {
 		executor.initialize();
 		return executor;
 	}
+
+	@Bean(name = "equalizationExecutor")
+	Executor equalizationExecutor() {
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setCorePoolSize(5);
+		executor.setMaxPoolSize(20);
+		executor.setQueueCapacity(100);
+		executor.setThreadNamePrefix("Async-");
+		executor.initialize();
+		return executor;
+	}
 }
