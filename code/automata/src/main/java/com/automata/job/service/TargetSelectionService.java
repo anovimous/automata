@@ -1,6 +1,7 @@
 package com.automata.job.service;
 
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,7 +15,9 @@ import com.automata.job.domain.model.embedded.SingleRequestSelector;
 import com.automata.job.domain.model.embedded.TargetSelector;
 import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.valueobject.TargetSelectionResult;
+import com.automata.request.Request;
 import com.automata.request.RequestRepository;
+import com.automata.request.equalityset.RequestEqualityRelationRepository;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -30,6 +33,8 @@ public class TargetSelectionService {
 	private final RequestRepository requestRepo;
 
 	private final RequestEqualitySetRepository equalitySetRepo;
+
+	private final RequestEqualityRelationRepository requestEqualityRelationRepo;
 
 	public TargetSelectionResult handleTargetSelector(TargetSelector selector) {
 
@@ -60,7 +65,6 @@ public class TargetSelectionService {
 		return result;
 
 	}
-
 
 	private TargetSelectionResult handleSingleHostSelector(SingleHostSelector selector) {
 
@@ -98,11 +102,13 @@ public class TargetSelectionService {
 		if (!exists)
 			throw new EntityNotFoundException("EqualitySet can't be found based on the given selector");
 
-		Long requestId = requestRepo.findRequestIdsPageByEqualitySetId(equalitySetId, PageRequest.of(0, 1)).stream()
-				.findFirst()
+		Request req = requestEqualityRelationRepo
+				.findAllInSet(equalitySetRepo.getReferenceById(equalitySetId),
+						PageRequest.of(0, 1, Sort.by("insertionDate").descending()))
+				.stream().findFirst()
 				.orElseThrow(() -> new RuntimeException("Illegal equality set, no requests attached to it"));
 
-		return TargetSelectionResult.builder().requestId(requestId).build();
+		return TargetSelectionResult.builder().requestId(req.getId()).build();
 
 	}
 

@@ -1,5 +1,7 @@
 package com.automata.request.comparator;
 
+import java.net.URI;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,7 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.automata.common.dto.response.PageHolderResponse;
+import com.automata.request.comparator.common.dto.ComparatorCreationRequest;
 import com.automata.request.comparator.common.dto.ComparatorPatchRequest;
+import com.automata.request.comparator.common.dto.ComparatorResponse;
 import com.automata.request.comparator.common.enums.Schema;
 
 import lombok.RequiredArgsConstructor;
@@ -29,43 +33,45 @@ public class ComparatorController {
 	private final ComparatorService comparatorService;
 
 	@GetMapping("/{comparatorId}")
-	public ResponseEntity<Comparator> getComparator(@PathVariable Long comparatorId) {
+	public ResponseEntity<ComparatorResponse> getComparator(@PathVariable Long comparatorId) {
 
 		Comparator comparator = comparatorService.getComparatorById(comparatorId);
 
-		return ResponseEntity.ok(comparator);
+		return ResponseEntity.ok(ComparatorMapper.toResponse(comparator));
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<Comparator>> getComparators(@RequestParam(defaultValue = "") String query,
-			@RequestParam(required = false) Long programId, @RequestParam(required = false) Long hostId,
-			@RequestParam(required = false) Schema schema,
-			@PageableDefault(size = 30, sort = {"target"}, direction = Sort.Direction.ASC) Pageable pageable) {
+	public ResponseEntity<PageHolderResponse<ComparatorResponse>> getComparators(
+			@RequestParam(defaultValue = "") String query, @RequestParam(required = false) Schema schema,
+			@PageableDefault(size = 30, sort = { "creationDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
-		Page<Comparator> comparators = comparatorService.getComparatorsPagedAndFiltered(query, programId, hostId,
-				schema, pageable);
+		Page<Comparator> comparators = comparatorService.getComparatorsPagedAndFiltered(query, schema, pageable);
 
-		return ResponseEntity.ok(new PageHolderResponse<>(comparators));
+		Page<ComparatorResponse> comparatorsResponse = comparators.map(ComparatorMapper::toResponse);
+
+		return ResponseEntity.ok(new PageHolderResponse<>(comparatorsResponse));
 
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Comparator> createComparator(@RequestBody Comparator comparator) {
+	public ResponseEntity<Void> createComparator(@RequestBody ComparatorCreationRequest req) {
 
-		Comparator createdComparator = comparatorService.createComparator(comparator);
+		Comparator toCreateComparator = ComparatorMapper.toComparator(req);
 
-		return ResponseEntity.status(201).body(createdComparator);
+		Comparator createdComparator = comparatorService.createComparator(toCreateComparator, req.modifierIds());
+
+		return ResponseEntity.status(201).location(URI.create("/api/comparators/" + createdComparator.getId())).build();
 
 	}
 
 	@PatchMapping("/{comparatorId}")
-	public ResponseEntity<Comparator> patchComparator(@PathVariable Long comparatorId,
+	public ResponseEntity<Void> patchComparator(@PathVariable Long comparatorId,
 			@RequestBody ComparatorPatchRequest patchRequest) {
 
-		Comparator comparator = comparatorService.patchComparator(comparatorId, patchRequest);
+		comparatorService.patchComparator(comparatorId, patchRequest);
 
-		return ResponseEntity.ok(comparator);
+		return ResponseEntity.status(204).build();
 	}
 
 	@DeleteMapping("/{comparatorId}")

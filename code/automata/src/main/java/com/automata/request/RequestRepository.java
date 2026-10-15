@@ -1,5 +1,6 @@
 package com.automata.request;
 
+import java.util.HashSet;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -16,11 +17,10 @@ import com.automata.tenant.Tenant;
 @Repository
 public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpecificationExecutor<Request> {
 
-	boolean existsByIdAndEqualitySetsIsNotEmpty(Long requestId);
-
 	int countByHost(Host host);
 
-	List<Long> findIdsByHost(Host host);
+	@Query("SELECT r.id FROM Request r WHERE r.host = :host")
+	HashSet<Long> findIdsByHost(@Param(value = "host") Host host);
 
 	Page<Request> findByHost(Host host, Pageable ofSize);
 
@@ -28,13 +28,13 @@ public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpec
 
 	boolean existsByTenant(Tenant tenant);
 
-	@Query("""
-			    select r.id
-			    from Request r
-			    join r.equalitySets e
-			    where e.id = :id
-			    order by r.insertionDate asc
-			""")
-	Page<Long> findRequestIdsPageByEqualitySetId(@Param("id") Long equalitySetId, Pageable pageable);
+//	@Query("""
+//			    select r.id
+//			    from Request r
+//			    join r.equalitySets e
+//			    where e.id = :id
+//			    order by r.insertionDate asc
+//			""")
+//	Page<Long> findRequestIdsPageByEqualitySetId(@Param("id") Long equalitySetId, Pageable pageable);
 
 }
