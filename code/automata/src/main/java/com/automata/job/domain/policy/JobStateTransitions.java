@@ -1,6 +1,9 @@
 package com.automata.job.domain.policy;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.enums.JobState;
@@ -13,7 +16,9 @@ import com.automata.job.domain.model.enums.JobState;
  * <li>A user changes the current state directly only while no worker holds the
  * job (prepare, and canceling a job which is still to be queued). Otherwise the
  * user only sets the requested state.</li>
- * <li>A worker reports the current state, which clears the requested one.</li>
+ * <li>A worker reports the current state, which clears the requested one, and
+ * only as a move the table of what a worker may report allows. Pausing,
+ * canceling and resuming are also reported only when the user requested them.</li>
  * </ul>
  * Each method checks the change and returns the new pair of states, or throws
  * {@link InvalidJobStateException}. It never modifies anything itself.
@@ -29,6 +34,18 @@ public final class JobStateTransitions {
 
 	// The worker holds these jobs, so canceling them is only requested
 	private static final List<JobState> CANCELABLE_BY_REQUEST = List.of(JobState.QUEUED, JobState.PAUSED);
+
+	// What a worker may report, by the current state of the job. The jobs which no
+	// worker holds, and the ended ones, are not in it, so nothing can be reported
+	// for them.
+	private static final Map<JobState, Set<JobState>> REPORTABLE_BY_WORKER = Map.of(
+			JobState.QUEUED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.FAILED, JobState.TERMINATED),
+			JobState.RUNNING, EnumSet.of(JobState.PAUSED, JobState.FINISHED, JobState.FAILED, JobState.TERMINATED),
+			JobState.PAUSED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.TERMINATED));
+
+	// The states which a worker reports only when the user has requested them
+	private static final Set<JobState> REPORTABLE_ONLY_WHEN_REQUESTED = EnumSet.of(JobState.PAUSED,
+			JobState.CANCELED);
 
 	/**
 	 * The new current and requested states of a job.
@@ -84,7 +101,24 @@ public final class JobStateTransitions {
 		if (NOT_REPORTABLE_BY_WORKER.contains(reported))
 			throw new InvalidJobStateException("The job is not allowed to this state by the orchestrator");
 
+		if (!REPORTABLE_BY_WORKER.getOrDefault(current, Set.of()).contains(reported))
+			throw new InvalidJobStateException(
+					String.format("A worker can't report the state %s for a job which is %s", reported, current));
+
+		// the user decides on pausing and canceling, the worker only carries it out
+		if (isReportedOnlyWhenRequested(current, reported) && requested != reported)
+			throw new InvalidJobStateException(
+					String.format("A worker can only report the state %s for a job for which it was requested, but %s",
+							reported, requested == null ? "nothing is requested" : requested + " is requested"));
+
 		return new ToApplyJobStateChange(reported, null);
+	}
+
+	// Pausing and canceling are always requested by the user. So is resuming, but
+	// a worker starts a queued job on its own.
+	private static boolean isReportedOnlyWhenRequested(JobState current, JobState reported) {
+		return REPORTABLE_ONLY_WHEN_REQUESTED.contains(reported)
+				|| (current == JobState.PAUSED && reported == JobState.RUNNING);
 	}
 
 }

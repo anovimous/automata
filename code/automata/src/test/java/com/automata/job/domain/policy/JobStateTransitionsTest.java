@@ -2,9 +2,9 @@ package com.automata.job.domain.policy;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -102,12 +102,97 @@ class JobStateTransitionsTest {
 
 	// ---- reportStateAppliedByWorker
 
+	private static final Map<JobState, Set<JobState>> ALLOWED_REPORTS = Map.of(
+			JobState.QUEUED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.FAILED, JobState.TERMINATED),
+			JobState.RUNNING, EnumSet.of(JobState.PAUSED, JobState.FINISHED, JobState.FAILED, JobState.TERMINATED),
+			JobState.PAUSED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.TERMINATED));
+
+	private static final Set<JobState> REPORTABLE = EnumSet.of(JobState.RUNNING, JobState.PAUSED,
+			JobState.CANCELED, JobState.FINISHED, JobState.FAILED, JobState.TERMINATED);
+
+	@Test
+	void aWorkerReportSetsTheCurrentStateAndClearsTheRequestedOne() {
+		assertEquals(new ToApplyJobStateChange(JobState.PAUSED, null),
+				JobStateTransitions.reportStateAppliedByWorker(JobState.RUNNING, JobState.PAUSED, JobState.PAUSED));
+	}
+
+	@Test
+	void everyReportAllowedByTheTableIsAccepted() {
+		ALLOWED_REPORTS.forEach((current, reportedStates) -> reportedStates.forEach(reported -> assertEquals(
+				new ToApplyJobStateChange(reported, null),
+				JobStateTransitions.reportStateAppliedByWorker(current, requestedFor(reported), reported),
+				current + " -> " + reported)));
+	}
+
+	// what the user must have requested for the worker to report the state
+	private static JobState requestedFor(JobState reported) {
+		return reported == JobState.PAUSED || reported == JobState.CANCELED || reported == JobState.RUNNING
+				? reported
+				: null;
+	}
+
 	@ParameterizedTest
-	@EnumSource(value = JobState.class, names = { "RUNNING", "PAUSED", "CANCELED", "FINISHED", "FAILED",
+	@EnumSource(value = JobState.class, names = { "PAUSED", "CANCELED" })
+	void pausingAndCancelingAreOnlyReportedWhenTheyWereRequested(JobState reported) {
+		JobState current = reported == JobState.PAUSED ? JobState.RUNNING : JobState.QUEUED;
+		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
+				() -> JobStateTransitions.reportStateAppliedByWorker(current, null, reported));
+		assertEquals("A worker can only report the state " + reported
+				+ " for a job for which it was requested, but nothing is requested", ex.getMessage());
+
+		JobState other = reported == JobState.PAUSED ? JobState.CANCELED : JobState.PAUSED;
+		ex = assertThrows(InvalidJobStateException.class,
+				() -> JobStateTransitions.reportStateAppliedByWorker(current, other, reported));
+		assertEquals("A worker can only report the state " + reported
+				+ " for a job for which it was requested, but " + other + " is requested", ex.getMessage());
+	}
+
+	@Test
+	void resumingIsOnlyReportedWhenItWasRequested() {
+		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
+				() -> JobStateTransitions.reportStateAppliedByWorker(JobState.PAUSED, null, JobState.RUNNING));
+		assertEquals("A worker can only report the state RUNNING for a job for which it was requested, but "
+				+ "nothing is requested", ex.getMessage());
+
+		ex = assertThrows(InvalidJobStateException.class, () -> JobStateTransitions
+				.reportStateAppliedByWorker(JobState.PAUSED, JobState.CANCELED, JobState.RUNNING));
+		assertEquals("A worker can only report the state RUNNING for a job for which it was requested, but "
+				+ "CANCELED is requested", ex.getMessage());
+	}
+
+	@Test
+	void aQueuedJobIsStartedWithoutAnyRequest() {
+		assertEquals(new ToApplyJobStateChange(JobState.RUNNING, null),
+				JobStateTransitions.reportStateAppliedByWorker(JobState.QUEUED, null, JobState.RUNNING));
+	}
+
+	@Test
+	void otherStatesAreReportedWhateverIsRequested() {
+		assertEquals(new ToApplyJobStateChange(JobState.FINISHED, null),
+				JobStateTransitions.reportStateAppliedByWorker(JobState.RUNNING, JobState.PAUSED, JobState.FINISHED));
+	}
+
+	@Test
+	void everyReportOutsideTheTableIsRejected() {
+		for (JobState current : JobState.values())
+			for (JobState reported : REPORTABLE)
+				if (!ALLOWED_REPORTS.getOrDefault(current, Set.of()).contains(reported)) {
+					InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
+							() -> JobStateTransitions.reportStateAppliedByWorker(current, null, reported),
+							current + " -> " + reported);
+					assertEquals(
+							"A worker can't report the state " + reported + " for a job which is " + current,
+							ex.getMessage());
+				}
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = JobState.class, names = { "DRAFT", "TOQUEUE", "SCHEDULED", "FINISHED", "FAILED", "CANCELED",
 			"TERMINATED" })
-	void aWorkerReportSetsTheCurrentStateAndClearsTheRequestedOne(JobState reported) {
-		assertEquals(new ToApplyJobStateChange(reported, null),
-				JobStateTransitions.reportStateAppliedByWorker(JobState.RUNNING, JobState.PAUSED, reported));
+	void nothingCanBeReportedForAJobNoWorkerHoldsOrWhichEnded(JobState current) {
+		for (JobState reported : REPORTABLE)
+			assertThrows(InvalidJobStateException.class,
+					() -> JobStateTransitions.reportStateAppliedByWorker(current, null, reported));
 	}
 
 	@ParameterizedTest
@@ -116,15 +201,6 @@ class JobStateTransitionsTest {
 		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
 				() -> JobStateTransitions.reportStateAppliedByWorker(JobState.RUNNING, null, reported));
 		assertEquals("The job is not allowed to this state by the orchestrator", ex.getMessage());
-	}
-
-	@Test
-	void theWorkerCurrentlyMayReportFromAnyCurrentState() {
-		Set<JobState> reportable = EnumSet.of(JobState.RUNNING, JobState.PAUSED, JobState.CANCELED,
-				JobState.FINISHED, JobState.FAILED, JobState.TERMINATED);
-		for (JobState current : JobState.values())
-			for (JobState reported : reportable)
-				assertTrue(JobStateTransitions.reportStateAppliedByWorker(current, null, reported).toApplyCurrentState() == reported);
 	}
 
 }
