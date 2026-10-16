@@ -13,9 +13,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -58,8 +58,13 @@ class HttpJobsSynchronizationServiceTest {
 	@Mock
 	JobQueueService queueService;
 
-	@InjectMocks
 	HttpJobsSynchronizationService service;
+
+	@BeforeEach
+	void setUp() {
+		service = new HttpJobsSynchronizationService(jobRepo, narrowJobRepo, wideJobRepo, programRepo,
+				new JobDispatchPlanner(narrowJobRepo, hostRepo), queueService);
+	}
 
 	// The higher the priority, the earlier the job is handled; the tests give the
 	// jobs priorities 3, 2, 1 in the order they are meant to be handled.
