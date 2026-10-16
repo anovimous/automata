@@ -14,7 +14,7 @@ class HttpJobMapperTest {
 	@Test
 	void fullDetailsAreMappedIncludingProgramAndRoutine() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(7L, HttpJobScope.WIDE, JobState.PAUSED,
-				JobState.RUNNING, null, 3, 20, null, null, null, 11L, "prog", 12L, "routine-key");
+				JobState.RUNNING, null, 3, 20, null, null, null, 11L, "prog", 12L, "routine-key", "it broke");
 
 		HttpJobResponseDto response = HttpJobMapper.toResponseDto(dto);
 
@@ -28,6 +28,7 @@ class HttpJobMapperTest {
 		assertEquals("prog", response.program().name());
 		assertEquals(12L, response.routine().id());
 		assertEquals("routine-key", response.routine().key());
+		assertEquals("it broke", response.failureMessage());
 	}
 
 }

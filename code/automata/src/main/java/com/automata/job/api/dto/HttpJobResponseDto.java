@@ -17,6 +17,7 @@ import lombok.Builder;
 public record HttpJobResponseDto(Long jobId, HttpJobScope httpJobScope, JobState currentState,
 		@Nullable JobState requestedState, ResultsVerbosity verbosity, Integer priority, Integer rate,
 		TargetSelector targetSelector, GenericConfig genericConfig, JsonNode customConfig,
-		ProgramSummaryDetailsResponseDto program, RoutineSummaryDetailsResponseDto routine) {
+		ProgramSummaryDetailsResponseDto program, RoutineSummaryDetailsResponseDto routine,
+		@Nullable String failureMessage) {
 
 }
