@@ -19,6 +19,7 @@ import com.automata.job.api.dto.GlobalHttpJobDetailsDto;
 import com.automata.job.api.dto.HttpJobFilter;
 import com.automata.job.api.dto.NarrowHttpJobDetailsDto;
 import com.automata.job.api.dto.WideHttpJobDetailsDto;
+import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
@@ -167,6 +168,11 @@ public class HttpJobService {
 		TargetSelector targetSelector = genericDto.targetSelector();
 
 		TargetSelectionResult selectionResult = targetSelectionService.handleTargetSelector(targetSelector);
+
+		// a single host or request target must belong to the host the job (and its rate
+		// limits) is for
+		if (!narrowDto.hostId().equals(selectionResult.hostId()))
+			throw IneligibleJobTargetException.forOtherHost(selectionResult.hostId(), narrowDto.hostId());
 
 		NarrowHttpJob fullyConfiguredJob = switch (targetSelector.getSelectorType()) {
 

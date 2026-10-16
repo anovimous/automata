@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.model.embedded.TargetSelector;
@@ -35,12 +36,15 @@ class TargetSelectionServiceTest {
 	@InjectMocks
 	TargetSelectionService service;
 
+	private static final Long HOST_ID = 7L;
+
 	private static final ObjectMapper MAPPER = new ObjectMapper();
 
 	private static Request request(Long id, RequestContentType contentType, long size) {
 		Request request = Request.of(id);
 		request.setContentType(contentType);
 		request.setBodySizeBytes(size);
+		request.setHost(Host.of(HOST_ID));
 		return request;
 	}
 
@@ -56,6 +60,38 @@ class TargetSelectionServiceTest {
 				.handleTargetSelector(selector(SelectorType.SINGLE_REQUEST, "{\"requestId\":5}"));
 
 		assertEquals(5L, result.requestId());
+	}
+
+	@Test
+	void singleRequestResultCarriesTheHostOfTheRequest() throws Exception {
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(request(5L, RequestContentType.JSON, 4)));
+
+		TargetSelectionResult result = service
+				.handleTargetSelector(selector(SelectorType.SINGLE_REQUEST, "{\"requestId\":5}"));
+
+		assertEquals(HOST_ID, result.hostId());
+	}
+
+	@Test
+	void singleHostResultCarriesTheHost() throws Exception {
+		when(hostRepo.existsById(3L)).thenReturn(true);
+
+		TargetSelectionResult result = service
+				.handleTargetSelector(selector(SelectorType.SINGLE_HOST, "{\"hostId\":3}"));
+
+		assertEquals(3L, result.hostId());
+	}
+
+	@Test
+	void multipleHostsSelectorIsNotImplemented() throws Exception {
+		assertThrows(UnsupportedOperationException.class,
+				() -> service.handleTargetSelector(selector(SelectorType.MULTIPLE_HOSTS, "{}")));
+	}
+
+	@Test
+	void multipleRequestsSelectorIsNotImplemented() throws Exception {
+		assertThrows(UnsupportedOperationException.class,
+				() -> service.handleTargetSelector(selector(SelectorType.MULTIPLE_REQUESTS, "{}")));
 	}
 
 	@Test

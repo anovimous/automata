@@ -75,18 +75,19 @@ public class TargetSelectionService {
 
 		HttpJobUtils.requireJobEligible(request);
 
-		return TargetSelectionResult.builder().requestId(requestId).build();
+		// the host is already loaded together with the request, so this costs no query
+		return TargetSelectionResult.builder().requestId(requestId).hostId(request.getHost().getId()).build();
 
 	}
 
 	private TargetSelectionResult handleMultipleRequestsSelector(MultipleRequestsSelector selector) {
 //TODO
-		throw new RuntimeException("Not implemented yet");
+		throw new UnsupportedOperationException("Not implemented yet");
 	}
 
 	private TargetSelectionResult handleMultipleHostsSelector(MultipleHostsSelector selector) {
 //TODO
-		throw new RuntimeException("Not implemented yet");
+		throw new UnsupportedOperationException("Not implemented yet");
 	}
 
 }
