@@ -9,15 +9,15 @@ import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 
 import jakarta.persistence.EntityNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
 	@ExceptionHandler(EntityNotFoundException.class)
 	public ResponseEntity<String> handleNotFound(EntityNotFoundException ex) {
-		System.out.print("\n\n\n\n");
-		System.out.println(ex.getMessage());
-		System.out.print("\n\n\n\n");
+		log.info("\n\n\n\nNot found: {}\n\n\n\n", ex.getMessage());
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
 	}
 
@@ -38,19 +38,13 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(IllegalArgumentException.class)
 	public ResponseEntity<String> handleBadRequest(IllegalArgumentException ex) {
-		System.out.print("\n\n\n\n");
-		System.out.println(ex.getMessage());
-		ex.printStackTrace();
-		System.out.print("\n\n\n\n");
+		log.warn("\n\n\n\nBad request: {}\n\n\n\n", ex.getMessage(), ex);
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
 	}
 
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<String> handleGeneric(Exception ex) {
-		System.out.print("\n\n\n\n");
-		System.out.println(ex.getMessage());
-		ex.printStackTrace();
-		System.out.print("\n\n\n\n");
+		log.error("\n\n\n\nUnhandled exception: {}\n\n\n\n", ex.getMessage(), ex);
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
 	}
 }

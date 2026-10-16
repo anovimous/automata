@@ -331,8 +331,9 @@ public class HttpJobService {
 	@Transactional
 	public void updateCurrentJobState(Long jobId, JobState newState, String message) {
 
-		log.info("Update job state request received: jobId=" + jobId + " ,newState=" + newState + " ,message="
-				+ message);
+		log.info("Update job state request received: jobId={} newState={}", jobId, newState);
+		// free text sent by the worker, so it is kept out of the info level
+		log.debug("Update job state message: jobId={} message={}", jobId, message);
 
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
