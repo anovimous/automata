@@ -1,12 +1,13 @@
 package com.automata.job.service;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import com.automata.host.common.dto.HostAllRateLimitsInternalDto;
 import com.automata.host.common.dto.HostRateLimitInternalDto;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobState;
+import com.automata.job.domain.policy.JobDispatchOrder;
 import com.automata.job.domain.valueobject.HttpJobInternalDto;
 import com.automata.job.domain.valueobject.HttpJobRoutineInternalDto;
 import com.automata.job.domain.valueobject.NarrowHttpJobInternalDto;
@@ -55,7 +57,7 @@ public class HttpJobsSynchronizationService {
 	@Transactional(isolation = Isolation.SERIALIZABLE)
 	public void syncToQueueJobs() {
 
-		TreeSet<HttpJobInternalDto> sortedToQueueJobs = this.getSortedToQueueJobs();
+		Deque<HttpJobInternalDto> sortedToQueueJobs = this.getSortedToQueueJobs();
 		
 		Map<Long, String> jobsRoutineKeysMap = jobRepo
 				.findJobsRoutineKeys(sortedToQueueJobs.stream().map(HttpJobInternalDto::id).toList()).stream()
@@ -228,15 +230,15 @@ public class HttpJobsSynchronizationService {
 
 	// TO MOVE into their services:
 
-	private TreeSet<HttpJobInternalDto> getSortedToQueueJobs() {
+	private Deque<HttpJobInternalDto> getSortedToQueueJobs() {
 
-		TreeSet<HttpJobInternalDto> sortedToQueueJobs = new TreeSet<>();
+		List<HttpJobInternalDto> toQueueJobs = new ArrayList<>();
 
-		sortedToQueueJobs.addAll(narrowJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE));
+		toQueueJobs.addAll(narrowJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE));
 
-		sortedToQueueJobs.addAll(wideJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE));
+		toQueueJobs.addAll(wideJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE));
 
-		return sortedToQueueJobs;
+		return new ArrayDeque<>(JobDispatchOrder.sort(toQueueJobs));
 	}
 
 	private Map<Long, ProgramSummaryRatesDto> getSummaryOfRates(Set<Long> programsIds) {

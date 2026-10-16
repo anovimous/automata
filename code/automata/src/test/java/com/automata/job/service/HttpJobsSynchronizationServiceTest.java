@@ -61,8 +61,8 @@ class HttpJobsSynchronizationServiceTest {
 	@InjectMocks
 	HttpJobsSynchronizationService service;
 
-	// Priorities of jobs in one program are kept distinct, and they decide the
-	// order in which the jobs are handled.
+	// The higher the priority, the earlier the job is handled; the tests give the
+	// jobs priorities 3, 2, 1 in the order they are meant to be handled.
 	private static HttpJobInternalDto narrow(long id, int priority, int rate, long hostId, Duration duration) {
 		return new HttpJobInternalDto(id, Instant.EPOCH, HttpJobScope.NARROW, duration, priority, rate, PROGRAM,
 				hostId);
@@ -98,7 +98,7 @@ class HttpJobsSynchronizationServiceTest {
 
 	@Test
 	void narrowJobsWithinTheProgramLimitAreAllQueued() {
-		HttpJobInternalDto first = narrow(1, 1, 40, 10, Duration.SHORT);
+		HttpJobInternalDto first = narrow(1, 3, 40, 10, Duration.SHORT);
 		HttpJobInternalDto second = narrow(2, 2, 40, 11, Duration.SHORT);
 		givenToQueue(100, List.of(first, second), List.of());
 		givenHostLimits(10, 1000, 1000, 1000);
@@ -110,8 +110,24 @@ class HttpJobsSynchronizationServiceTest {
 	}
 
 	@Test
+	void higherPriorityJobGetsTheRemainingCapacityBeforeAnOlderLowerPriorityJob() {
+		HttpJobInternalDto olderLowPriority = new HttpJobInternalDto(1L, Instant.ofEpochSecond(0), HttpJobScope.NARROW,
+				Duration.SHORT, 1, 60, PROGRAM, 10L);
+		HttpJobInternalDto newerHighPriority = new HttpJobInternalDto(2L, Instant.ofEpochSecond(9),
+				HttpJobScope.NARROW, Duration.SHORT, 3, 60, PROGRAM, 11L);
+		givenToQueue(100, List.of(olderLowPriority, newerHighPriority), List.of());
+		givenHostLimits(11, 1000, 1000, 1000);
+
+		service.syncToQueueJobs();
+
+		verify(queueService).queueHttpJob(eq(newerHighPriority), anyString());
+		verify(queueService, never()).queueHttpJob(eq(olderLowPriority), anyString());
+		thenQueuedExactly(2L);
+	}
+
+	@Test
 	void jobAcceptedEarlierInTheRunCountsAgainstTheProgramLimit() {
-		HttpJobInternalDto first = narrow(1, 1, 60, 10, Duration.SHORT);
+		HttpJobInternalDto first = narrow(1, 3, 60, 10, Duration.SHORT);
 		HttpJobInternalDto second = narrow(2, 2, 60, 11, Duration.SHORT);
 		givenToQueue(100, List.of(first, second), List.of());
 		givenHostLimits(10, 1000, 1000, 1000);
@@ -125,7 +141,7 @@ class HttpJobsSynchronizationServiceTest {
 
 	@Test
 	void narrowJobAcceptedEarlierCountsAgainstTheHostRateLimit() {
-		HttpJobInternalDto first = narrow(1, 1, 60, 10, Duration.SHORT);
+		HttpJobInternalDto first = narrow(1, 3, 60, 10, Duration.SHORT);
 		HttpJobInternalDto second = narrow(2, 2, 60, 10, Duration.SHORT);
 		givenToQueue(1000, List.of(first, second), List.of());
 		givenHostLimits(10, 100, 1000, 1000);
@@ -137,9 +153,9 @@ class HttpJobsSynchronizationServiceTest {
 
 	@Test
 	void narrowJobAcceptedEarlierCountsAgainstTheMatchingDurationLimitOnly() {
-		HttpJobInternalDto firstShort = narrow(1, 1, 60, 10, Duration.SHORT);
+		HttpJobInternalDto firstShort = narrow(1, 3, 60, 10, Duration.SHORT);
 		HttpJobInternalDto secondShort = narrow(2, 2, 60, 10, Duration.SHORT);
-		HttpJobInternalDto firstLong = narrow(3, 3, 60, 10, Duration.LONG);
+		HttpJobInternalDto firstLong = narrow(3, 1, 60, 10, Duration.LONG);
 		givenToQueue(1000, List.of(firstShort, secondShort, firstLong), List.of());
 		givenHostLimits(10, 1000, 100, 100);
 
@@ -150,7 +166,7 @@ class HttpJobsSynchronizationServiceTest {
 
 	@Test
 	void wideJobAcceptedEarlierCountsAgainstLaterNarrowJobsOnEveryHost() {
-		HttpJobInternalDto wideJob = wide(1, 1, 70);
+		HttpJobInternalDto wideJob = wide(1, 3, 70);
 		HttpJobInternalDto narrowJob = narrow(2, 2, 40, 10, Duration.SHORT);
 		givenToQueue(1000, List.of(narrowJob), List.of(wideJob));
 		givenHostLimits(10, 100, 1000, 1000);
@@ -164,7 +180,7 @@ class HttpJobsSynchronizationServiceTest {
 
 	@Test
 	void wideJobAcceptedEarlierCountsAgainstLaterWideJobsEvenOnHostsWithoutNarrowJobs() {
-		HttpJobInternalDto first = wide(1, 1, 70);
+		HttpJobInternalDto first = wide(1, 3, 70);
 		HttpJobInternalDto second = wide(2, 2, 70);
 		givenToQueue(1000, List.of(), List.of(first, second));
 		// some host of the program has a limit of 100: it fits one wide job, not two
@@ -180,7 +196,7 @@ class HttpJobsSynchronizationServiceTest {
 
 	@Test
 	void narrowJobAcceptedEarlierCountsAgainstLaterWideJobsOnItsHost() {
-		HttpJobInternalDto narrowJob = narrow(1, 1, 60, 10, Duration.SHORT);
+		HttpJobInternalDto narrowJob = narrow(1, 3, 60, 10, Duration.SHORT);
 		HttpJobInternalDto wideJob = wide(2, 2, 50);
 		givenToQueue(1000, List.of(narrowJob), List.of(wideJob));
 		givenHostLimits(10, 100, 1000, 1000);
