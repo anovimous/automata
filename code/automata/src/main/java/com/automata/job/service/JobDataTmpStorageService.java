@@ -1,6 +1,8 @@
 package com.automata.job.service;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -37,7 +39,10 @@ import com.automata.request.common.dto.QueryParameterInternalDto;
 import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.path.PathVariableRepository;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class JobDataTmpStorageService {
 
 	public JobDataTmpStorageService(@Value("${com.automata.files.tmp.location}") String tmpDir,
@@ -72,22 +77,16 @@ public class JobDataTmpStorageService {
 
 		NarrowTargetConfig targetConfig = fullyConfiguredJob.getTargetConfig();
 
-		String fileLocation = TMP_DIR + "/" + fullyConfiguredJob.getId();
-
 		Host host = fullyConfiguredJob.getHost();
 
-		try (JobDataJsonLinesWriter writer = new JobDataJsonLinesWriter(fileLocation)) {
+		return writeToTempFile(fullyConfiguredJob.getId(), writer -> {
 
 			if (targetConfig.getTargetHost() != null)
 				writer.writeHostData(new HostData(host.getId(), host.getHost(), host.getScope()));
 			else
 				writeTargetRequestsData(writer, fullyConfiguredJob, host);
 
-		} catch (IOException e) {
-			throw new RuntimeException("Error writing the job target data to the JSONL file", e);
-		}
-
-		return fileLocation;
+		});
 
 	}
 
@@ -164,21 +163,61 @@ public class JobDataTmpStorageService {
 	@Transactional(readOnly = true)
 	public String tempStoreWideJobTargetData(WideHttpJob fullyConfiguredJob) {
 
-		String fileLocation = TMP_DIR + "/" + fullyConfiguredJob.getId();
+		return writeToTempFile(fullyConfiguredJob.getId(), writer -> {
 
-		try (JobDataJsonLinesWriter writer = new JobDataJsonLinesWriter(fileLocation);
-				Stream<HostInternalDto> hostDtosStream = wideJobTargetHostRepo.getHostDtosByJob(fullyConfiguredJob)) {
+			try (Stream<HostInternalDto> hostDtosStream = wideJobTargetHostRepo
+					.getHostDtosByJob(fullyConfiguredJob)) {
 
-			hostDtosStream.forEach((dto) -> {
-				try {
-					writer.writeHostData(new HostData(dto.hostId(), dto.host(), dto.scope()));
-				} catch (IOException e) {
-					throw new RuntimeException("Exception occured while writing HostData to tmp JSON file", e);
-				}
-			});
+				hostDtosStream.forEach((dto) -> {
+					try {
+						writer.writeHostData(new HostData(dto.hostId(), dto.host(), dto.scope()));
+					} catch (IOException e) {
+						throw new RuntimeException("Exception occured while writing HostData to tmp JSON file", e);
+					}
+				});
+
+			}
+
+		});
+
+	}
+
+	/**
+	 * Removes a file created by one of the tempStore methods. It never throws,
+	 * since it is a cleanup which must not hide the outcome of what was done with
+	 * the file.
+	 */
+	public void deleteTempFile(String fileLocation) {
+
+		try {
+			Files.deleteIfExists(Path.of(fileLocation));
+		} catch (IOException | RuntimeException e) {
+			log.warn("Temporary job data file could not be deleted: {}", fileLocation, e);
+		}
+
+	}
+
+	@FunctionalInterface
+	private interface DataWriting {
+		void write(JobDataJsonLinesWriter writer) throws IOException;
+	}
+
+	// The file is closed before it is deleted, and a file which could not be
+	// completed is never left behind.
+	private String writeToTempFile(Long jobId, DataWriting dataWriting) {
+
+		String fileLocation = TMP_DIR + "/" + jobId;
+
+		try (JobDataJsonLinesWriter writer = new JobDataJsonLinesWriter(fileLocation)) {
+
+			dataWriting.write(writer);
 
 		} catch (IOException e) {
+			deleteTempFile(fileLocation);
 			throw new RuntimeException("Error writing the job target data to the JSONL file", e);
+		} catch (RuntimeException e) {
+			deleteTempFile(fileLocation);
+			throw e;
 		}
 
 		return fileLocation;

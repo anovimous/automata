@@ -19,7 +19,7 @@ public class JobDataJsonLinesWriter implements Closeable {
 
 		this.fileLocation = fileLocation;
 
-		this.writer = new BufferedWriter(new FileWriter(fileLocation, true));
+		this.writer = new BufferedWriter(new FileWriter(fileLocation));
 
 		this.mapper = new ObjectMapper();
 
@@ -29,7 +29,7 @@ public class JobDataJsonLinesWriter implements Closeable {
 
 		this.fileLocation = fileLocation;
 
-		this.writer = new BufferedWriter(new FileWriter(fileLocation, true));
+		this.writer = new BufferedWriter(new FileWriter(fileLocation));
 
 		this.mapper = mapper;
 

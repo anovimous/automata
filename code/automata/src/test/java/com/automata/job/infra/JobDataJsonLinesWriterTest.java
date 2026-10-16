@@ -57,4 +57,18 @@ class JobDataJsonLinesWriterTest {
 		writer.close();
 	}
 
+	@Test
+	void writingToAnExistingFileReplacesItsContent() throws IOException {
+		Path file = tmpDir.resolve("job");
+		Files.writeString(file, "stale line from an earlier attempt\n");
+
+		try (JobDataJsonLinesWriter writer = new JobDataJsonLinesWriter(file.toString())) {
+			writer.writeRequestData(new RequestData(5L, "cmF3"));
+		}
+
+		List<String> lines = Files.readAllLines(file);
+		assertEquals(1, lines.size());
+		assertTrue(lines.get(0).contains("\"requestId\":5"));
+	}
+
 }

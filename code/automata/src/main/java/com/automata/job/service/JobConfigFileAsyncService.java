@@ -33,7 +33,11 @@ public class JobConfigFileAsyncService {
 
 		String dataTempFileLocation = tmpStorageService.tempStoreNarrowJobTargetData(fullyConfiguredJob);
 
-		s3Service.storeJobDataFile(dataTempFileLocation, fullyConfiguredJob.getId());
+		try {
+			s3Service.storeJobDataFile(dataTempFileLocation, fullyConfiguredJob.getId());
+		} finally {
+			tmpStorageService.deleteTempFile(dataTempFileLocation);
+		}
 
 	}
 
@@ -46,7 +50,11 @@ public class JobConfigFileAsyncService {
 
 		String dataTempFileLocation = tmpStorageService.tempStoreWideJobTargetData(fullyConfiguredJob);
 
-		s3Service.storeJobDataFile(dataTempFileLocation, fullyConfiguredJob.getId());
+		try {
+			s3Service.storeJobDataFile(dataTempFileLocation, fullyConfiguredJob.getId());
+		} finally {
+			tmpStorageService.deleteTempFile(dataTempFileLocation);
+		}
 
 	}
 

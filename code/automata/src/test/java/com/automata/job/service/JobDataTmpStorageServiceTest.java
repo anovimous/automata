@@ -157,16 +157,63 @@ class JobDataTmpStorageServiceTest {
 	}
 
 	@Test
-	void narrowFileKeepsTheRequestsWrittenBeforeAnIneligibleOneBecauseTheWriterIsClosed() throws Exception {
+	void narrowFileIsDeletedWhenWritingItFails() {
 		when(narrowRepo.getRequestDtosByJob(any(), any(Pageable.class))).thenReturn(new PageImpl<>(
 				List.of(dto(10L, null, 0), dto(12L, RequestContentType.MULTIPART, 50)), PageRequest.of(0, 50), 2));
 		when(bodyRepo.getBodyPropertyDtosByRequestsIds(any())).thenReturn(List.of());
 
 		assertThrows(IneligibleJobTargetException.class, () -> service.tempStoreNarrowJobTargetData(job));
 
-		List<String> lines = Files.readAllLines(tmpDir.resolve("77"));
+		assertFalse(Files.exists(tmpDir.resolve("77")));
+	}
+
+	@Test
+	void narrowFileOfAnEarlierAttemptIsReplacedNotAppendedTo() throws Exception {
+		Files.writeString(tmpDir.resolve("77"), "stale line from an earlier attempt\n");
+		when(narrowRepo.getRequestDtosByJob(any(), any(Pageable.class)))
+				.thenReturn(new PageImpl<>(List.of(dto(11L, null, 0))));
+		when(bodyRepo.getBodyPropertyDtosByRequestsIds(any())).thenReturn(List.of());
+
+		String location = service.tempStoreNarrowJobTargetData(job);
+
+		List<String> lines = Files.readAllLines(Path.of(location));
 		assertEquals(1, lines.size());
-		assertTrue(lines.get(0).contains("\"requestId\":10"));
+		assertTrue(lines.get(0).contains("\"requestId\":11"));
+	}
+
+	@Test
+	void wideFileIsDeletedWhenWritingItFails() {
+		WideHttpJob wideJob = new WideHttpJob();
+		wideJob.setId(80L);
+		when(wideRepo.getHostDtosByJob(wideJob)).thenThrow(new IllegalStateException("database is down"));
+
+		assertThrows(IllegalStateException.class, () -> service.tempStoreWideJobTargetData(wideJob));
+
+		assertFalse(Files.exists(tmpDir.resolve("80")));
+	}
+
+	@Test
+	void deleteTempFileRemovesTheFile() throws Exception {
+		Path file = Files.writeString(tmpDir.resolve("81"), "data\n");
+
+		service.deleteTempFile(file.toString());
+
+		assertFalse(Files.exists(file));
+	}
+
+	@Test
+	void deleteTempFileOfAMissingFileDoesNothing() {
+		service.deleteTempFile(tmpDir.resolve("missing").toString());
+	}
+
+	@Test
+	void deleteTempFileNeverThrowsWhenTheFileCanNotBeDeleted() throws Exception {
+		Path directory = Files.createDirectory(tmpDir.resolve("82"));
+		Files.writeString(directory.resolve("inner"), "data\n");
+
+		service.deleteTempFile(directory.toString());
+
+		assertTrue(Files.exists(directory));
 	}
 
 	@Test
