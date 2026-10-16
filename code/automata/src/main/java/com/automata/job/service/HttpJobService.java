@@ -204,7 +204,7 @@ public class HttpJobService {
 
 		builder.routine(routine);
 
-		HttpJobGenericDetails genericDetails = HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.NARROW)
+		HttpJobGenericDetails genericDetails = HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.WIDE)
 				.currentState(JobState.DRAFT).verbosity(genericDto.verbosity()).priority(genericDto.priority())
 				.rate(genericDto.rate()).targetSelector(genericDto.targetSelector())
 				.genericConfig(GenericConfig.of(genericDto.matchAndReplace())).customConfig(genericDto.customConfig())
@@ -239,7 +239,12 @@ public class HttpJobService {
 
 		};
 
-		configFileService.createWideConfigFile(fullyConfiguredJob);
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				configFileService.createWideConfigFile(fullyConfiguredJob);
+			}
+		});
 
 		return fullyConfiguredJob;
 
