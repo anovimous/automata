@@ -93,7 +93,7 @@ class HttpJobServiceCreateWideJobTest {
 		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any()))
-				.thenReturn(TargetSelectionResult.builder().hostsIds(Set.of(5L)).build());
+				.thenReturn(new TargetSelectionResult.MultipleHosts(Set.of(5L)));
 		when(targetConfigService.configureHostsAsTarget(any(), eq(Set.of(5L))))
 				.thenAnswer(invocation -> invocation.getArgument(0));
 	}
@@ -145,7 +145,7 @@ class HttpJobServiceCreateWideJobTest {
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(new Routine()));
 		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
-		when(targetSelectionService.handleTargetSelector(any())).thenReturn(TargetSelectionResult.builder().build());
+		when(targetSelectionService.handleTargetSelector(any())).thenReturn(new TargetSelectionResult.SingleHost(5L));
 
 		assertThrows(IllegalArgumentException.class, () -> service.createDraftWideJob(
 				genericDto(SelectorType.SINGLE_HOST), new WideHttpJobDetailsDto(2L)));
