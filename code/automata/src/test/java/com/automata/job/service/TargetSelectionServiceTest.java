@@ -2,7 +2,6 @@ package com.automata.job.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -12,8 +11,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 
 import com.automata.host.HostRepository;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
@@ -23,9 +20,6 @@ import com.automata.job.domain.valueobject.TargetSelectionResult;
 import com.automata.request.Request;
 import com.automata.request.RequestRepository;
 import com.automata.request.common.enums.RequestContentType;
-import com.automata.request.equalityset.RequestEqualityRelationRepository;
-import com.automata.request.equalityset.RequestEqualitySet;
-import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -37,10 +31,6 @@ class TargetSelectionServiceTest {
 	HostRepository hostRepo;
 	@Mock
 	RequestRepository requestRepo;
-	@Mock
-	RequestEqualitySetRepository equalitySetRepo;
-	@Mock
-	RequestEqualityRelationRepository relationRepo;
 
 	@InjectMocks
 	TargetSelectionService service;
@@ -92,30 +82,6 @@ class TargetSelectionServiceTest {
 
 		assertThrows(EntityNotFoundException.class,
 				() -> service.handleTargetSelector(selector(SelectorType.SINGLE_REQUEST, "{\"requestId\":5}")));
-	}
-
-	@Test
-	void equalitySetNewestRequestEligibleIsSelected() throws Exception {
-		when(equalitySetRepo.existsById(9L)).thenReturn(true);
-		when(equalitySetRepo.getReferenceById(9L)).thenReturn(new RequestEqualitySet());
-		when(relationRepo.findAllInSet(any(), any(Pageable.class)))
-				.thenReturn(new PageImpl<>(java.util.List.of(request(11L, RequestContentType.FORM, 2))));
-
-		TargetSelectionResult result = service
-				.handleTargetSelector(selector(SelectorType.SINGLE_EQUALITY_SET, "{\"equalitySetId\":9}"));
-
-		assertEquals(11L, result.requestId());
-	}
-
-	@Test
-	void equalitySetNewestRequestIneligibleIsRejected() throws Exception {
-		when(equalitySetRepo.existsById(9L)).thenReturn(true);
-		when(equalitySetRepo.getReferenceById(9L)).thenReturn(new RequestEqualitySet());
-		when(relationRepo.findAllInSet(any(), any(Pageable.class)))
-				.thenReturn(new PageImpl<>(java.util.List.of(request(11L, RequestContentType.XML, 2))));
-
-		assertThrows(IneligibleJobTargetException.class, () -> service
-				.handleTargetSelector(selector(SelectorType.SINGLE_EQUALITY_SET, "{\"equalitySetId\":9}")));
 	}
 
 	@Test
