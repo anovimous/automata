@@ -60,7 +60,7 @@ public class TargetSelectionService {
 		boolean exists = hostRepo.existsById(hostId);
 
 		if (exists)
-			return TargetSelectionResult.builder().hostId(hostId).build();
+			return new TargetSelectionResult.SingleHost(hostId);
 		else
 			throw new EntityNotFoundException("Host not found based on the given selector");
 
@@ -76,7 +76,7 @@ public class TargetSelectionService {
 		HttpJobUtils.requireJobEligible(request);
 
 		// the host is already loaded together with the request, so this costs no query
-		return TargetSelectionResult.builder().requestId(requestId).hostId(request.getHost().getId()).build();
+		return new TargetSelectionResult.SingleRequest(requestId, request.getHost().getId());
 
 	}
 

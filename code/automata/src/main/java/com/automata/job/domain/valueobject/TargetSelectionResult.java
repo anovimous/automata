@@ -2,13 +2,25 @@ package com.automata.job.domain.valueobject;
 
 import java.util.Set;
 
-import lombok.Builder;
-
 /**
- * For a single request or a single host selector, hostId is the host of the
- * selected target.
+ * What a target selector resolved to. There is one kind per selector type, each
+ * holding only what that selection produces.
  */
-@Builder
-public record TargetSelectionResult(Long requestId, Set<Long> requestsIds, Long hostId, Set<Long> hostsIds) {
+public sealed interface TargetSelectionResult {
+
+	record SingleHost(Long hostId) implements TargetSelectionResult {
+	}
+
+	/**
+	 * @param hostId the host of the selected request
+	 */
+	record SingleRequest(Long requestId, Long hostId) implements TargetSelectionResult {
+	}
+
+	record MultipleHosts(Set<Long> hostsIds) implements TargetSelectionResult {
+	}
+
+	record MultipleRequests(Set<Long> requestsIds) implements TargetSelectionResult {
+	}
 
 }

@@ -33,7 +33,6 @@ import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.policy.JobStateTransitions;
 import com.automata.job.domain.policy.JobStateTransitions.ToApplyJobStateChange;
-import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.domain.valueobject.TargetSelectionResult;
@@ -169,23 +168,22 @@ public class HttpJobService {
 
 		TargetSelectionResult selectionResult = targetSelectionService.handleTargetSelector(targetSelector);
 
-		// a single host or request target must belong to the host the job (and its rate
-		// limits) is for
-		if (!narrowDto.hostId().equals(selectionResult.hostId()))
-			throw IneligibleJobTargetException.forOtherHost(selectionResult.hostId(), narrowDto.hostId());
+		NarrowHttpJob fullyConfiguredJob = switch (selectionResult) {
 
-		NarrowHttpJob fullyConfiguredJob = switch (targetSelector.getSelectorType()) {
+		case TargetSelectionResult.SingleHost selected -> {
+			requireTargetOfJobHost(selected.hostId(), narrowDto.hostId());
+			yield targetConfigService.configureHostAsTarget(newlyPersistedJob, selected.hostId());
+		}
 
-		case SelectorType.SINGLE_HOST ->
-			targetConfigService.configureHostAsTarget(newlyPersistedJob, selectionResult.hostId());
+		case TargetSelectionResult.SingleRequest selected -> {
+			requireTargetOfJobHost(selected.hostId(), narrowDto.hostId());
+			yield targetConfigService.configureRequestsAsTarget(newlyPersistedJob, Set.of(selected.requestId()));
+		}
 
-		case SelectorType.SINGLE_REQUEST ->
-			targetConfigService.configureRequestsAsTarget(newlyPersistedJob, Set.of(selectionResult.requestId()));
+		case TargetSelectionResult.MultipleRequests selected ->
+			targetConfigService.configureRequestsAsTarget(newlyPersistedJob, selected.requestsIds());
 
-		case SelectorType.MULTIPLE_REQUESTS ->
-			targetConfigService.configureRequestsAsTarget(newlyPersistedJob, selectionResult.requestsIds());
-
-		default -> throw new IllegalArgumentException(
+		case TargetSelectionResult.MultipleHosts selected -> throw new IllegalArgumentException(
 				"Target of this cardinality and type is not allowed to be a target of narrow jobs");
 
 		};
@@ -236,10 +234,10 @@ public class HttpJobService {
 
 		TargetSelectionResult selectionResult = targetSelectionService.handleTargetSelector(targetSelector);
 
-		WideHttpJob fullyConfiguredJob = switch (targetSelector.getSelectorType()) {
+		WideHttpJob fullyConfiguredJob = switch (selectionResult) {
 
-		case SelectorType.MULTIPLE_HOSTS ->
-			targetConfigService.configureHostsAsTarget(newlyPersistedJob, selectionResult.hostsIds());
+		case TargetSelectionResult.MultipleHosts selected ->
+			targetConfigService.configureHostsAsTarget(newlyPersistedJob, selected.hostsIds());
 
 		default -> throw new IllegalArgumentException(
 				"Target of this cardinality and type is not allowed to be a target of wide jobs");
@@ -331,6 +329,13 @@ public class HttpJobService {
 
 		jobRepo.save(job);
 
+	}
+
+	// a single host or request target must belong to the host the job (and its rate
+	// limits) is for
+	private void requireTargetOfJobHost(Long targetHostId, Long jobHostId) {
+		if (!jobHostId.equals(targetHostId))
+			throw IneligibleJobTargetException.forOtherHost(targetHostId, jobHostId);
 	}
 
 	private void applyStateChange(HttpJob job, ToApplyJobStateChange change) {

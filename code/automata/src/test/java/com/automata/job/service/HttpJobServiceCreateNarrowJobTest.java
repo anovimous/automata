@@ -97,7 +97,7 @@ class HttpJobServiceCreateNarrowJobTest {
 
 	@Test
 	void singleRequestOfTheJobHostIsConfiguredAsTarget() {
-		givenNarrowJobCanBeCreated(TargetSelectionResult.builder().requestId(9L).hostId(JOB_HOST_ID).build());
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.SingleRequest(9L, JOB_HOST_ID));
 		when(targetConfigService.configureRequestsAsTarget(any(), any()))
 				.thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -109,7 +109,7 @@ class HttpJobServiceCreateNarrowJobTest {
 
 	@Test
 	void singleHostOfTheJobHostIsConfiguredAsTarget() {
-		givenNarrowJobCanBeCreated(TargetSelectionResult.builder().hostId(JOB_HOST_ID).build());
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.SingleHost(JOB_HOST_ID));
 		when(targetConfigService.configureHostAsTarget(any(), any()))
 				.thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -119,8 +119,30 @@ class HttpJobServiceCreateNarrowJobTest {
 	}
 
 	@Test
+	void multipleRequestsAreConfiguredAsTarget() {
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.MultipleRequests(Set.of(8L, 9L)));
+		when(targetConfigService.configureRequestsAsTarget(any(), any()))
+				.thenAnswer(invocation -> invocation.getArgument(0));
+
+		NarrowHttpJob job = service.createDraftNarrowJob(genericDto(SelectorType.MULTIPLE_REQUESTS), narrowDto());
+
+		org.mockito.Mockito.verify(targetConfigService).configureRequestsAsTarget(job, Set.of(8L, 9L));
+	}
+
+	@Test
+	void hostsSelectionCanNotTargetANarrowJob() {
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.MultipleHosts(Set.of(5L)));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.createDraftNarrowJob(genericDto(SelectorType.MULTIPLE_HOSTS), narrowDto()));
+
+		verifyNoInteractions(targetConfigService, configFileService);
+		assertEquals(0, TransactionSynchronizationManager.getSynchronizations().size());
+	}
+
+	@Test
 	void requestOfAnotherHostIsRejectedWithoutCreatingFiles() {
-		givenNarrowJobCanBeCreated(TargetSelectionResult.builder().requestId(9L).hostId(99L).build());
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.SingleRequest(9L, 99L));
 
 		IneligibleJobTargetException ex = assertThrows(IneligibleJobTargetException.class,
 				() -> service.createDraftNarrowJob(genericDto(SelectorType.SINGLE_REQUEST), narrowDto()));
@@ -133,7 +155,7 @@ class HttpJobServiceCreateNarrowJobTest {
 
 	@Test
 	void hostOtherThanTheJobHostIsRejected() {
-		givenNarrowJobCanBeCreated(TargetSelectionResult.builder().hostId(99L).build());
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.SingleHost(99L));
 
 		assertThrows(IneligibleJobTargetException.class,
 				() -> service.createDraftNarrowJob(genericDto(SelectorType.SINGLE_HOST), narrowDto()));

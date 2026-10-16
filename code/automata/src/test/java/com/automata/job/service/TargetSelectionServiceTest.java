@@ -59,7 +59,7 @@ class TargetSelectionServiceTest {
 		TargetSelectionResult result = service
 				.handleTargetSelector(selector(SelectorType.SINGLE_REQUEST, "{\"requestId\":5}"));
 
-		assertEquals(5L, result.requestId());
+		assertEquals(new TargetSelectionResult.SingleRequest(5L, HOST_ID), result);
 	}
 
 	@Test
@@ -69,7 +69,7 @@ class TargetSelectionServiceTest {
 		TargetSelectionResult result = service
 				.handleTargetSelector(selector(SelectorType.SINGLE_REQUEST, "{\"requestId\":5}"));
 
-		assertEquals(HOST_ID, result.hostId());
+		assertEquals(HOST_ID, ((TargetSelectionResult.SingleRequest) result).hostId());
 	}
 
 	@Test
@@ -79,7 +79,7 @@ class TargetSelectionServiceTest {
 		TargetSelectionResult result = service
 				.handleTargetSelector(selector(SelectorType.SINGLE_HOST, "{\"hostId\":3}"));
 
-		assertEquals(3L, result.hostId());
+		assertEquals(new TargetSelectionResult.SingleHost(3L), result);
 	}
 
 	@Test
@@ -101,7 +101,7 @@ class TargetSelectionServiceTest {
 		TargetSelectionResult result = service
 				.handleTargetSelector(selector(SelectorType.SINGLE_REQUEST, "{\"requestId\":5}"));
 
-		assertEquals(5L, result.requestId());
+		assertEquals(new TargetSelectionResult.SingleRequest(5L, HOST_ID), result);
 	}
 
 	@Test
