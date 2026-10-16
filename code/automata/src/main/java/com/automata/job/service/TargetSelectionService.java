@@ -19,6 +19,8 @@ import com.automata.request.Request;
 import com.automata.request.RequestRepository;
 import com.automata.request.equalityset.RequestEqualityRelationRepository;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
+import com.automata.job.utils.HttpJobUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -58,7 +60,7 @@ public class TargetSelectionService {
 					mapper.treeToValue(selector.getSelector(), MultipleEqualitySetsSelector.class));
 			default -> throw new IllegalArgumentException("Illegal selector");
 			};
-		} catch (Exception e) {
+		} catch (JsonProcessingException e) {
 			throw new IllegalArgumentException(e.getMessage());
 		}
 
@@ -83,12 +85,12 @@ public class TargetSelectionService {
 
 		Long requestId = selector.getRequestId();
 
-		boolean exists = requestRepo.existsById(requestId);
+		Request request = requestRepo.findById(requestId)
+				.orElseThrow(() -> new EntityNotFoundException("Request can't be found based on the given selector"));
 
-		if (exists)
-			return TargetSelectionResult.builder().requestId(requestId).build();
-		else
-			throw new EntityNotFoundException("Request can't be found based on the given selector");
+		HttpJobUtils.requireJobEligible(request);
+
+		return TargetSelectionResult.builder().requestId(requestId).build();
 
 	}
 
@@ -107,6 +109,8 @@ public class TargetSelectionService {
 						PageRequest.of(0, 1, Sort.by("insertionDate").descending()))
 				.stream().findFirst()
 				.orElseThrow(() -> new RuntimeException("Illegal equality set, no requests attached to it"));
+
+		HttpJobUtils.requireJobEligible(req);
 
 		return TargetSelectionResult.builder().requestId(req.getId()).build();
 
