@@ -38,7 +38,7 @@ public interface WideHttpJobRepository extends JpaRepository<WideHttpJob, Long> 
 		        COALESCE(SUM(j.genericDetails.rate), 0)
 		    )
 		    FROM Program p
-		    LEFT JOIN HttpJob j ON j.program.id = p.id
+		    LEFT JOIN WideHttpJob j ON j.program.id = p.id
 		        AND j.genericDetails.currentState IN :states
 		    WHERE p.id IN :programsIds
 		    GROUP BY p.id
