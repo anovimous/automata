@@ -23,6 +23,7 @@ public interface NarrowJobTargetRequestRepository extends JpaRepository<NarrowJo
 			 r.targetRequest.version,
 			 r.targetRequest.numberOfProperties,
 			 r.targetRequest.contentType,
+			 r.targetRequest.bodySizeBytes,
 			 r.targetRequest.source
 			)
 			FROM NarrowJobTargetRequest r

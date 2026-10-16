@@ -14,7 +14,7 @@ public abstract class RequestPredicateTargetComponentGetter {
 		case PredicateTargetComponent.PATH -> request.getComputatedPath();
 		case PredicateTargetComponent.METHOD -> request.getMethod().toString();
 		case PredicateTargetComponent.EXTENSION -> request.getExtension();
-		case PredicateTargetComponent.CONTENT_TYPE -> request.getContentType().getRaw();
+		case PredicateTargetComponent.CONTENT_TYPE -> request.getContentType() == null ? "" : request.getContentType().getRaw();
 		case PredicateTargetComponent.QUERYSTRING -> RequestPredicateTargetComponentGetter.getQueryString(request);
 		default -> throw new IllegalArgumentException("This component is not supported yet");
 		};
@@ -36,7 +36,7 @@ public abstract class RequestPredicateTargetComponentGetter {
 
 		for (int i = 0; i < size; i++) {
 			QueryParameter param = parameters.get(i);
-			builder.append(String.format("%1$=%2$", param.getParameter(), param.getValue()));
+			builder.append(String.format("%s=%s", param.getParameter(), param.getValue()));
 			if (i != size - 1)
 				builder.append("&");
 		}

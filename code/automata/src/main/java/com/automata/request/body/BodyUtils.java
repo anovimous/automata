@@ -83,10 +83,12 @@ public abstract class BodyUtils {
 	public static Optional<String> composeRequestRawBody(RequestContentType contentType,
 			List<BodyPropertyInternalDto> bodyPropertyDtos) {
 
-		if (contentType.equals(RequestContentType.JSON))
-			return Optional.ofNullable(composeRawJsonBody(bodyPropertyDtos));
-		else
-			return Optional.ofNullable(composeRawFormBody(bodyPropertyDtos));
+		return switch (contentType) {
+		case JSON -> Optional.ofNullable(composeRawJsonBody(bodyPropertyDtos));
+		case FORM -> Optional.ofNullable(composeRawFormBody(bodyPropertyDtos));
+		default -> throw new IllegalArgumentException(
+				"A request body can only be composed from its properties for JSON and FORM, not for " + contentType);
+		};
 
 	}
 

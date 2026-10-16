@@ -18,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.Host;
 import com.automata.host.common.dto.HostInternalDto;
+import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.model.NarrowHttpJob;
+import com.automata.job.utils.HttpJobUtils;
 import com.automata.job.domain.model.WideHttpJob;
 import com.automata.job.domain.model.embedded.NarrowTargetConfig;
 import com.automata.job.domain.valueobject.HostData;
@@ -146,6 +148,9 @@ public class JobDataTmpStorageService {
 				}).toList();
 
 				fullyPopulatedRequestDtos.stream().forEach((dto) -> {
+
+					if (!HttpJobUtils.isJobEligible(dto.getContentType(), dto.getBodySizeBytes()))
+						throw IneligibleJobTargetException.forRequest(dto.getRequestId(), dto.getContentType());
 
 					ClassicHttpRequest apacheRequest = RequestUtils.composeApacheCoreRequest(dto, host.getHost());
 
