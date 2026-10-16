@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.HttpJob;
+import com.automata.job.domain.model.JobResult;
 import com.automata.job.domain.model.WideHttpJob;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.enums.JobState;
@@ -69,6 +70,80 @@ class HttpJobServiceUpdateStateTest {
 
 		assertThrows(EntityNotFoundException.class,
 				() -> service.updateCurrentJobState(1L, JobState.RUNNING, null));
+	}
+
+	private HttpJob runningJob() {
+		HttpJob job = new WideHttpJob();
+		job.setGenericDetails(HttpJobGenericDetails.builder().currentState(JobState.RUNNING).build());
+		when(jobRepo.findById(1L)).thenReturn(Optional.of(job));
+		return job;
+	}
+
+	@Test
+	void failureMessageIsStoredWhenTheJobFails() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.FAILED, "target refused the connection");
+
+		assertEquals("target refused the connection", job.getResult().getFailureMsg());
+	}
+
+	@Test
+	void terminationMessageIsStoredToo() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.TERMINATED, "worker lost its brain");
+
+		assertEquals("worker lost its brain", job.getResult().getFailureMsg());
+	}
+
+	@Test
+	void messageOfAStateWhichIsNotAFailureIsNotStored() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.FINISHED, "done");
+
+		assertNull(job.getResult());
+	}
+
+	@Test
+	void missingOrBlankFailureMessageStoresNothing() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.FAILED, "  ");
+
+		assertNull(job.getResult());
+	}
+
+	@Test
+	void longFailureMessageIsCutToWhatTheColumnHolds() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.FAILED, "x".repeat(JobResult.MAX_FAILURE_MSG_LENGTH + 50));
+
+		assertEquals(JobResult.MAX_FAILURE_MSG_LENGTH, job.getResult().getFailureMsg().length());
+	}
+
+	@Test
+	void repeatedFailureReportKeepsTheFirstMessage() {
+		HttpJob job = runningJob();
+		service.updateCurrentJobState(1L, JobState.FAILED, "first");
+
+		service.updateCurrentJobState(1L, JobState.FAILED, "second");
+
+		assertEquals("first", job.getResult().getFailureMsg());
+	}
+
+	@Test
+	void rejectedReportStoresNoMessage() {
+		// a paused job can't fail, only be terminated
+		HttpJob job = new WideHttpJob();
+		job.setGenericDetails(HttpJobGenericDetails.builder().currentState(JobState.PAUSED).build());
+		when(jobRepo.findById(1L)).thenReturn(Optional.of(job));
+
+		assertThrows(InvalidJobStateException.class, () -> service.updateCurrentJobState(1L, JobState.FAILED, "x"));
+
+		assertNull(job.getResult());
 	}
 
 }
