@@ -316,7 +316,10 @@ public class HttpJobService {
 			throw new RuntimeException(
 					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it");
 
-		job.getGenericDetails().setRequestedState(JobState.CANCELED);
+		if (List.of(JobState.QUEUED, JobState.PAUSED).contains(job.getGenericDetails().getCurrentState()))
+			job.getGenericDetails().setRequestedState(JobState.CANCELED);
+		else
+			job.getGenericDetails().setCurrentState(JobState.CANCELED);
 
 		jobRepo.save(job);
 
