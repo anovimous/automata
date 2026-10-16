@@ -39,7 +39,7 @@ public class HttpJobIntegrationController {
 	@PostMapping("/update/{jobId}")
 	public ResponseEntity<Void> updateJob(@PathVariable Long jobId, @RequestBody JobStateUpdateRequest req) {
 
-		jobService.updateCurrentJobState(req.jobId(), req.newState(), req.message());
+		jobService.updateCurrentJobState(jobId, req.newState(), req.message());
 
 		return ResponseEntity.status(204).build();
 
