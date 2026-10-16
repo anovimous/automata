@@ -30,6 +30,8 @@ import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.embedded.TargetSelector;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobState;
+import com.automata.job.domain.policy.JobStateTransitions;
+import com.automata.job.domain.policy.JobStateTransitions.ToApplyJobStateChange;
 import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
@@ -262,11 +264,8 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(draftJobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
-		if (job.getGenericDetails().getCurrentState() != JobState.DRAFT)
-			throw InvalidJobStateException.requiredState(JobState.DRAFT, job.getGenericDetails().getCurrentState(),
-					"prepare it for queueing");
-
-		job.getGenericDetails().setCurrentState(JobState.TOQUEUE);
+		applyStateChange(job, JobStateTransitions.prepareForQueueing(job.getGenericDetails().getCurrentState(),
+				job.getGenericDetails().getRequestedState()));
 
 		jobRepo.save(job);
 
@@ -278,11 +277,8 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(runningJobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
-		if (job.getGenericDetails().getCurrentState() != JobState.RUNNING)
-			throw InvalidJobStateException.requiredState(JobState.RUNNING, job.getGenericDetails().getCurrentState(),
-					"pause it");
-
-		job.getGenericDetails().setRequestedState(JobState.PAUSED);
+		applyStateChange(job, JobStateTransitions.requestPause(job.getGenericDetails().getCurrentState(),
+				job.getGenericDetails().getRequestedState()));
 
 		jobRepo.save(job);
 
@@ -294,11 +290,8 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(pausedJobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
-		if (job.getGenericDetails().getCurrentState() != JobState.PAUSED)
-			throw InvalidJobStateException.requiredState(JobState.PAUSED, job.getGenericDetails().getCurrentState(),
-					"resume it");
-
-		job.getGenericDetails().setRequestedState(JobState.RUNNING);
+		applyStateChange(job, JobStateTransitions.requestResume(job.getGenericDetails().getCurrentState(),
+				job.getGenericDetails().getRequestedState()));
 
 		jobRepo.save(job);
 
@@ -310,19 +303,8 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
-		if (job.getGenericDetails().getCurrentState() == JobState.SCHEDULED)
-			throw new UnsupportedOperationException("Canceling scheduled jobs is not implemented yet");
-
-		if (!List.of(JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED, JobState.PAUSED)
-				.contains(job.getGenericDetails().getCurrentState()))
-			throw new InvalidJobStateException(
-					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it, but it is "
-							+ job.getGenericDetails().getCurrentState());
-
-		if (List.of(JobState.QUEUED, JobState.PAUSED).contains(job.getGenericDetails().getCurrentState()))
-			job.getGenericDetails().setRequestedState(JobState.CANCELED);
-		else
-			job.getGenericDetails().setCurrentState(JobState.CANCELED);
+		applyStateChange(job, JobStateTransitions.cancel(job.getGenericDetails().getCurrentState(),
+				job.getGenericDetails().getRequestedState()));
 
 		jobRepo.save(job);
 
@@ -338,15 +320,16 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
-		if (List.of(JobState.DRAFT, JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED).contains(newState))
-			throw new InvalidJobStateException("The job is not allowed to this state by the orchestrator");
-
-		job.getGenericDetails().setCurrentState(newState);
-
-		job.getGenericDetails().setRequestedState(null);
+		applyStateChange(job, JobStateTransitions.reportStateAppliedByWorker(job.getGenericDetails().getCurrentState(),
+				job.getGenericDetails().getRequestedState(), newState));
 
 		jobRepo.save(job);
 
+	}
+
+	private void applyStateChange(HttpJob job, ToApplyJobStateChange change) {
+		job.getGenericDetails().setCurrentState(change.toApplyCurrentState());
+		job.getGenericDetails().setRequestedState(change.toApplyRequestedState());
 	}
 
 	@Transactional
