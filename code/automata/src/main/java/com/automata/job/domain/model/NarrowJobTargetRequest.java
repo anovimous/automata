@@ -7,10 +7,14 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToOne;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 public class NarrowJobTargetRequest {
 
 	public static NarrowJobTargetRequest of(NarrowHttpJob job, Request targetRequest) {
@@ -29,5 +33,20 @@ public class NarrowJobTargetRequest {
 
 	@ManyToOne
 	private Request targetRequest;
+
+	// Identity-based equality: the associations are lazy and must not take part in equals/hashCode
+	@Override
+	public boolean equals(Object o) {
+		if (this == o)
+			return true;
+		if (!(o instanceof NarrowJobTargetRequest other))
+			return false;
+		return id != null && id.equals(other.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return getClass().hashCode();
+	}
 
 }
