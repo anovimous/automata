@@ -1,6 +1,8 @@
 package com.automata.job.service;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -37,7 +39,10 @@ import com.automata.request.common.dto.QueryParameterInternalDto;
 import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.path.PathVariableRepository;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Service
+@Slf4j
 public class JobDataTmpStorageService {
 
 	public JobDataTmpStorageService(@Value("${com.automata.files.tmp.location}") String tmpDir,
@@ -51,6 +56,8 @@ public class JobDataTmpStorageService {
 		this.queryParameterRepo = queryParameterRepo;
 		this.bodyPropertyRepo = bodyPropertyRepo;
 	}
+
+	private static final int REQUESTS_PAGE_SIZE = 50;
 
 	@Value("${com.automata.files.tmp.location}")
 	private final String TMP_DIR;
@@ -70,142 +77,147 @@ public class JobDataTmpStorageService {
 
 		NarrowTargetConfig targetConfig = fullyConfiguredJob.getTargetConfig();
 
-		JobDataJsonLinesWriter writer;
-
-		String fileLocation = TMP_DIR + "/" + fullyConfiguredJob.getId();
-
-		try {
-			writer = new JobDataJsonLinesWriter(fileLocation);
-		} catch (IOException e) {
-			throw new RuntimeException("Json Lines Writer could not be created");
-		}
-
 		Host host = fullyConfiguredJob.getHost();
 
-		if (targetConfig.getTargetHost() != null) {
+		return writeToTempFile(fullyConfiguredJob.getId(), writer -> {
 
-			HostData hostData = new HostData(host.getId(), host.getHost(), host.getScope());
+			if (targetConfig.getTargetHost() != null)
+				writer.writeHostData(new HostData(host.getId(), host.getHost(), host.getScope()));
+			else
+				writeTargetRequestsData(writer, fullyConfiguredJob, host);
 
-			try {
-				writer.writeHostData(hostData);
-				writer.flushAndClose();
-			} catch (IOException e) {
-				throw new RuntimeException("Error writing RequestData object to JSONL file");
+		});
+
+	}
+
+	private void writeTargetRequestsData(JobDataJsonLinesWriter writer, NarrowHttpJob job, Host host)
+			throws IOException {
+
+		// NOTE: can be optimized later by only paginating requests that have a number
+		// of properties > 0
+
+		int page = 0;
+
+		Page<RequestInternalDto> requestDtosPage;
+
+		do {
+			requestDtosPage = narrowJobTargetRequestRepo.getRequestDtosByJob(job,
+					PageRequest.of(page, REQUESTS_PAGE_SIZE));
+
+			List<Long> requestIds = requestDtosPage.map(RequestInternalDto::getRequestId).toList();
+
+			Map<Long, List<PathVariableInternalDto>> pathVariablesByRequest = pathVariableRepo
+					.getPathVariableDtosOfRequests(requestIds).stream()
+					.collect(Collectors.groupingBy(PathVariableInternalDto::requestId));
+
+			Map<Long, List<QueryParameterInternalDto>> queryParametersByRequest = queryParameterRepo
+					.getQueryParameterDtosByRequestsIds(requestIds).stream()
+					.collect(Collectors.groupingBy(QueryParameterInternalDto::requestId));
+
+			Map<Long, List<BodyPropertyInternalDto>> bodyPropertiesByRequest = bodyPropertyRepo
+					.getBodyPropertyDtosByRequestsIds(requestIds).stream()
+					.collect(Collectors.groupingBy(BodyPropertyInternalDto::requestId));
+
+			// process them
+
+			for (RequestInternalDto dto : requestDtosPage) {
+
+				List<PathVariableInternalDto> pathVariables = pathVariablesByRequest.get(dto.getRequestId()) != null
+						? pathVariablesByRequest.get(dto.getRequestId())
+						: new ArrayList<PathVariableInternalDto>();
+
+				dto.setPathVariableDtos(pathVariables);
+
+				List<QueryParameterInternalDto> queryParams = queryParametersByRequest
+						.get(dto.getRequestId()) != null ? queryParametersByRequest.get(dto.getRequestId())
+								: new ArrayList<QueryParameterInternalDto>();
+
+				dto.setQueryParameterDtos(queryParams);
+
+				List<BodyPropertyInternalDto> bodyProperties = bodyPropertiesByRequest
+						.get(dto.getRequestId()) != null ? bodyPropertiesByRequest.get(dto.getRequestId())
+								: new ArrayList<BodyPropertyInternalDto>();
+
+				dto.setBodyPropertyDtos(bodyProperties);
+
+				if (!HttpJobUtils.isJobEligible(dto.getContentType(), dto.getBodySizeBytes()))
+					throw IneligibleJobTargetException.forRequest(dto.getRequestId(), dto.getContentType());
+
+				ClassicHttpRequest apacheRequest = RequestUtils.composeApacheCoreRequest(dto, host.getHost());
+
+				// OPT: apply preemptive match and replace rules here
+
+				String rawRequest = RequestUtils.composeRawRequest(apacheRequest, dto.getVersion());
+
+				writer.writeRequestData(new RequestData(dto.getRequestId(),
+						Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8))));
+
 			}
 
-		} else {
+			page++;
 
-			// NOTE: can be optimized later by only paginating requests that have a number
-			// of properties > 0
-
-			int page = 0;
-
-			Page<RequestInternalDto> requestDtosPage;
-
-			do {
-				requestDtosPage = narrowJobTargetRequestRepo.getRequestDtosByJob(fullyConfiguredJob,
-
-						PageRequest.of(page, 50));
-
-				List<Long> requestIds = requestDtosPage.map(RequestInternalDto::getRequestId).toList();
-
-				Map<Long, List<PathVariableInternalDto>> pathVariablesByRequest = pathVariableRepo
-						.getPathVariableDtosOfRequests(requestIds).stream()
-						.collect(Collectors.groupingBy(PathVariableInternalDto::requestId));
-
-				Map<Long, List<QueryParameterInternalDto>> queryParametersByRequest = queryParameterRepo
-						.getQueryParameterDtosByRequestsIds(requestIds).stream()
-						.collect(Collectors.groupingBy(QueryParameterInternalDto::requestId));
-
-				Map<Long, List<BodyPropertyInternalDto>> bodyPropertiesByRequest = bodyPropertyRepo
-						.getBodyPropertyDtosByRequestsIds(requestIds).stream()
-						.collect(Collectors.groupingBy(BodyPropertyInternalDto::requestId));
-
-				// process them
-
-				List<RequestInternalDto> fullyPopulatedRequestDtos = requestDtosPage.map((dto) -> {
-
-					List<PathVariableInternalDto> pathVariables = pathVariablesByRequest.get(dto.getRequestId()) != null
-							? pathVariablesByRequest.get(dto.getRequestId())
-							: new ArrayList<PathVariableInternalDto>();
-
-					dto.setPathVariableDtos(pathVariables);
-
-					List<QueryParameterInternalDto> queryParams = queryParametersByRequest
-							.get(dto.getRequestId()) != null ? queryParametersByRequest.get(dto.getRequestId())
-									: new ArrayList<QueryParameterInternalDto>();
-
-					dto.setQueryParameterDtos(queryParams);
-
-					List<BodyPropertyInternalDto> bodyProperties = bodyPropertiesByRequest
-							.get(dto.getRequestId()) != null ? bodyPropertiesByRequest.get(dto.getRequestId())
-									: new ArrayList<BodyPropertyInternalDto>();
-
-					dto.setBodyPropertyDtos(bodyProperties);
-
-					return dto;
-
-				}).toList();
-
-				fullyPopulatedRequestDtos.stream().forEach((dto) -> {
-
-					if (!HttpJobUtils.isJobEligible(dto.getContentType(), dto.getBodySizeBytes()))
-						throw IneligibleJobTargetException.forRequest(dto.getRequestId(), dto.getContentType());
-
-					ClassicHttpRequest apacheRequest = RequestUtils.composeApacheCoreRequest(dto, host.getHost());
-
-					// OPT: apply preemptive match and replace rules here
-
-					String rawRequest = RequestUtils.composeRawRequest(apacheRequest, dto.getVersion());
-
-					RequestData singleRequestData = new RequestData(dto.getRequestId(),
-							Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8)));
-
-					try {
-						writer.writeRequestData(singleRequestData);
-					} catch (IOException e) {
-						throw new RuntimeException("Error writing RequestData object to JSONL file");
-					}
-
-				});
-
-			} while (requestDtosPage.hasNext());
-
-			try {
-				writer.flushAndClose();
-			} catch (IOException e) {
-				throw new RuntimeException("Error writing RequestData object to JSONL file");
-			}
-
-		}
-
-		return fileLocation;
+		} while (requestDtosPage.hasNext());
 
 	}
 
 	@Transactional(readOnly = true)
 	public String tempStoreWideJobTargetData(WideHttpJob fullyConfiguredJob) {
 
-		JobDataJsonLinesWriter writer;
+		return writeToTempFile(fullyConfiguredJob.getId(), writer -> {
 
-		String fileLocation = TMP_DIR + "/" + fullyConfiguredJob.getId();
+			try (Stream<HostInternalDto> hostDtosStream = wideJobTargetHostRepo
+					.getHostDtosByJob(fullyConfiguredJob)) {
+
+				hostDtosStream.forEach((dto) -> {
+					try {
+						writer.writeHostData(new HostData(dto.hostId(), dto.host(), dto.scope()));
+					} catch (IOException e) {
+						throw new RuntimeException("Exception occured while writing HostData to tmp JSON file", e);
+					}
+				});
+
+			}
+
+		});
+
+	}
+
+	/**
+	 * Removes a file created by one of the tempStore methods. It never throws,
+	 * since it is a cleanup which must not hide the outcome of what was done with
+	 * the file.
+	 */
+	public void deleteTempFile(String fileLocation) {
 
 		try {
-			writer = new JobDataJsonLinesWriter(fileLocation);
-		} catch (IOException e) {
-			throw new RuntimeException("Json Lines Writer could not be created");
+			Files.deleteIfExists(Path.of(fileLocation));
+		} catch (IOException | RuntimeException e) {
+			log.warn("Temporary job data file could not be deleted: {}", fileLocation, e);
 		}
 
-		try (Stream<HostInternalDto> hostDtosStream = wideJobTargetHostRepo.getHostDtosByJob(fullyConfiguredJob)) {
+	}
 
-			hostDtosStream.forEach((dto) -> {
-				try {
-					writer.writeHostData(new HostData(dto.hostId(), dto.host(), dto.scope()));
-				} catch (IOException e) {
-					throw new RuntimeException("Exception occured while writing HostData to tmp JSON file");
-				}
-			});
+	@FunctionalInterface
+	private interface DataWriting {
+		void write(JobDataJsonLinesWriter writer) throws IOException;
+	}
 
+	// The file is closed before it is deleted, and a file which could not be
+	// completed is never left behind.
+	private String writeToTempFile(Long jobId, DataWriting dataWriting) {
+
+		String fileLocation = TMP_DIR + "/" + jobId;
+
+		try (JobDataJsonLinesWriter writer = new JobDataJsonLinesWriter(fileLocation)) {
+
+			dataWriting.write(writer);
+
+		} catch (IOException e) {
+			deleteTempFile(fileLocation);
+			throw new RuntimeException("Error writing the job target data to the JSONL file", e);
+		} catch (RuntimeException e) {
+			deleteTempFile(fileLocation);
+			throw e;
 		}
 
 		return fileLocation;

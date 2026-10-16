@@ -1,6 +1,7 @@
 package com.automata.job.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,7 +11,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,11 +26,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import com.automata.host.Host;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
+import com.automata.host.common.dto.HostInternalDto;
 import com.automata.job.domain.model.NarrowHttpJob;
+import com.automata.job.domain.model.WideHttpJob;
 import com.automata.job.domain.model.embedded.NarrowTargetConfig;
 import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.job.repository.NarrowJobTargetRequestRepository;
@@ -122,6 +130,130 @@ class JobDataTmpStorageServiceTest {
 		when(bodyRepo.getBodyPropertyDtosByRequestsIds(any())).thenReturn(List.of());
 
 		assertThrows(IneligibleJobTargetException.class, () -> service.tempStoreNarrowJobTargetData(job));
+	}
+
+	@Test
+	void everyPageOfTargetRequestsIsWrittenAndThePageNumberAdvances() throws Exception {
+		int total = 120;
+		List<Integer> requestedPages = new ArrayList<>();
+		when(narrowRepo.getRequestDtosByJob(any(), any(Pageable.class))).thenAnswer(invocation -> {
+			Pageable pageable = invocation.getArgument(1);
+			requestedPages.add(pageable.getPageNumber());
+			if (requestedPages.size() > 10)
+				throw new IllegalStateException("The page number does not advance");
+			long from = (long) pageable.getPageNumber() * pageable.getPageSize();
+			long to = Math.min(from + pageable.getPageSize(), total);
+			List<RequestInternalDto> content = LongStream.range(from, to).mapToObj(i -> dto(i + 1, null, 0)).toList();
+			return new PageImpl<>(content, pageable, total);
+		});
+		when(bodyRepo.getBodyPropertyDtosByRequestsIds(any())).thenReturn(List.of());
+
+		String location = service.tempStoreNarrowJobTargetData(job);
+
+		assertEquals(List.of(0, 1, 2), requestedPages);
+		List<String> lines = Files.readAllLines(Path.of(location));
+		assertEquals(total, lines.size());
+		assertEquals(total, lines.stream().distinct().count());
+	}
+
+	@Test
+	void narrowFileIsDeletedWhenWritingItFails() {
+		when(narrowRepo.getRequestDtosByJob(any(), any(Pageable.class))).thenReturn(new PageImpl<>(
+				List.of(dto(10L, null, 0), dto(12L, RequestContentType.MULTIPART, 50)), PageRequest.of(0, 50), 2));
+		when(bodyRepo.getBodyPropertyDtosByRequestsIds(any())).thenReturn(List.of());
+
+		assertThrows(IneligibleJobTargetException.class, () -> service.tempStoreNarrowJobTargetData(job));
+
+		assertFalse(Files.exists(tmpDir.resolve("77")));
+	}
+
+	@Test
+	void narrowFileOfAnEarlierAttemptIsReplacedNotAppendedTo() throws Exception {
+		Files.writeString(tmpDir.resolve("77"), "stale line from an earlier attempt\n");
+		when(narrowRepo.getRequestDtosByJob(any(), any(Pageable.class)))
+				.thenReturn(new PageImpl<>(List.of(dto(11L, null, 0))));
+		when(bodyRepo.getBodyPropertyDtosByRequestsIds(any())).thenReturn(List.of());
+
+		String location = service.tempStoreNarrowJobTargetData(job);
+
+		List<String> lines = Files.readAllLines(Path.of(location));
+		assertEquals(1, lines.size());
+		assertTrue(lines.get(0).contains("\"requestId\":11"));
+	}
+
+	@Test
+	void wideFileIsDeletedWhenWritingItFails() {
+		WideHttpJob wideJob = new WideHttpJob();
+		wideJob.setId(80L);
+		when(wideRepo.getHostDtosByJob(wideJob)).thenThrow(new IllegalStateException("database is down"));
+
+		assertThrows(IllegalStateException.class, () -> service.tempStoreWideJobTargetData(wideJob));
+
+		assertFalse(Files.exists(tmpDir.resolve("80")));
+	}
+
+	@Test
+	void deleteTempFileRemovesTheFile() throws Exception {
+		Path file = Files.writeString(tmpDir.resolve("81"), "data\n");
+
+		service.deleteTempFile(file.toString());
+
+		assertFalse(Files.exists(file));
+	}
+
+	@Test
+	void deleteTempFileOfAMissingFileDoesNothing() {
+		service.deleteTempFile(tmpDir.resolve("missing").toString());
+	}
+
+	@Test
+	void deleteTempFileNeverThrowsWhenTheFileCanNotBeDeleted() throws Exception {
+		Path directory = Files.createDirectory(tmpDir.resolve("82"));
+		Files.writeString(directory.resolve("inner"), "data\n");
+
+		service.deleteTempFile(directory.toString());
+
+		assertTrue(Files.exists(directory));
+	}
+
+	@Test
+	void hostTargetIsWrittenToTheFile() throws Exception {
+		job.setTargetConfig(NarrowTargetConfig.builder().targetHost(job.getHost()).build());
+
+		String location = service.tempStoreNarrowJobTargetData(job);
+
+		List<String> lines = Files.readAllLines(Path.of(location));
+		assertEquals(1, lines.size());
+		assertTrue(lines.get(0).contains("\"host\":\"example.com\""));
+	}
+
+	@Test
+	void wideJobHostsAreFlushedToTheFileAndTheStreamIsClosed() throws Exception {
+		WideHttpJob wideJob = new WideHttpJob();
+		wideJob.setId(78L);
+		AtomicBoolean streamClosed = new AtomicBoolean(false);
+		when(wideRepo.getHostDtosByJob(wideJob)).thenReturn(Stream
+				.of(new HostInternalDto(1L, "a.com", null), new HostInternalDto(2L, "b.com", null))
+				.onClose(() -> streamClosed.set(true)));
+
+		String location = service.tempStoreWideJobTargetData(wideJob);
+
+		List<String> lines = Files.readAllLines(Path.of(location));
+		assertEquals(2, lines.size());
+		assertTrue(lines.get(0).contains("\"host\":\"a.com\""));
+		assertTrue(lines.get(1).contains("\"host\":\"b.com\""));
+		assertTrue(streamClosed.get());
+	}
+
+	@Test
+	void wideJobWithoutHostsGivesAnEmptyFile() throws Exception {
+		WideHttpJob wideJob = new WideHttpJob();
+		wideJob.setId(79L);
+		when(wideRepo.getHostDtosByJob(wideJob)).thenReturn(Stream.empty());
+
+		String location = service.tempStoreWideJobTargetData(wideJob);
+
+		assertFalse(Files.readAllLines(Path.of(location)).iterator().hasNext());
 	}
 
 }
