@@ -176,7 +176,8 @@ class JobStateTransitionsTest {
 	void everyReportOutsideTheTableIsRejected() {
 		for (JobState current : JobState.values())
 			for (JobState reported : REPORTABLE)
-				if (!ALLOWED_REPORTS.getOrDefault(current, Set.of()).contains(reported)) {
+				if (!ALLOWED_REPORTS.getOrDefault(current, Set.of()).contains(reported)
+						&& !isAcceptedRepeat(current, reported)) {
 					InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
 							() -> JobStateTransitions.reportStateAppliedByWorker(current, null, reported),
 							current + " -> " + reported);
@@ -186,13 +187,34 @@ class JobStateTransitionsTest {
 				}
 	}
 
+	private static boolean isAcceptedRepeat(JobState current, JobState reported) {
+		return current == reported && reported != JobState.RUNNING;
+	}
+
 	@ParameterizedTest
 	@EnumSource(value = JobState.class, names = { "DRAFT", "TOQUEUE", "SCHEDULED", "FINISHED", "FAILED", "CANCELED",
 			"TERMINATED" })
-	void nothingCanBeReportedForAJobNoWorkerHoldsOrWhichEnded(JobState current) {
+	void nothingNewCanBeReportedForAJobNoWorkerHoldsOrWhichEnded(JobState current) {
 		for (JobState reported : REPORTABLE)
-			assertThrows(InvalidJobStateException.class,
-					() -> JobStateTransitions.reportStateAppliedByWorker(current, null, reported));
+			if (!isAcceptedRepeat(current, reported))
+				assertThrows(InvalidJobStateException.class,
+						() -> JobStateTransitions.reportStateAppliedByWorker(current, null, reported));
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = JobState.class, names = { "PAUSED", "FINISHED", "FAILED", "CANCELED", "TERMINATED" })
+	void aRepeatedReportIsAcceptedAndChangesNothing(JobState state) {
+		assertEquals(new ToApplyJobStateChange(state, JobState.RUNNING),
+				JobStateTransitions.reportStateAppliedByWorker(state, JobState.RUNNING, state));
+		assertEquals(new ToApplyJobStateChange(state, null),
+				JobStateTransitions.reportStateAppliedByWorker(state, null, state));
+	}
+
+	@Test
+	void aRepeatedRunningIsRejected() {
+		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class, () -> JobStateTransitions
+				.reportStateAppliedByWorker(JobState.RUNNING, JobState.PAUSED, JobState.RUNNING));
+		assertEquals("A worker can't report the state RUNNING for a job which is RUNNING", ex.getMessage());
 	}
 
 	@ParameterizedTest

@@ -18,7 +18,9 @@ import com.automata.job.domain.model.enums.JobState;
  * user only sets the requested state.</li>
  * <li>A worker reports the current state, which clears the requested one, and
  * only as a move the table of what a worker may report allows. Pausing,
- * canceling and resuming are also reported only when the user requested them.</li>
+ * canceling and resuming are also reported only when the user requested them.
+ * Reporting the state the job already has (a retry) is accepted and changes
+ * nothing, except for RUNNING.</li>
  * </ul>
  * Each method checks the change and returns the new pair of states, or throws
  * {@link InvalidJobStateException}. It never modifies anything itself.
@@ -100,6 +102,11 @@ public final class JobStateTransitions {
 
 		if (NOT_REPORTABLE_BY_WORKER.contains(reported))
 			throw new InvalidJobStateException("The job is not allowed to this state by the orchestrator");
+
+		// a retried report changes nothing, so it must not clear the requested state. A
+		// repeated RUNNING is left out: it is also what a second worker would report.
+		if (reported == current && reported != JobState.RUNNING)
+			return new ToApplyJobStateChange(current, requested);
 
 		if (!REPORTABLE_BY_WORKER.getOrDefault(current, Set.of()).contains(reported))
 			throw new InvalidJobStateException(
