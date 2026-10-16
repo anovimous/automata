@@ -12,6 +12,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 public record HttpJobFullDetailsInternalDto(Long jobId, HttpJobScope httpJobScope, JobState currentState,
 		@Nullable JobState requestedState, ResultsVerbosity verbosity, Integer priority, Integer rate,
 		TargetSelector targetSelector, GenericConfig genericConfig, JsonNode customConfig, Long programId,
-		String programName, Long routineId, String routineKey) {
+		String programName, Long routineId, String routineKey, @Nullable String failureMessage) {
 
 }

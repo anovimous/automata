@@ -19,7 +19,7 @@ public abstract class HttpJobMapper {
 				.program(ProgramSummaryDetailsResponseDto.builder().id(dto.programId()).name(dto.programName())
 						.build())
 				.routine(RoutineSummaryDetailsResponseDto.builder().id(dto.routineId()).key(dto.routineKey()).build())
-				.build();
+				.failureMessage(dto.failureMessage()).build();
 	}
 
 	public static Page<HttpJobSummaryResponseDto> toResponseDtos(Page<HttpJobSummaryInternalDto> internalDtos) {

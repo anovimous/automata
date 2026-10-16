@@ -1,6 +1,7 @@
 package com.automata.job.service;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -30,6 +31,7 @@ import com.automata.job.domain.model.embedded.GenericConfig;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.embedded.TargetSelector;
 import com.automata.job.domain.model.enums.HttpJobScope;
+import com.automata.job.domain.model.JobResult;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.policy.JobStateTransitions;
 import com.automata.job.domain.policy.JobStateTransitions.ToApplyJobStateChange;
@@ -57,6 +59,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class HttpJobService {
+
+	// the states in which a worker explains with a message why the job ended
+	private static final Set<JobState> FAILURE_STATES = EnumSet.of(JobState.FAILED, JobState.TERMINATED);
 
 	private final HttpJobRepository jobRepo;
 
@@ -324,8 +329,14 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
-		applyStateChange(job, JobStateTransitions.reportStateAppliedByWorker(job.getGenericDetails().getCurrentState(),
+		JobState previousState = job.getGenericDetails().getCurrentState();
+
+		applyStateChange(job, JobStateTransitions.reportStateAppliedByWorker(previousState,
 				job.getGenericDetails().getRequestedState(), newState));
+
+		// a repeated report is not a new failure, so it keeps the message of the first
+		if (previousState != newState && FAILURE_STATES.contains(newState) && message != null && !message.isBlank())
+			job.setResult(JobResult.failed(message));
 
 		jobRepo.save(job);
 
