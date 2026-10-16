@@ -21,6 +21,8 @@ import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.repository.HttpJobRepository;
 
+import com.automata.job.domain.exception.InvalidJobStateException;
+
 import jakarta.persistence.EntityNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
@@ -76,7 +78,7 @@ class HttpJobServiceCancelJobTest {
 	void scheduledJobCanNotBeCanceledYet() {
 		HttpJob job = jobIn(JobState.SCHEDULED);
 
-		assertThrows(RuntimeException.class, () -> service.cancelJob(1L));
+		assertThrows(UnsupportedOperationException.class, () -> service.cancelJob(1L));
 
 		assertEquals(JobState.SCHEDULED, job.getGenericDetails().getCurrentState());
 		verify(jobRepo, never()).save(job);
@@ -86,7 +88,7 @@ class HttpJobServiceCancelJobTest {
 	void runningJobCanNotBeCanceled() {
 		HttpJob job = jobIn(JobState.RUNNING);
 
-		assertThrows(RuntimeException.class, () -> service.cancelJob(1L));
+		assertThrows(InvalidJobStateException.class, () -> service.cancelJob(1L));
 
 		assertNull(job.getGenericDetails().getRequestedState());
 		verify(jobRepo, never()).save(job);

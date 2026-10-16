@@ -7,12 +7,10 @@ import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
@@ -21,6 +19,7 @@ import com.automata.job.api.dto.GlobalHttpJobDetailsDto;
 import com.automata.job.api.dto.HttpJobFilter;
 import com.automata.job.api.dto.NarrowHttpJobDetailsDto;
 import com.automata.job.api.dto.WideHttpJobDetailsDto;
+import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.WideHttpJob;
@@ -100,12 +99,12 @@ public class HttpJobService {
 
 		if (job.getGenericDetails().getCurrentState() != JobState.FINISHED
 				&& job.getGenericDetails().getCurrentState() != JobState.FAILED)
-			throw new IllegalArgumentException("The job has to end before downloading it's result");
+			throw new InvalidJobStateException("The job has to end before downloading its result");
 
 		S3Resource result = s3.getJobResult(job.getId());
 
 		if (!result.exists())
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Result not found");
+			throw new EntityNotFoundException("Result not found");
 
 		return result;
 
@@ -253,7 +252,7 @@ public class HttpJobService {
 	public HttpJob createDraftGlobalJob(GenericHttpJobDetailsDto genericDetails,
 			GlobalHttpJobDetailsDto globalJobDetails) {
 
-		throw new RuntimeException("Global jobs not implemented yet");
+		throw new UnsupportedOperationException("Global jobs not implemented yet");
 
 	}
 
@@ -264,7 +263,8 @@ public class HttpJobService {
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
 		if (job.getGenericDetails().getCurrentState() != JobState.DRAFT)
-			throw new RuntimeException("The job must be in the DRAFT state in order to prepare it for queueing");
+			throw InvalidJobStateException.requiredState(JobState.DRAFT, job.getGenericDetails().getCurrentState(),
+					"prepare it for queueing");
 
 		job.getGenericDetails().setCurrentState(JobState.TOQUEUE);
 
@@ -279,7 +279,8 @@ public class HttpJobService {
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
 		if (job.getGenericDetails().getCurrentState() != JobState.RUNNING)
-			throw new RuntimeException("The job must be in the RUNNING state in order to pause it");
+			throw InvalidJobStateException.requiredState(JobState.RUNNING, job.getGenericDetails().getCurrentState(),
+					"pause it");
 
 		job.getGenericDetails().setRequestedState(JobState.PAUSED);
 
@@ -294,7 +295,8 @@ public class HttpJobService {
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
 		if (job.getGenericDetails().getCurrentState() != JobState.PAUSED)
-			throw new RuntimeException("The job must be in the PAUSED state in order to resume it");
+			throw InvalidJobStateException.requiredState(JobState.PAUSED, job.getGenericDetails().getCurrentState(),
+					"resume it");
 
 		job.getGenericDetails().setRequestedState(JobState.RUNNING);
 
@@ -309,12 +311,13 @@ public class HttpJobService {
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
 		if (job.getGenericDetails().getCurrentState() == JobState.SCHEDULED)
-			throw new RuntimeException("Canceling scheduled jobs not implemented is yet");
+			throw new UnsupportedOperationException("Canceling scheduled jobs is not implemented yet");
 
 		if (!List.of(JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED, JobState.PAUSED)
 				.contains(job.getGenericDetails().getCurrentState()))
-			throw new RuntimeException(
-					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it");
+			throw new InvalidJobStateException(
+					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it, but it is "
+							+ job.getGenericDetails().getCurrentState());
 
 		if (List.of(JobState.QUEUED, JobState.PAUSED).contains(job.getGenericDetails().getCurrentState()))
 			job.getGenericDetails().setRequestedState(JobState.CANCELED);
@@ -328,14 +331,15 @@ public class HttpJobService {
 	@Transactional
 	public void updateCurrentJobState(Long jobId, JobState newState, String message) {
 
-		log.info("Update job state request received: jobId=" + jobId + " ,newState=" + newState + " ,message="
-				+ message);
+		log.info("Update job state request received: jobId={} newState={}", jobId, newState);
+		// free text sent by the worker, so it is kept out of the info level
+		log.debug("Update job state message: jobId={} message={}", jobId, message);
 
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
 		if (List.of(JobState.DRAFT, JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED).contains(newState))
-			throw new RuntimeException("The job is not allowed to this state by the orchestrator");
+			throw new InvalidJobStateException("The job is not allowed to this state by the orchestrator");
 
 		job.getGenericDetails().setCurrentState(newState);
 
@@ -348,7 +352,7 @@ public class HttpJobService {
 	@Transactional
 	public void deleteJob(Long jobId) {
 
-		throw new RuntimeException("Delete operation is not implemented yet");
+		throw new UnsupportedOperationException("Delete operation is not implemented yet");
 
 	}
 

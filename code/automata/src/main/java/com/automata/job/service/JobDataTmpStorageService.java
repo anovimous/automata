@@ -59,7 +59,6 @@ public class JobDataTmpStorageService {
 
 	private static final int REQUESTS_PAGE_SIZE = 50;
 
-	@Value("${com.automata.files.tmp.location}")
 	private final String TMP_DIR;
 
 	private final NarrowJobTargetRequestRepository narrowJobTargetRequestRepo;
