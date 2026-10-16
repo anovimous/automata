@@ -32,8 +32,6 @@ import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.service.HttpJobService;
 import com.automata.job.service.HttpJobsSynchronizationService;
-import com.automata.program.common.dto.ProgramSummaryDetailsResponseDto;
-import com.automata.routine.common.dto.RoutineSummaryDetailsResponseDto;
 
 import io.awspring.cloud.s3.S3Resource;
 import lombok.RequiredArgsConstructor;
@@ -52,16 +50,7 @@ public class HttpJobController {
 
 		HttpJobFullDetailsInternalDto jobDto = jobService.getJobFullDetails(jobId);
 
-		HttpJobResponseDto responseDto = HttpJobResponseDto.builder().jobId(jobDto.jobId())
-				.httpJobScope(jobDto.httpJobScope()).currentState(jobDto.currentState())
-				.requestedState(jobDto.requestedState()).verbosity(jobDto.verbosity()).priority(jobDto.priority())
-				.rate(jobDto.rate()).targetSelector(jobDto.targetSelector()).genericConfig(jobDto.genericConfig())
-				.customConfig(jobDto.customConfig())
-				.program(ProgramSummaryDetailsResponseDto.builder().id(jobDto.programId()).name(jobDto.programName())
-						.build())
-				.routine(RoutineSummaryDetailsResponseDto.builder().id(jobDto.routineId()).key(jobDto.routineKey())
-						.build())
-				.build();
+		HttpJobResponseDto responseDto = HttpJobMapper.toResponseDto(jobDto);
 
 		return ResponseEntity.ok(responseDto);
 
