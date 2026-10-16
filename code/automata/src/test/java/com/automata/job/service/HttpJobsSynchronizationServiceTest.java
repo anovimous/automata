@@ -98,7 +98,7 @@ class HttpJobsSynchronizationServiceTest {
 
 	private void thenQueuedExactly(Long... ids) {
 		verify(queueService, times(ids.length)).queueHttpJob(any(), anyString());
-		verify(jobRepo).updateJobsState(Set.of(ids), JobState.QUEUED);
+		verify(jobRepo).updateJobsState(Set.of(ids), JobState.QUEUED, JobState.TOQUEUE);
 	}
 
 	@Test
