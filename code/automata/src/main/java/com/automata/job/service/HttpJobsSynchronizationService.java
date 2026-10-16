@@ -64,7 +64,7 @@ public class HttpJobsSynchronizationService {
 		acceptedJobs.forEach(job -> queueService.queueHttpJob(job, jobsRoutineKeysMap.get(job.id())));
 
 		jobRepo.updateJobsState(acceptedJobs.stream().map(HttpJobInternalDto::id).collect(Collectors.toSet()),
-				JobState.QUEUED);
+				JobState.QUEUED, JobState.TOQUEUE);
 
 	}
 

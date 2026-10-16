@@ -22,6 +22,7 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -39,6 +40,11 @@ public abstract class HttpJob {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+
+	// makes a write based on a stale copy of the job fail instead of overwriting
+	// what was written in between
+	@Version
+	private Long version;
 
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)

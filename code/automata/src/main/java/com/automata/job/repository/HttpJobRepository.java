@@ -64,9 +64,17 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 			""")
 	Optional<HttpJobFullDetailsInternalDto> findFullDetailsByJobId(@Param("jobId") Long jobId);
 
-	@Query("UPDATE HttpJob j SET j.genericDetails.currentState = :state WHERE j.id IN :finalQueuedJobsIds")
+	// VERSIONED bumps the version, so that who loaded a job before this update fails
+	// when saving it. Only the jobs which are still in the expected state are
+	// updated, since the user may have changed them since they were read.
+	@Query("""
+			UPDATE VERSIONED HttpJob j
+			SET j.genericDetails.currentState = :state
+			WHERE j.id IN :finalQueuedJobsIds AND j.genericDetails.currentState = :expectedState
+			""")
 	@Modifying
-	void updateJobsState(@Param("finalQueuedJobsIds") Set<Long> finalQueuedJobsIds, @Param("state") JobState state);
+	void updateJobsState(@Param("finalQueuedJobsIds") Set<Long> finalQueuedJobsIds, @Param("state") JobState state,
+			@Param("expectedState") JobState expectedState);
 
 	@Query("SELECT new com.automata.job.domain.valueobject.HttpJobRoutineInternalDto(j.id, j.routine.key) FROM HttpJob j WHERE j.id IN :jobsIds")
 	List<HttpJobRoutineInternalDto> findJobsRoutineKeys(@Param("jobsIds") List<Long> jobsIds);

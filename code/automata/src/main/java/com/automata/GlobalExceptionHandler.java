@@ -2,6 +2,7 @@ package com.automata;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -9,6 +10,7 @@ import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.OptimisticLockException;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -29,6 +31,13 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(InvalidJobStateException.class)
 	public ResponseEntity<String> handleInvalidJobState(InvalidJobStateException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler({ ObjectOptimisticLockingFailureException.class, OptimisticLockException.class })
+	public ResponseEntity<String> handleConcurrentModification(Exception ex) {
+		log.info("Concurrent modification: {}", ex.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body("The entity was changed at the same time by someone else, please try again");
 	}
 
 	@ExceptionHandler(UnsupportedOperationException.class)
