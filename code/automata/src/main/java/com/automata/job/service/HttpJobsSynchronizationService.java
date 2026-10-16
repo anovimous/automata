@@ -1,11 +1,13 @@
 package com.automata.job.service;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -17,6 +19,7 @@ import com.automata.host.common.dto.HostAllRateLimitsInternalDto;
 import com.automata.host.common.dto.HostRateLimitInternalDto;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobState;
+import com.automata.job.domain.policy.JobDispatchOrder;
 import com.automata.job.domain.valueobject.HttpJobInternalDto;
 import com.automata.job.domain.valueobject.HttpJobRoutineInternalDto;
 import com.automata.job.domain.valueobject.NarrowHttpJobInternalDto;
@@ -54,16 +57,22 @@ public class HttpJobsSynchronizationService {
 	@Transactional(isolation = Isolation.SERIALIZABLE)
 	public void syncToQueueJobs() {
 
-		TreeSet<HttpJobInternalDto> sortedToQueueJobs = this.getSortedToQueueJobs();
+		Deque<HttpJobInternalDto> sortedToQueueJobs = this.getSortedToQueueJobs();
 		
 		Map<Long, String> jobsRoutineKeysMap = jobRepo
 				.findJobsRoutineKeys(sortedToQueueJobs.stream().map(HttpJobInternalDto::id).toList()).stream()
 				.collect(Collectors.toMap(HttpJobRoutineInternalDto::id, HttpJobRoutineInternalDto::routineKey));
 
 		Set<Long> programsIds = sortedToQueueJobs.stream().map(dto -> dto.programId()).collect(Collectors.toSet());
-		Map<Long, ProgramSummaryRatesDto> programSummaryRatesDtosMap = this.getSummaryOfRates(programsIds);
+		Map<Long, ProgramSummaryRatesDto> programSummaryRatesDtosMap = new HashMap<>(
+				this.getSummaryOfRates(programsIds));
 
 		Set<Long> finalQueuedJobsIds = new HashSet<Long>();
+
+		// The rates above are a snapshot of the database, which only learns about the
+		// jobs queued in this run after the loop. So every accepted job is accounted
+		// for here, otherwise later jobs would be checked as if it didn't exist.
+		List<HttpJobInternalDto> acceptedNarrowJobs = new ArrayList<>();
 
 		while (!sortedToQueueJobs.isEmpty()) {
 
@@ -78,7 +87,8 @@ public class HttpJobsSynchronizationService {
 			if (firstJob.scope() == HttpJobScope.WIDE) {
 
 				if (abidesToProgramRateLimit)
-					wideJobAbidesToEachHostRateLimit = checkAbidesToEachHostRateLimit(firstJob, programRate);
+					wideJobAbidesToEachHostRateLimit = checkAbidesToEachHostRateLimit(firstJob, programRate,
+							acceptedNarrowJobs);
 				else
 					sortedToQueueJobs.removeIf((job) -> job.scope().equals(HttpJobScope.WIDE)
 							&& job.programId().equals(firstJob.programId()));
@@ -86,7 +96,8 @@ public class HttpJobsSynchronizationService {
 			} else {
 
 				if (abidesToProgramRateLimit)
-					narrowJobAbidesToTargetHostRateLimit = checkAbidesToHostRateLimit(firstJob, programRate);
+					narrowJobAbidesToTargetHostRateLimit = checkAbidesToHostRateLimit(firstJob, programRate,
+							acceptedNarrowJobs);
 				else
 					sortedToQueueJobs.removeIf((job) -> job.scope().equals(HttpJobScope.NARROW)
 							&& job.hostId().equals(firstJob.hostId()) && job.duration().equals(firstJob.duration()));
@@ -97,6 +108,12 @@ public class HttpJobsSynchronizationService {
 					&& (wideJobAbidesToEachHostRateLimit || narrowJobAbidesToTargetHostRateLimit)) {
 				queueService.queueHttpJob(firstJob, jobsRoutineKeysMap.get(firstJob.id()));
 				finalQueuedJobsIds.add(firstJob.id());
+
+				boolean isWide = firstJob.scope() == HttpJobScope.WIDE;
+				programSummaryRatesDtosMap.put(firstJob.programId(),
+						programRate.withAcceptedJob(firstJob.rate(), isWide));
+				if (!isWide)
+					acceptedNarrowJobs.add(firstJob);
 			}
 		}
 
@@ -105,7 +122,8 @@ public class HttpJobsSynchronizationService {
 	}
 
 	// DONE:
-	private boolean checkAbidesToEachHostRateLimit(HttpJobInternalDto jobDto, ProgramSummaryRatesDto programRate) {
+	private boolean checkAbidesToEachHostRateLimit(HttpJobInternalDto jobDto, ProgramSummaryRatesDto programRate,
+			List<HttpJobInternalDto> acceptedNarrowJobs) {
 
 		// 1. first check if there is any host that has a max rate limit lesser than the
 		// (new job X rate + currentWideRate), if any then remove the job and mark as
@@ -120,11 +138,19 @@ public class HttpJobsSynchronizationService {
 
 		// LATER IMPROVEMENT: check only for target hosts of a job not all program hosts
 
-		if (hostRepo.anyInScopeProgramHostHasRateLimitLessThanGivenRate(jobDto.programId(), jobDto.rate()))
+		// a wide job reaches every host of the program, so the wide jobs which are
+		// already active count against each host, including those without narrow jobs
+		if (hostRepo.anyInScopeProgramHostHasRateLimitLessThanGivenRate(jobDto.programId(),
+				Math.toIntExact(jobDto.rate() + programRate.currentWideRate())))
 			return false;
 
-		List<NarrowHttpJobRateInternalDto> narrowJobDtos = narrowJobRepo.findAllByProgramIdAndCurrentStateIn(
-				jobDto.programId(), List.of(JobState.QUEUED, JobState.RUNNING, JobState.PAUSED));
+		List<NarrowHttpJobRateInternalDto> narrowJobDtos = new ArrayList<>(narrowJobRepo
+				.findAllByProgramIdAndCurrentStateIn(jobDto.programId(),
+						List.of(JobState.QUEUED, JobState.RUNNING, JobState.PAUSED)));
+
+		acceptedNarrowJobs.stream().filter(accepted -> accepted.programId().equals(jobDto.programId()))
+				.forEach(accepted -> narrowJobDtos
+						.add(new NarrowHttpJobRateInternalDto(accepted.rate(), accepted.hostId())));
 
 		// group the jobs by host and then sum the narrow jobs in the same host
 
@@ -161,7 +187,8 @@ public class HttpJobsSynchronizationService {
 	}
 
 	// DONE:
-	private boolean checkAbidesToHostRateLimit(HttpJobInternalDto jobDto, ProgramSummaryRatesDto programRate) {
+	private boolean checkAbidesToHostRateLimit(HttpJobInternalDto jobDto, ProgramSummaryRatesDto programRate,
+			List<HttpJobInternalDto> acceptedNarrowJobs) {
 
 		// check abides to host rate limit:
 		// ((new job X rate + current Narrow rate of H + current Wide rate of Program of
@@ -172,8 +199,12 @@ public class HttpJobsSynchronizationService {
 
 		HostAllRateLimitsInternalDto hostDto = hostRepo.findRateLimitsAllDtoById(jobDto.hostId());
 
-		List<NarrowHttpJobInternalDto> narrowJobsDtos = narrowJobRepo.findAllByHostIdAndStateIn(jobDto.hostId(),
-				List.of(JobState.QUEUED, JobState.RUNNING, JobState.PAUSED));
+		List<NarrowHttpJobInternalDto> narrowJobsDtos = new ArrayList<>(narrowJobRepo.findAllByHostIdAndStateIn(
+				jobDto.hostId(), List.of(JobState.QUEUED, JobState.RUNNING, JobState.PAUSED)));
+
+		acceptedNarrowJobs.stream().filter(accepted -> accepted.hostId().equals(jobDto.hostId()))
+				.forEach(accepted -> narrowJobsDtos
+						.add(new NarrowHttpJobInternalDto(accepted.rate(), accepted.duration())));
 
 		Integer currentNarrowRate = 0, currentShortRate = 0, currentLongRate = 0;
 
@@ -199,15 +230,15 @@ public class HttpJobsSynchronizationService {
 
 	// TO MOVE into their services:
 
-	private TreeSet<HttpJobInternalDto> getSortedToQueueJobs() {
+	private Deque<HttpJobInternalDto> getSortedToQueueJobs() {
 
-		TreeSet<HttpJobInternalDto> sortedToQueueJobs = new TreeSet<>();
+		List<HttpJobInternalDto> toQueueJobs = new ArrayList<>();
 
-		sortedToQueueJobs.addAll(narrowJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE));
+		toQueueJobs.addAll(narrowJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE));
 
-		sortedToQueueJobs.addAll(wideJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE));
+		toQueueJobs.addAll(wideJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE));
 
-		return sortedToQueueJobs;
+		return new ArrayDeque<>(JobDispatchOrder.sort(toQueueJobs));
 	}
 
 	private Map<Long, ProgramSummaryRatesDto> getSummaryOfRates(Set<Long> programsIds) {
