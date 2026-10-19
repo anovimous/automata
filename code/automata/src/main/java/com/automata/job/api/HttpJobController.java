@@ -115,6 +115,15 @@ public class HttpJobController {
 		return ResponseEntity.status(204).build();
 	}
 
+	@PostMapping("/{draftJobId}/retry-preparation")
+	public ResponseEntity<Void> retryPreparation(@PathVariable Long draftJobId) {
+
+		jobService.retryConfigFilePreparation(draftJobId);
+
+		return ResponseEntity.accepted().build();
+
+	}
+
 	// TEST METHOD:
 
 	@PostMapping("/sync")
