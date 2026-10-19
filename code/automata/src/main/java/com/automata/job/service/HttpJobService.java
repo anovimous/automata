@@ -5,9 +5,6 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -17,11 +14,9 @@ import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.job.api.dto.GenericHttpJobDetailsDto;
 import com.automata.job.api.dto.GlobalHttpJobDetailsDto;
-import com.automata.job.api.dto.HttpJobFilter;
 import com.automata.job.api.dto.NarrowHttpJobDetailsDto;
 import com.automata.job.api.dto.WideHttpJobDetailsDto;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
-import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.WideHttpJob;
@@ -37,12 +32,8 @@ import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.policy.JobPreparationPolicy;
 import com.automata.job.domain.policy.JobStateTransitions;
 import com.automata.job.domain.policy.JobStateTransitions.ToApplyJobStateChange;
-import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
-import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.domain.valueobject.TargetSelectionResult;
-import com.automata.job.infra.S3Service;
 import com.automata.job.repository.HttpJobRepository;
-import com.automata.job.utils.HttpJobUtils;
 import com.automata.program.Program;
 import com.automata.program.ProgramRepository;
 import com.automata.routine.Routine;
@@ -52,7 +43,6 @@ import com.automata.tenant.TenantRepository;
 import com.automata.wordlist.Wordlist;
 import com.automata.wordlist.WordlistRepository;
 
-import io.awspring.cloud.s3.S3Resource;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -82,52 +72,6 @@ public class HttpJobService {
 	private final JobTargetConfigService targetConfigService;
 
 	private final JobConfigFileAsyncService configFileService;
-
-	private final S3Service s3;
-
-	@Transactional(readOnly = true)
-	public HttpJob getJob(Long jobId) {
-
-		return jobRepo.findById(jobId).orElseThrow(() -> new EntityNotFoundException("Job not found"));
-
-	}
-
-	@Transactional(readOnly = true)
-	public Page<HttpJobSummaryInternalDto> getAllJobs(HttpJobFilter filter, Pageable pageable) {
-
-		Specification<HttpJob> spec = HttpJobUtils.buildSpecification(filter);
-
-		return jobRepo.findAllSummaries(spec, pageable);
-
-	}
-
-	@Transactional(readOnly = true)
-	public S3Resource getJobResult(Long jobId) {
-
-		HttpJob job = jobRepo.findById(jobId).orElseThrow(() -> new EntityNotFoundException("Job not found"));
-
-		if (job.getGenericDetails().getCurrentState() != JobState.FINISHED
-				&& job.getGenericDetails().getCurrentState() != JobState.FAILED)
-			throw new InvalidJobStateException("The job has to end before downloading its result");
-
-		S3Resource result = s3.getJobResult(job.getId());
-
-		if (!result.exists())
-			throw new EntityNotFoundException("Result not found");
-
-		return result;
-
-	}
-
-	@Transactional(readOnly = true)
-	public HttpJobFullDetailsInternalDto getJobFullDetails(Long jobId) {
-
-		HttpJobFullDetailsInternalDto jobDto = jobRepo.findFullDetailsByJobId(jobId)
-				.orElseThrow(() -> new EntityNotFoundException("Job not found"));
-
-		return jobDto;
-
-	}
 
 	@Transactional
 	public NarrowHttpJob createDraftNarrowJob(GenericHttpJobDetailsDto genericDto, NarrowHttpJobDetailsDto narrowDto) {

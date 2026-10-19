@@ -30,6 +30,7 @@ import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
+import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobService;
 import com.automata.job.service.HttpJobsSynchronizationService;
 
@@ -43,12 +44,14 @@ public class HttpJobController {
 
 	private final HttpJobService jobService;
 
+	private final HttpJobQueryService queryService;
+
 	private final HttpJobsSynchronizationService syncService;
 
 	@GetMapping("/{jobId}")
 	public ResponseEntity<HttpJobResponseDto> getJob(@PathVariable Long jobId) {
 
-		HttpJobFullDetailsInternalDto jobDto = jobService.getJobFullDetails(jobId);
+		HttpJobFullDetailsInternalDto jobDto = queryService.getJobFullDetails(jobId);
 
 		HttpJobResponseDto responseDto = HttpJobMapper.toResponseDto(jobDto);
 
@@ -60,7 +63,7 @@ public class HttpJobController {
 	public ResponseEntity<PageHolderResponse<HttpJobSummaryResponseDto>> getJobs(@ModelAttribute HttpJobFilter filter,
 			@PageableDefault(size = 20, sort = { "creationDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
-		Page<HttpJobSummaryInternalDto> internalDtos = jobService.getAllJobs(filter, pageable);
+		Page<HttpJobSummaryInternalDto> internalDtos = queryService.getAllJobs(filter, pageable);
 
 		Page<HttpJobSummaryResponseDto> responseDtos = HttpJobMapper.toResponseDtos(internalDtos);
 
@@ -71,7 +74,7 @@ public class HttpJobController {
 	@GetMapping("/{jobId}/result")
 	public ResponseEntity<StreamingResponseBody> downloadJobResult(@PathVariable Long jobId) {
 
-		S3Resource resource = jobService.getJobResult(jobId);
+		S3Resource resource = queryService.getJobResult(jobId);
 
 		StreamingResponseBody stream = outputStream -> {
 			try (InputStream inputStream = resource.getInputStream()) {

@@ -12,6 +12,7 @@ import com.automata.job.api.dto.JobPollDto;
 import com.automata.job.api.dto.JobStateUpdateRequest;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.JobState;
+import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobService;
 
 import lombok.RequiredArgsConstructor;
@@ -23,10 +24,12 @@ public class HttpJobIntegrationController {
 
 	private final HttpJobService jobService;
 
+	private final HttpJobQueryService queryService;
+
 	@GetMapping("/poll/{jobId}")
 	public ResponseEntity<JobPollDto> pollJob(@PathVariable Long jobId) {
 
-		HttpJob job = jobService.getJob(jobId);
+		HttpJob job = queryService.getJob(jobId);
 
 		JobState requestedState = job.getGenericDetails().getRequestedState() == null
 				? job.getGenericDetails().getCurrentState()
