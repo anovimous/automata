@@ -30,8 +30,8 @@ import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
+import com.automata.job.service.HttpJobCreationService;
 import com.automata.job.service.HttpJobQueryService;
-import com.automata.job.service.HttpJobService;
 import com.automata.job.service.HttpJobStateService;
 import com.automata.job.service.HttpJobsSynchronizationService;
 
@@ -43,7 +43,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class HttpJobController {
 
-	private final HttpJobService jobService;
+	private final HttpJobCreationService creationService;
 
 	private final HttpJobQueryService queryService;
 
@@ -99,12 +99,12 @@ public class HttpJobController {
 		HttpJob newlyCreatedJob = switch (request.httpJobScope()) {
 
 		case HttpJobScope.NARROW ->
-			jobService.createDraftNarrowJob(request.genericDetails(), request.narrowJobDetails());
+			creationService.createDraftNarrowJob(request.genericDetails(), request.narrowJobDetails());
 
-		case HttpJobScope.WIDE -> jobService.createDraftWideJob(request.genericDetails(), request.wideJobDetails());
+		case HttpJobScope.WIDE -> creationService.createDraftWideJob(request.genericDetails(), request.wideJobDetails());
 
 		case HttpJobScope.GLOBAL ->
-			jobService.createDraftGlobalJob(request.genericDetails(), request.globalJobDetails());
+			creationService.createDraftGlobalJob(request.genericDetails(), request.globalJobDetails());
 
 		default -> throw new IllegalArgumentException("Job type not supported yet");
 		};
@@ -143,7 +143,7 @@ public class HttpJobController {
 //	@PostMapping("/{draftJobId}/schedule")
 //	public ResponseEntity<Void> scheduleJob(@PathVariable Long draftJobId, @RequestBody JobScheduleRequest req) {
 //
-//		ScheduleResponse dto = jobService.scheduleJob(draftJobId, req);
+//		ScheduleResponse dto = stateService.scheduleJob(draftJobId, req);
 //
 //		return ResponseEntity.of(dto);
 //

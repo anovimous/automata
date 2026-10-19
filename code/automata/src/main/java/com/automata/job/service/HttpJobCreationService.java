@@ -4,12 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
@@ -39,15 +37,12 @@ import com.automata.tenant.TenantRepository;
 import com.automata.wordlist.Wordlist;
 import com.automata.wordlist.WordlistRepository;
 
-
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
-public class HttpJobService {
+public class HttpJobCreationService {
 
 	private final HttpJobRepository jobRepo;
 

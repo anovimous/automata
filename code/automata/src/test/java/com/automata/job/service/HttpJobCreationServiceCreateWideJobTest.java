@@ -46,7 +46,7 @@ import com.automata.tenant.TenantRepository;
 import com.automata.wordlist.WordlistRepository;
 
 @ExtendWith(MockitoExtension.class)
-class HttpJobServiceCreateWideJobTest {
+class HttpJobCreationServiceCreateWideJobTest {
 
 	@Mock
 	HttpJobRepository jobRepo;
@@ -70,7 +70,7 @@ class HttpJobServiceCreateWideJobTest {
 	S3Service s3;
 
 	@InjectMocks
-	HttpJobService service;
+	HttpJobCreationService service;
 
 	@BeforeEach
 	void startTransactionSynchronization() {
