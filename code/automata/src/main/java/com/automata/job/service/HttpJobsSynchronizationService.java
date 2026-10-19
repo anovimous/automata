@@ -7,11 +7,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.policy.JobDispatchOrder;
@@ -46,8 +46,33 @@ public class HttpJobsSynchronizationService {
 
 	private final JobQueueService queueService;
 
-	@Transactional(isolation = Isolation.SERIALIZABLE)
+	private final TransactionTemplate transactionTemplate;
+
+	// Two syncs at once would read the same used rates and could together exceed a
+	// limit. The lock is taken before the transaction starts and released after it
+	// ended, so a sync never reads what the previous one did not commit yet.
+	private final ReentrantLock syncLock = new ReentrantLock();
+
+	/**
+	 * Queues the jobs which wait for it, unless another sync is running right now,
+	 * in which case it does nothing.
+	 */
 	public void syncToQueueJobs() {
+
+		if (!syncLock.tryLock()) {
+			log.debug("A synchronization of the jobs is already running, skipping this one");
+			return;
+		}
+
+		try {
+			transactionTemplate.executeWithoutResult(status -> syncToQueueJobsInTransaction());
+		} finally {
+			syncLock.unlock();
+		}
+
+	}
+
+	private void syncToQueueJobsInTransaction() {
 
 		Deque<HttpJobInternalDto> sortedToQueueJobs = this.getSortedToQueueJobs();
 		
