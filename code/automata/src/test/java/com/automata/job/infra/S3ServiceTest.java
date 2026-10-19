@@ -66,4 +66,18 @@ class S3ServiceTest {
 		verifyNoInteractions(s3Template);
 	}
 
+	@Test
+	void jobDetailsObjectIsDeletedUnderTheJobId() {
+		service.deleteJobDetailsObject(8L);
+
+		verify(s3Template).deleteObject(S3Service.JOB_CONFIG_BUCKET, "details/8.json");
+	}
+
+	@Test
+	void jobDataFileIsDeletedUnderTheJobId() {
+		service.deleteJobDataFile(9L);
+
+		verify(s3Template).deleteObject(S3Service.JOB_CONFIG_BUCKET, "data/9.jsonl");
+	}
+
 }

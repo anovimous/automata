@@ -32,7 +32,9 @@ import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.embedded.TargetSelector;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.JobResult;
+import com.automata.job.domain.model.enums.ConfigFileStatus;
 import com.automata.job.domain.model.enums.JobState;
+import com.automata.job.domain.policy.JobPreparationPolicy;
 import com.automata.job.domain.policy.JobStateTransitions;
 import com.automata.job.domain.policy.JobStateTransitions.ToApplyJobStateChange;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
@@ -196,7 +198,7 @@ public class HttpJobService {
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
-				configFileService.createNarrowConfigFile(fullyConfiguredJob);
+				configFileService.prepareConfigFiles(fullyConfiguredJob.getId());
 			}
 		});
 
@@ -252,7 +254,7 @@ public class HttpJobService {
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
-				configFileService.createWideConfigFile(fullyConfiguredJob);
+				configFileService.prepareConfigFiles(fullyConfiguredJob.getId());
 			}
 		});
 
@@ -273,10 +275,41 @@ public class HttpJobService {
 		HttpJob job = jobRepo.findById(draftJobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
+		JobPreparationPolicy.requireReadyToPrepareForQueueing(job.getGenericDetails().getConfigFileStatus());
+
 		applyStateChange(job, JobStateTransitions.prepareForQueueing(job.getGenericDetails().getCurrentState(),
 				job.getGenericDetails().getRequestedState()));
 
 		jobRepo.save(job);
+
+	}
+
+	/**
+	 * Builds the files of a draft job again, when the previous build failed or did
+	 * not end. The build starts once the transaction commits.
+	 */
+	@Transactional
+	public void retryConfigFilePreparation(Long draftJobId) {
+
+		HttpJob job = jobRepo.findById(draftJobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		HttpJobGenericDetails details = job.getGenericDetails();
+
+		JobPreparationPolicy.requireRetryable(details.getCurrentState(), details.getConfigFileStatus());
+
+		details.setConfigFileStatus(ConfigFileStatus.PREPARING);
+		details.setConfigFileFailure(null);
+		details.setConfigFileAttempts(0);
+
+		jobRepo.save(job);
+
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				configFileService.prepareConfigFiles(draftJobId);
+			}
+		});
 
 	}
 

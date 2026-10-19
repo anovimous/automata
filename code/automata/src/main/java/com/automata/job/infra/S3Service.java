@@ -51,4 +51,16 @@ public class S3Service {
 
 	}
 
+	public void deleteJobDetailsObject(Long jobId) {
+
+		s3Template.deleteObject(JOB_CONFIG_BUCKET, String.format("details/%d.json", jobId));
+
+	}
+
+	public void deleteJobDataFile(Long jobId) {
+
+		s3Template.deleteObject(JOB_CONFIG_BUCKET, String.format("data/%d.jsonl", jobId));
+
+	}
+
 }

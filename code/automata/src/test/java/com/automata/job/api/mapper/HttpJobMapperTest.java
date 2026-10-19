@@ -14,7 +14,8 @@ class HttpJobMapperTest {
 	@Test
 	void fullDetailsAreMappedIncludingProgramAndRoutine() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(7L, HttpJobScope.WIDE, JobState.PAUSED,
-				JobState.RUNNING, null, 3, 20, null, null, null, 11L, "prog", 12L, "routine-key", "it broke");
+				JobState.RUNNING, null, 3, 20, null, null, null, 11L, "prog", 12L, "routine-key", "it broke",
+				com.automata.job.domain.model.enums.ConfigFileStatus.FAILED, "S3 is down");
 
 		HttpJobResponseDto response = HttpJobMapper.toResponseDto(dto);
 
@@ -29,6 +30,8 @@ class HttpJobMapperTest {
 		assertEquals(12L, response.routine().id());
 		assertEquals("routine-key", response.routine().key());
 		assertEquals("it broke", response.failureMessage());
+		assertEquals(com.automata.job.domain.model.enums.ConfigFileStatus.FAILED, response.configFileStatus());
+		assertEquals("S3 is down", response.configFileFailure());
 	}
 
 }

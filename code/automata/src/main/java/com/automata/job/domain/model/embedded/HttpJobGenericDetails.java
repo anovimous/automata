@@ -4,6 +4,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.lang.Nullable;
 
+import com.automata.job.domain.model.enums.ConfigFileStatus;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.model.enums.ResultsVerbosity;
@@ -37,6 +38,18 @@ public class HttpJobGenericDetails {
 
 	@Enumerated(EnumType.STRING)
 	private JobState requestedState;
+
+	@Column(nullable = false)
+	@Enumerated(EnumType.STRING)
+	@Builder.Default
+	private ConfigFileStatus configFileStatus = ConfigFileStatus.PREPARING;
+
+	// why the last build of the files failed, cut to 255 characters
+	private String configFileFailure;
+
+	@Column(nullable = false)
+	@Builder.Default
+	private Integer configFileAttempts = 0;
 
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)

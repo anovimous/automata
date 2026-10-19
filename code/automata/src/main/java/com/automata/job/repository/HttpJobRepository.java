@@ -13,8 +13,10 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.job.domain.model.HttpJob;
+import com.automata.job.domain.model.enums.ConfigFileStatus;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobRoutineInternalDto;
@@ -55,7 +57,9 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 			    j.program.name,
 			    j.routine.id,
 			    j.routine.key,
-			    j.result.failureMsg
+			    j.result.failureMsg,
+			    j.genericDetails.configFileStatus,
+			    j.genericDetails.configFileFailure
 			)
 			FROM HttpJob j
 			LEFT JOIN j.program
@@ -75,6 +79,22 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 	@Modifying
 	void updateJobsState(@Param("finalQueuedJobsIds") Set<Long> finalQueuedJobsIds, @Param("state") JobState state,
 			@Param("expectedState") JobState expectedState);
+
+	// Not VERSIONED on purpose: a build of the files running in the background must
+	// not make the user's concurrent pause or cancel fail. The expected status keeps
+	// a late build from overwriting a newer one. Returns the number of updated rows.
+	@Query("""
+			UPDATE HttpJob j
+			SET j.genericDetails.configFileStatus = :status,
+			    j.genericDetails.configFileFailure = :failure,
+			    j.genericDetails.configFileAttempts = :attempts
+			WHERE j.id = :jobId AND j.genericDetails.configFileStatus = :expectedStatus
+			""")
+	@Modifying
+	@Transactional
+	int updateConfigFileStatus(@Param("jobId") Long jobId, @Param("expectedStatus") ConfigFileStatus expectedStatus,
+			@Param("status") ConfigFileStatus status, @Param("failure") String failure,
+			@Param("attempts") Integer attempts);
 
 	@Query("SELECT new com.automata.job.domain.valueobject.HttpJobRoutineInternalDto(j.id, j.routine.key) FROM HttpJob j WHERE j.id IN :jobsIds")
 	List<HttpJobRoutineInternalDto> findJobsRoutineKeys(@Param("jobsIds") List<Long> jobsIds);
