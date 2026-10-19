@@ -1,8 +1,11 @@
 package com.automata.job.service;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -12,12 +15,21 @@ import static org.mockito.Mockito.when;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.automata.host.HostRepository;
 import com.automata.host.common.dto.HostAllRateLimitsInternalDto;
@@ -58,12 +70,17 @@ class HttpJobsSynchronizationServiceTest {
 	@Mock
 	JobQueueService queueService;
 
+	@Mock
+	PlatformTransactionManager transactionManager;
+
 	HttpJobsSynchronizationService service;
 
 	@BeforeEach
 	void setUp() {
+		lenient().when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
 		service = new HttpJobsSynchronizationService(jobRepo, narrowJobRepo, wideJobRepo, programRepo,
-				new JobDispatchPlanner(narrowJobRepo, hostRepo), queueService);
+				new JobDispatchPlanner(narrowJobRepo, hostRepo), queueService,
+				new TransactionTemplate(transactionManager));
 	}
 
 	// The higher the priority, the earlier the job is handled; the tests give the
@@ -212,6 +229,83 @@ class HttpJobsSynchronizationServiceTest {
 		verify(queueService).queueHttpJob(eq(narrowJob), anyString());
 		verify(queueService, never()).queueHttpJob(eq(wideJob), anyString());
 		thenQueuedExactly(1L);
+	}
+
+	// ---- guard against two syncs at once
+
+	@Test
+	void syncRunsInsideATransactionWhichIsCommitted() {
+		givenToQueue(100, List.of(narrow(1, 3, 40, 10, Duration.SHORT)), List.of());
+		givenHostLimits(10, 1000, 1000, 1000);
+
+		service.syncToQueueJobs();
+
+		InOrder inOrder = inOrder(transactionManager, queueService, jobRepo);
+		inOrder.verify(transactionManager).getTransaction(any());
+		inOrder.verify(queueService).queueHttpJob(any(), anyString());
+		inOrder.verify(jobRepo).updateJobsState(any(), eq(JobState.QUEUED), eq(JobState.TOQUEUE));
+		inOrder.verify(transactionManager).commit(any());
+	}
+
+	@Test
+	void syncWhichIsRunningBlocksAnotherOneWithoutDoingAnything() throws Exception {
+		CountDownLatch firstIsReading = new CountDownLatch(1);
+		CountDownLatch releaseFirst = new CountDownLatch(1);
+		when(narrowJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE)).thenAnswer(invocation -> {
+			firstIsReading.countDown();
+			assertTrue(releaseFirst.await(5, TimeUnit.SECONDS));
+			return List.of();
+		});
+		when(wideJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE)).thenReturn(List.of());
+		when(jobRepo.getProgramsRateDtos(any(), any())).thenReturn(List.of());
+		when(wideJobRepo.getProgramsWideRateDtos(any(), any())).thenReturn(List.of());
+
+		ExecutorService executor = Executors.newSingleThreadExecutor();
+		try {
+			Future<?> first = executor.submit(service::syncToQueueJobs);
+			assertTrue(firstIsReading.await(5, TimeUnit.SECONDS));
+
+			service.syncToQueueJobs();
+
+			// only the first sync read the jobs and opened a transaction
+			verify(narrowJobRepo, times(1)).getJobsDtosByCurrentState(JobState.TOQUEUE);
+			verify(transactionManager, times(1)).getTransaction(any());
+
+			releaseFirst.countDown();
+			first.get(5, TimeUnit.SECONDS);
+		} finally {
+			releaseFirst.countDown();
+			executor.shutdownNow();
+		}
+	}
+
+	@Test
+	void syncCanRunAgainOnceThePreviousOneEnded() {
+		when(narrowJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE)).thenReturn(List.of());
+		when(wideJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE)).thenReturn(List.of());
+		when(jobRepo.getProgramsRateDtos(any(), any())).thenReturn(List.of());
+		when(wideJobRepo.getProgramsWideRateDtos(any(), any())).thenReturn(List.of());
+
+		service.syncToQueueJobs();
+		service.syncToQueueJobs();
+
+		verify(narrowJobRepo, times(2)).getJobsDtosByCurrentState(JobState.TOQUEUE);
+	}
+
+	@Test
+	void syncWhichFailsReleasesTheGuardAndRollsBack() {
+		when(narrowJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE)).thenThrow(new IllegalStateException("db down"))
+				.thenReturn(List.of());
+		when(wideJobRepo.getJobsDtosByCurrentState(JobState.TOQUEUE)).thenReturn(List.of());
+		when(jobRepo.getProgramsRateDtos(any(), any())).thenReturn(List.of());
+		when(wideJobRepo.getProgramsWideRateDtos(any(), any())).thenReturn(List.of());
+
+		assertThrows(IllegalStateException.class, () -> service.syncToQueueJobs());
+		verify(transactionManager).rollback(any());
+
+		service.syncToQueueJobs();
+
+		verify(narrowJobRepo, times(2)).getJobsDtosByCurrentState(JobState.TOQUEUE);
 	}
 
 }
