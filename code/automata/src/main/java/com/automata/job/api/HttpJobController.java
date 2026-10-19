@@ -30,7 +30,9 @@ import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
-import com.automata.job.service.HttpJobService;
+import com.automata.job.service.HttpJobCreationService;
+import com.automata.job.service.HttpJobQueryService;
+import com.automata.job.service.HttpJobStateService;
 import com.automata.job.service.HttpJobsSynchronizationService;
 
 import io.awspring.cloud.s3.S3Resource;
@@ -41,14 +43,18 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class HttpJobController {
 
-	private final HttpJobService jobService;
+	private final HttpJobCreationService creationService;
+
+	private final HttpJobQueryService queryService;
+
+	private final HttpJobStateService stateService;
 
 	private final HttpJobsSynchronizationService syncService;
 
 	@GetMapping("/{jobId}")
 	public ResponseEntity<HttpJobResponseDto> getJob(@PathVariable Long jobId) {
 
-		HttpJobFullDetailsInternalDto jobDto = jobService.getJobFullDetails(jobId);
+		HttpJobFullDetailsInternalDto jobDto = queryService.getJobFullDetails(jobId);
 
 		HttpJobResponseDto responseDto = HttpJobMapper.toResponseDto(jobDto);
 
@@ -60,7 +66,7 @@ public class HttpJobController {
 	public ResponseEntity<PageHolderResponse<HttpJobSummaryResponseDto>> getJobs(@ModelAttribute HttpJobFilter filter,
 			@PageableDefault(size = 20, sort = { "creationDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
-		Page<HttpJobSummaryInternalDto> internalDtos = jobService.getAllJobs(filter, pageable);
+		Page<HttpJobSummaryInternalDto> internalDtos = queryService.getAllJobs(filter, pageable);
 
 		Page<HttpJobSummaryResponseDto> responseDtos = HttpJobMapper.toResponseDtos(internalDtos);
 
@@ -71,7 +77,7 @@ public class HttpJobController {
 	@GetMapping("/{jobId}/result")
 	public ResponseEntity<StreamingResponseBody> downloadJobResult(@PathVariable Long jobId) {
 
-		S3Resource resource = jobService.getJobResult(jobId);
+		S3Resource resource = queryService.getJobResult(jobId);
 
 		StreamingResponseBody stream = outputStream -> {
 			try (InputStream inputStream = resource.getInputStream()) {
@@ -93,12 +99,12 @@ public class HttpJobController {
 		HttpJob newlyCreatedJob = switch (request.httpJobScope()) {
 
 		case HttpJobScope.NARROW ->
-			jobService.createDraftNarrowJob(request.genericDetails(), request.narrowJobDetails());
+			creationService.createDraftNarrowJob(request.genericDetails(), request.narrowJobDetails());
 
-		case HttpJobScope.WIDE -> jobService.createDraftWideJob(request.genericDetails(), request.wideJobDetails());
+		case HttpJobScope.WIDE -> creationService.createDraftWideJob(request.genericDetails(), request.wideJobDetails());
 
 		case HttpJobScope.GLOBAL ->
-			jobService.createDraftGlobalJob(request.genericDetails(), request.globalJobDetails());
+			creationService.createDraftGlobalJob(request.genericDetails(), request.globalJobDetails());
 
 		default -> throw new IllegalArgumentException("Job type not supported yet");
 		};
@@ -110,7 +116,7 @@ public class HttpJobController {
 	@PostMapping("/{draftJobId}/queue")
 	public ResponseEntity<Void> queueJob(@PathVariable Long draftJobId) {
 
-		jobService.prepareJobForQueueing(draftJobId);
+		stateService.prepareJobForQueueing(draftJobId);
 
 		return ResponseEntity.status(204).build();
 	}
@@ -118,7 +124,7 @@ public class HttpJobController {
 	@PostMapping("/{draftJobId}/retry-preparation")
 	public ResponseEntity<Void> retryPreparation(@PathVariable Long draftJobId) {
 
-		jobService.retryConfigFilePreparation(draftJobId);
+		stateService.retryConfigFilePreparation(draftJobId);
 
 		return ResponseEntity.accepted().build();
 
@@ -137,7 +143,7 @@ public class HttpJobController {
 //	@PostMapping("/{draftJobId}/schedule")
 //	public ResponseEntity<Void> scheduleJob(@PathVariable Long draftJobId, @RequestBody JobScheduleRequest req) {
 //
-//		ScheduleResponse dto = jobService.scheduleJob(draftJobId, req);
+//		ScheduleResponse dto = stateService.scheduleJob(draftJobId, req);
 //
 //		return ResponseEntity.of(dto);
 //
@@ -146,7 +152,7 @@ public class HttpJobController {
 	@PostMapping("/{runningJobId}/pause")
 	public ResponseEntity<Void> pauseJob(@PathVariable Long runningJobId) {
 
-		jobService.pauseRunningJob(runningJobId);
+		stateService.pauseRunningJob(runningJobId);
 
 		return ResponseEntity.accepted().build();
 
@@ -155,7 +161,7 @@ public class HttpJobController {
 	@PostMapping("/{pausedJobId}/resume")
 	public ResponseEntity<Void> resumeJob(@PathVariable Long pausedJobId) {
 
-		jobService.resumePausedJob(pausedJobId);
+		stateService.resumePausedJob(pausedJobId);
 
 		return ResponseEntity.accepted().build();
 
@@ -164,7 +170,7 @@ public class HttpJobController {
 	@PostMapping("/{jobId}/cancel")
 	public ResponseEntity<Void> cancelJob(@PathVariable Long jobId) {
 
-		jobService.cancelJob(jobId);
+		stateService.cancelJob(jobId);
 
 		return ResponseEntity.status(204).build();
 
@@ -173,7 +179,7 @@ public class HttpJobController {
 	@DeleteMapping("/{jobId}")
 	public ResponseEntity<Void> deleteJob(@PathVariable Long jobId) {
 
-		jobService.deleteJob(jobId);
+		stateService.deleteJob(jobId);
 
 		return ResponseEntity.status(204).build();
 

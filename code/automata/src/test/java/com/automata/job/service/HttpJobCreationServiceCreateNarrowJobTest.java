@@ -40,7 +40,7 @@ import com.automata.tenant.TenantRepository;
 import com.automata.wordlist.WordlistRepository;
 
 @ExtendWith(MockitoExtension.class)
-class HttpJobServiceCreateNarrowJobTest {
+class HttpJobCreationServiceCreateNarrowJobTest {
 
 	private static final Long JOB_HOST_ID = 4L;
 
@@ -66,7 +66,7 @@ class HttpJobServiceCreateNarrowJobTest {
 	S3Service s3;
 
 	@InjectMocks
-	HttpJobService service;
+	HttpJobCreationService service;
 
 	@BeforeEach
 	void startTransactionSynchronization() {

@@ -12,7 +12,8 @@ import com.automata.job.api.dto.JobPollDto;
 import com.automata.job.api.dto.JobStateUpdateRequest;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.JobState;
-import com.automata.job.service.HttpJobService;
+import com.automata.job.service.HttpJobQueryService;
+import com.automata.job.service.HttpJobStateService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,12 +22,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class HttpJobIntegrationController {
 
-	private final HttpJobService jobService;
+	private final HttpJobQueryService queryService;
+
+	private final HttpJobStateService stateService;
 
 	@GetMapping("/poll/{jobId}")
 	public ResponseEntity<JobPollDto> pollJob(@PathVariable Long jobId) {
 
-		HttpJob job = jobService.getJob(jobId);
+		HttpJob job = queryService.getJob(jobId);
 
 		JobState requestedState = job.getGenericDetails().getRequestedState() == null
 				? job.getGenericDetails().getCurrentState()
@@ -39,7 +42,7 @@ public class HttpJobIntegrationController {
 	@PostMapping("/update/{jobId}")
 	public ResponseEntity<Void> updateJob(@PathVariable Long jobId, @RequestBody JobStateUpdateRequest req) {
 
-		jobService.updateCurrentJobState(jobId, req.newState(), req.message());
+		stateService.updateCurrentJobState(jobId, req.newState(), req.message());
 
 		return ResponseEntity.status(204).build();
 

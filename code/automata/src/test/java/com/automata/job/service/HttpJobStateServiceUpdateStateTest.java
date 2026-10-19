@@ -26,13 +26,13 @@ import com.automata.job.repository.HttpJobRepository;
 import jakarta.persistence.EntityNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
-class HttpJobServiceUpdateStateTest {
+class HttpJobStateServiceUpdateStateTest {
 
 	@Mock
 	HttpJobRepository jobRepo;
 
 	@InjectMocks
-	HttpJobService service;
+	HttpJobStateService service;
 
 	private HttpJob job() {
 		HttpJob job = new WideHttpJob();

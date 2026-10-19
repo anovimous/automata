@@ -12,13 +12,16 @@ import org.springframework.http.ResponseEntity;
 
 import com.automata.job.api.dto.JobStateUpdateRequest;
 import com.automata.job.domain.model.enums.JobState;
-import com.automata.job.service.HttpJobService;
+import com.automata.job.service.HttpJobQueryService;
+import com.automata.job.service.HttpJobStateService;
 
 @ExtendWith(MockitoExtension.class)
 class HttpJobIntegrationControllerTest {
 
 	@Mock
-	HttpJobService jobService;
+	HttpJobStateService stateService;
+	@Mock
+	HttpJobQueryService queryService;
 
 	@InjectMocks
 	HttpJobIntegrationController controller;
@@ -28,7 +31,7 @@ class HttpJobIntegrationControllerTest {
 		ResponseEntity<Void> response = controller.updateJob(5L, new JobStateUpdateRequest(99L, JobState.RUNNING, "msg"));
 
 		assertEquals(204, response.getStatusCode().value());
-		verify(jobService).updateCurrentJobState(5L, JobState.RUNNING, "msg");
+		verify(stateService).updateCurrentJobState(5L, JobState.RUNNING, "msg");
 	}
 
 }
