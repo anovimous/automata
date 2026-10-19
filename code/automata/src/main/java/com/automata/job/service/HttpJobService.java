@@ -196,7 +196,7 @@ public class HttpJobService {
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
-				configFileService.createNarrowConfigFile(fullyConfiguredJob);
+				configFileService.prepareConfigFiles(fullyConfiguredJob.getId());
 			}
 		});
 
@@ -252,7 +252,7 @@ public class HttpJobService {
 		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
 			@Override
 			public void afterCommit() {
-				configFileService.createWideConfigFile(fullyConfiguredJob);
+				configFileService.prepareConfigFiles(fullyConfiguredJob.getId());
 			}
 		});
 

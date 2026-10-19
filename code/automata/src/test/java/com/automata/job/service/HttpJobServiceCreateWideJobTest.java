@@ -110,6 +110,8 @@ class HttpJobServiceCreateWideJobTest {
 		assertSame(job, saved.getValue());
 		assertEquals(HttpJobScope.WIDE, job.getGenericDetails().getHttpJobScope());
 		assertEquals(JobState.DRAFT, job.getGenericDetails().getCurrentState());
+		assertEquals(com.automata.job.domain.model.enums.ConfigFileStatus.PREPARING,
+				job.getGenericDetails().getConfigFileStatus());
 	}
 
 	@Test
@@ -125,7 +127,7 @@ class HttpJobServiceCreateWideJobTest {
 		assertEquals(1, synchronizations.size());
 		synchronizations.get(0).afterCommit();
 
-		verify(configFileService).createWideConfigFile(job);
+		verify(configFileService).prepareConfigFiles(job.getId());
 	}
 
 	@Test
@@ -137,7 +139,7 @@ class HttpJobServiceCreateWideJobTest {
 		TransactionSynchronizationManager.getSynchronizations()
 				.forEach(synchronization -> synchronization.afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK));
 
-		verify(configFileService, never()).createWideConfigFile(any());
+		verify(configFileService, never()).prepareConfigFiles(any());
 	}
 
 	@Test
