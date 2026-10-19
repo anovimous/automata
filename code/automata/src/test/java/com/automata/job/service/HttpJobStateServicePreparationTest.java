@@ -34,7 +34,7 @@ import com.automata.job.repository.HttpJobRepository;
 import jakarta.persistence.EntityNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
-class HttpJobServicePreparationTest {
+class HttpJobStateServicePreparationTest {
 
 	@Mock
 	HttpJobRepository jobRepo;
@@ -42,7 +42,7 @@ class HttpJobServicePreparationTest {
 	JobConfigFileAsyncService configFileService;
 
 	@InjectMocks
-	HttpJobService service;
+	HttpJobStateService service;
 
 	@BeforeEach
 	void startTransactionSynchronization() {

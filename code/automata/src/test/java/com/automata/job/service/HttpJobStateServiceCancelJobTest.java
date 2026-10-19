@@ -26,13 +26,13 @@ import com.automata.job.domain.exception.InvalidJobStateException;
 import jakarta.persistence.EntityNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
-class HttpJobServiceCancelJobTest {
+class HttpJobStateServiceCancelJobTest {
 
 	@Mock
 	HttpJobRepository jobRepo;
 
 	@InjectMocks
-	HttpJobService service;
+	HttpJobStateService service;
 
 	private HttpJob jobIn(JobState state) {
 		HttpJob job = new WideHttpJob();

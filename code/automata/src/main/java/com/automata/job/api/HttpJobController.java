@@ -32,6 +32,7 @@ import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobService;
+import com.automata.job.service.HttpJobStateService;
 import com.automata.job.service.HttpJobsSynchronizationService;
 
 import io.awspring.cloud.s3.S3Resource;
@@ -45,6 +46,8 @@ public class HttpJobController {
 	private final HttpJobService jobService;
 
 	private final HttpJobQueryService queryService;
+
+	private final HttpJobStateService stateService;
 
 	private final HttpJobsSynchronizationService syncService;
 
@@ -113,7 +116,7 @@ public class HttpJobController {
 	@PostMapping("/{draftJobId}/queue")
 	public ResponseEntity<Void> queueJob(@PathVariable Long draftJobId) {
 
-		jobService.prepareJobForQueueing(draftJobId);
+		stateService.prepareJobForQueueing(draftJobId);
 
 		return ResponseEntity.status(204).build();
 	}
@@ -121,7 +124,7 @@ public class HttpJobController {
 	@PostMapping("/{draftJobId}/retry-preparation")
 	public ResponseEntity<Void> retryPreparation(@PathVariable Long draftJobId) {
 
-		jobService.retryConfigFilePreparation(draftJobId);
+		stateService.retryConfigFilePreparation(draftJobId);
 
 		return ResponseEntity.accepted().build();
 
@@ -149,7 +152,7 @@ public class HttpJobController {
 	@PostMapping("/{runningJobId}/pause")
 	public ResponseEntity<Void> pauseJob(@PathVariable Long runningJobId) {
 
-		jobService.pauseRunningJob(runningJobId);
+		stateService.pauseRunningJob(runningJobId);
 
 		return ResponseEntity.accepted().build();
 
@@ -158,7 +161,7 @@ public class HttpJobController {
 	@PostMapping("/{pausedJobId}/resume")
 	public ResponseEntity<Void> resumeJob(@PathVariable Long pausedJobId) {
 
-		jobService.resumePausedJob(pausedJobId);
+		stateService.resumePausedJob(pausedJobId);
 
 		return ResponseEntity.accepted().build();
 
@@ -167,7 +170,7 @@ public class HttpJobController {
 	@PostMapping("/{jobId}/cancel")
 	public ResponseEntity<Void> cancelJob(@PathVariable Long jobId) {
 
-		jobService.cancelJob(jobId);
+		stateService.cancelJob(jobId);
 
 		return ResponseEntity.status(204).build();
 
@@ -176,7 +179,7 @@ public class HttpJobController {
 	@DeleteMapping("/{jobId}")
 	public ResponseEntity<Void> deleteJob(@PathVariable Long jobId) {
 
-		jobService.deleteJob(jobId);
+		stateService.deleteJob(jobId);
 
 		return ResponseEntity.status(204).build();
 
