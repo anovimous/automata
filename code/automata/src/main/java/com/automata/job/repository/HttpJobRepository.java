@@ -4,9 +4,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
@@ -20,7 +17,6 @@ import com.automata.job.domain.model.enums.ConfigFileStatus;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobRoutineInternalDto;
-import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.domain.valueobject.ProgramRateDto;
 
 @Repository
@@ -101,20 +97,5 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 
 	@Query("SELECT w.path FROM HttpJob j JOIN j.wordlists w WHERE j.id = :jobId")
 	Set<String> findWordlistPathsByJobId(@Param("jobId") Long jobId);
-
-	@Query("""
-			SELECT new com.automata.job.domain.valueobject.HttpJobSummaryInternalDto(
-			    j.id,
-			    j.creationDate,
-			    j.genericDetails.httpJobScope,
-			    j.genericDetails.currentState,
-			    j.genericDetails.priority,
-			    j.genericDetails.rate,
-			         j.routine.id,
-			         j.routine.key
-			)
-			FROM HttpJob j JOIN j.routine r
-			""")
-	Page<HttpJobSummaryInternalDto> findAllSummaries(Specification<HttpJob> spec, Pageable pageable);
 
 }

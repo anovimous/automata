@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,11 +31,13 @@ import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.WideHttpJob;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
+import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.infra.S3Service;
 import com.automata.job.repository.HttpJobRepository;
+import com.automata.routine.Routine;
 
 import io.awspring.cloud.s3.S3Resource;
 import jakarta.persistence.EntityNotFoundException;
@@ -76,13 +80,26 @@ class HttpJobQueryServiceTest {
 	// ---- getAllJobs
 
 	@Test
-	void summariesAreReadWithThePageable() {
-		Pageable pageable = PageRequest.of(0, 20);
-		Page<HttpJobSummaryInternalDto> page = new PageImpl<>(List.of());
-		when(jobRepo.findAllSummaries(any(Specification.class), org.mockito.ArgumentMatchers.eq(pageable)))
-				.thenReturn(page);
+	void summariesAreReadWithTheFilterAsASpecificationAndTheGivenPageable() {
+		Pageable pageable = PageRequest.of(1, 20);
+		HttpJob job = new WideHttpJob();
+		job.setId(1L);
+		job.setCreationDate(Instant.EPOCH);
+		job.setGenericDetails(HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.WIDE)
+				.currentState(JobState.RUNNING).priority(3).rate(40).build());
+		Routine routine = new Routine();
+		routine.setId(7L);
+		routine.setKey("routine-key");
+		job.setRoutine(routine);
+		when(jobRepo.findAll(any(Specification.class), eq(pageable)))
+				.thenReturn(new PageImpl<>(List.of(job), pageable, 41));
 
-		assertSame(page, service.getAllJobs(new HttpJobFilter(null, null, null, null, null), pageable));
+		Page<HttpJobSummaryInternalDto> page = service.getAllJobs(new HttpJobFilter(null, null, null, null, null),
+				pageable);
+
+		assertEquals(41, page.getTotalElements());
+		assertEquals(List.of(new HttpJobSummaryInternalDto(1L, Instant.EPOCH, HttpJobScope.WIDE, JobState.RUNNING, 3,
+				40, 7L, "routine-key")), page.getContent());
 	}
 
 	// ---- getJobFullDetails

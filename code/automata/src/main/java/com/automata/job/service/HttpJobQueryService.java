@@ -40,7 +40,7 @@ public class HttpJobQueryService {
 
 		Specification<HttpJob> spec = HttpJobUtils.buildSpecification(filter);
 
-		return jobRepo.findAllSummaries(spec, pageable);
+		return jobRepo.findAll(spec, pageable).map(HttpJobSummaryInternalDto::of);
 
 	}
 
