@@ -12,7 +12,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.job.api.dto.GenericHttpJobDetailsDto;
-import com.automata.job.api.dto.GlobalHttpJobDetailsDto;
 import com.automata.job.api.dto.NarrowHttpJobDetailsDto;
 import com.automata.job.api.dto.WideHttpJobDetailsDto;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
@@ -194,13 +193,6 @@ public class HttpJobCreationService {
 		return fullyConfiguredJob;
 
 	};
-
-	public HttpJob createDraftGlobalJob(GenericHttpJobDetailsDto genericDetails,
-			GlobalHttpJobDetailsDto globalJobDetails) {
-
-		throw new UnsupportedOperationException("Global jobs not implemented yet");
-
-	}
 
 	// a single host or request target must belong to the host the job (and its rate
 	// limits) is for

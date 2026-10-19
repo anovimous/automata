@@ -103,10 +103,6 @@ public class HttpJobController {
 
 		case HttpJobScope.WIDE -> creationService.createDraftWideJob(request.genericDetails(), request.wideJobDetails());
 
-		case HttpJobScope.GLOBAL ->
-			creationService.createDraftGlobalJob(request.genericDetails(), request.globalJobDetails());
-
-		default -> throw new IllegalArgumentException("Job type not supported yet");
 		};
 
 		return ResponseEntity.created(URI.create(String.format("/api/jobs/http/%d", newlyCreatedJob.getId()))).build();
