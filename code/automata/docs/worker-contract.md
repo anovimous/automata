@@ -50,7 +50,7 @@ The core writes it with the application's Jackson mapper (`FAIL_ON_UNKNOWN_PROPE
 | `routineKey` | string | |
 | `rate` | number or `null` | requests per second; the worker reads `null` as 0 |
 | `verbosity` | `SUMMARIZED` \| `NORMAL` \| `VERBOSE` | masser gets it as `-verbosity`; ffuf ignores it |
-| `wordlistsPaths` | array of strings | order is undefined (a set on the core); may be empty. ffuf uses the first one only |
+| `wordlistsPaths` | array of strings | order is undefined (a set on the core); may be empty. ffuf uses the first one only and reports a job without any as `FAILED` (masser takes all of them) |
 | `auth` | object or `null` | only narrow jobs of a tenant with stored authentication; the worker treats `null` as no headers, cookies or query parameters |
 | `auth.data.headers`, `.cookies`, `.queryParameters` | arrays of `{"key", "value"}` | the worker uses headers and cookies; **query parameters are never applied by either connector** |
 | `auth.lifeTimeInSeconds`, `auth.populatedAt` | ISO-8601 instant strings | the worker keeps them as strings and never reads them |
@@ -75,7 +75,7 @@ The worker never parses this file: the orchestrator downloads it and the connect
 
 ### 3.3 `customConfig` per routine
 
-Only the connector of the routine parses it; both ignore unknown fields and reject a flag outside their allow-list (`Unknown flag provided in custom config`).
+Only the connector of the routine parses it; both ignore unknown fields and reject a flag outside their allow-list (`Unknown flag provided in custom config`). A `customConfig` that can not be used (wrong shape, unknown flag, a request that is not Base64) makes the connector report the job `FAILED` with the reason.
 
 | Routine | Shape | Becomes |
 |---|---|---|
@@ -105,12 +105,13 @@ Body (sample `update-request.json`): `{"jobId": 42, "newState": "FAILED", "messa
 | Status | When | Worker |
 |---|---|---|
 | 204 | accepted (a repeated report of the current state, except `RUNNING`, is accepted and changes nothing) | done |
+| 400 | the body can not be read: not JSON, or a state name the core does not have (such as the old `TERMINATED`) | not retried, logged and dropped |
 | 404 | unknown job | not retried |
 | 409 | the move is not allowed (section 5), or the job was changed at the same time (optimistic lock) | not retried, logged and dropped |
 | 5xx | any other error | retried: 5 attempts, 1 s doubling up to 30 s, 10 s timeout per request |
 | network error / timeout | | retried the same way |
 
-**Known deviation:** a body the core cannot read (for instance a state name it does not have, such as the old `TERMINATED`) is answered 500 by the catch-all handler, not 400, so the worker retries it five times for nothing.
+The 400 is not specific to this endpoint: `GlobalExceptionHandler` maps `HttpMessageNotReadableException` to 400 for every endpoint of the core.
 
 A report is accepted only for the moves in section 5. An accepted report sets `currentState`, clears `requestedState` and records `lastWorkerContactAt`.
 
@@ -185,6 +186,4 @@ Not changed here, listed so nobody assumes otherwise (details in `.claude/compon
 - Wordlist paths are filesystem paths, so core and worker must see the same files (A11).
 - No version field in any payload; compatibility is only checked by the sample tests.
 - `auth.data.queryParameters` and the match-and-replace `DELETE` rule are not applied by the connectors.
-- A body the core cannot parse is a 500, not a 400.
-- The ffuf connector reads the first wordlist without checking that there is one, and does not check the error of `BuildCommand` before running (a job without a wordlist or with a bad `customConfig` is not reported `FAILED` cleanly).
 - Buckets are public and the HTTP endpoints have no authentication.

@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -76,6 +77,20 @@ class WorkerHttpContractTest {
 
 		mvc.perform(post("/api/external/jobs/http/update/5").contentType(MediaType.APPLICATION_JSON)
 				.content(update("FINISHED"))).andExpect(status().isConflict());
+	}
+
+	@Test
+	void aReportWithAStateNameTheCoreDoesNotHaveIsAnswered400() throws Exception {
+		mvc.perform(post("/api/external/jobs/http/update/5").contentType(MediaType.APPLICATION_JSON)
+				.content(update("TERMINATED"))).andExpect(status().isBadRequest());
+
+		verifyNoInteractions(stateService);
+	}
+
+	@Test
+	void aReportWhichIsNotJsonIsAnswered400() throws Exception {
+		mvc.perform(post("/api/external/jobs/http/update/5").contentType(MediaType.APPLICATION_JSON).content("{"))
+				.andExpect(status().isBadRequest());
 	}
 
 	@Test
