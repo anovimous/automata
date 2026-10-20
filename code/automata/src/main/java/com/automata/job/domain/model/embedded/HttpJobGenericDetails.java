@@ -1,5 +1,7 @@
 package com.automata.job.domain.model.embedded;
 
+import java.time.Instant;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.springframework.lang.Nullable;
@@ -38,6 +40,10 @@ public class HttpJobGenericDetails {
 
 	@Enumerated(EnumType.STRING)
 	private JobState requestedState;
+
+	// the last time a worker asked about or reported the job, which tells a job a
+	// worker still holds from one whose worker is gone. Empty until the first contact.
+	private Instant lastWorkerContactAt;
 
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)

@@ -1,5 +1,7 @@
 package com.automata.job.repository;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -91,6 +93,28 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 	int updateConfigFileStatus(@Param("jobId") Long jobId, @Param("expectedStatus") ConfigFileStatus expectedStatus,
 			@Param("status") ConfigFileStatus status, @Param("failure") String failure,
 			@Param("attempts") Integer attempts);
+
+	// Not VERSIONED on purpose: a worker asking about its job every few seconds
+	// must not make the user's concurrent pause or cancel fail. Returns the number
+	// of updated rows, which is 0 for an unknown job.
+	@Query("""
+			UPDATE HttpJob j
+			SET j.genericDetails.lastWorkerContactAt = :now
+			WHERE j.id = :jobId
+			""")
+	@Modifying
+	@Transactional
+	int updateLastWorkerContact(@Param("jobId") Long jobId, @Param("now") Instant now);
+
+	// The jobs without contact are the ones with a contact older than the
+	// threshold. A job a worker never got in touch about has none, so it is not found.
+	@Query("""
+			SELECT j FROM HttpJob j
+			WHERE j.genericDetails.currentState IN :states
+			    AND j.genericDetails.lastWorkerContactAt < :threshold
+			""")
+	List<HttpJob> findAllByCurrentStateInAndLastWorkerContactBefore(@Param("states") Collection<JobState> states,
+			@Param("threshold") Instant threshold);
 
 	@Query("SELECT new com.automata.job.domain.valueobject.HttpJobRoutineInternalDto(j.id, j.routine.key) FROM HttpJob j WHERE j.id IN :jobsIds")
 	List<HttpJobRoutineInternalDto> findJobsRoutineKeys(@Param("jobsIds") List<Long> jobsIds);

@@ -1,6 +1,7 @@
 package com.automata.job.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
@@ -51,6 +52,24 @@ class HttpJobStateServiceUpdateStateTest {
 		assertEquals(JobState.RUNNING, job.getGenericDetails().getCurrentState());
 		assertNull(job.getGenericDetails().getRequestedState());
 		verify(jobRepo).save(job);
+	}
+
+	@Test
+	void acceptedReportCountsAsContactOfTheWorker() {
+		HttpJob job = job();
+
+		service.updateCurrentJobState(1L, JobState.RUNNING, null);
+
+		assertNotNull(job.getGenericDetails().getLastWorkerContactAt());
+	}
+
+	@Test
+	void rejectedReportIsNotContactOfTheWorker() {
+		HttpJob job = job();
+
+		assertThrows(InvalidJobStateException.class, () -> service.updateCurrentJobState(1L, JobState.TOQUEUE, null));
+
+		assertNull(job.getGenericDetails().getLastWorkerContactAt());
 	}
 
 	@Test

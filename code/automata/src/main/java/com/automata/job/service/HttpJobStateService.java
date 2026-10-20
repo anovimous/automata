@@ -1,6 +1,9 @@
 package com.automata.job.service;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -29,6 +32,9 @@ public class HttpJobStateService {
 
 	// the states in which a worker explains with a message why the job ended
 	private static final Set<JobState> FAILURE_STATES = EnumSet.of(JobState.FAILED, JobState.SELFTERMINATED);
+
+	// how long a job which a worker holds may go without any contact from it
+	public static final Duration LOST_CONTACT_AFTER = Duration.ofMinutes(30);
 
 	private final HttpJobRepository jobRepo;
 
@@ -136,7 +142,50 @@ public class HttpJobStateService {
 		if (previousState != newState && FAILURE_STATES.contains(newState) && message != null && !message.isBlank())
 			job.setResult(JobResult.failed(message));
 
+		job.getGenericDetails().setLastWorkerContactAt(Instant.now());
+
 		jobRepo.save(job);
+
+	}
+
+	/**
+	 * A worker has asked about the job, which shows that it is alive.
+	 */
+	@Transactional
+	public void recordWorkerContact(Long jobId) {
+
+		if (jobRepo.updateLastWorkerContact(jobId, Instant.now()) == 0)
+			throw new EntityNotFoundException("HttpJob with the given id has not been found");
+
+	}
+
+	/**
+	 * Moves the running and paused jobs of which no worker has been in contact for
+	 * the given time to LOSTCONTACT, which frees their share of the rate limits.
+	 *
+	 * @return the number of jobs moved
+	 */
+	@Transactional
+	public int markJobsWithLostContact(Instant now, Duration after) {
+
+		List<HttpJob> lostJobs = jobRepo.findAllByCurrentStateInAndLastWorkerContactBefore(
+				List.of(JobState.RUNNING, JobState.PAUSED), now.minus(after));
+
+		for (HttpJob job : lostJobs) {
+
+			applyStateChange(job, JobStateTransitions.loseContact(job.getGenericDetails().getCurrentState(),
+					job.getGenericDetails().getRequestedState()));
+
+			job.setResult(JobResult.failed("No worker has been in contact about the job for " + after.toMinutes()
+					+ " minutes, so it is considered lost"));
+
+			jobRepo.save(job);
+
+			log.warn("Job lost contact with its worker: jobId={}", job.getId());
+
+		}
+
+		return lostJobs.size();
 
 	}
 
