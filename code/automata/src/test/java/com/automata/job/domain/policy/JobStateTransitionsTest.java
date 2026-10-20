@@ -100,6 +100,26 @@ class JobStateTransitionsTest {
 				ex.getMessage());
 	}
 
+	// ---- loseContact
+
+	@ParameterizedTest
+	@EnumSource(value = JobState.class, names = { "RUNNING", "PAUSED" })
+	void aJobHeldByAWorkerLosesContactAndItsRequestIsDropped(JobState current) {
+		assertEquals(new ToApplyJobStateChange(JobState.LOSTCONTACT, null),
+				JobStateTransitions.loseContact(current, JobState.CANCELED));
+	}
+
+	@ParameterizedTest
+	@EnumSource(value = JobState.class, names = { "RUNNING", "PAUSED" }, mode = EnumSource.Mode.EXCLUDE)
+	void otherJobsCanNotLoseContact(JobState current) {
+		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
+				() -> JobStateTransitions.loseContact(current, null));
+		assertEquals(
+				"The job must be in the [RUNNING,PAUSED] states in order to lose contact with its worker, but it is "
+						+ current,
+				ex.getMessage());
+	}
+
 	// ---- reportStateAppliedByWorker
 
 	private static final Map<JobState, Set<JobState>> ALLOWED_REPORTS = Map.of(
@@ -202,7 +222,7 @@ class JobStateTransitionsTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = JobState.class, names = { "DRAFT", "TOQUEUE", "SCHEDULED", "FINISHED", "FAILED", "CANCELED",
+	@EnumSource(value = JobState.class, names = { "DRAFT", "TOQUEUE", "SCHEDULED", "FINISHED", "FAILED", "CANCELED", "LOSTCONTACT",
 			"SELFTERMINATED" })
 	void nothingNewCanBeReportedForAJobNoWorkerHoldsOrWhichEnded(JobState current) {
 		for (JobState reported : REPORTABLE)
@@ -228,7 +248,7 @@ class JobStateTransitionsTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = JobState.class, names = { "DRAFT", "TOQUEUE", "SCHEDULED", "QUEUED" })
+	@EnumSource(value = JobState.class, names = { "DRAFT", "TOQUEUE", "SCHEDULED", "QUEUED", "LOSTCONTACT" })
 	void aWorkerCannotReportTheStatesOfTheOrchestrator(JobState reported) {
 		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
 				() -> JobStateTransitions.reportStateAppliedByWorker(JobState.RUNNING, null, reported));

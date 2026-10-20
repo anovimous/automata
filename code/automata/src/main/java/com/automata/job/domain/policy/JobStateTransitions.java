@@ -29,7 +29,10 @@ public final class JobStateTransitions {
 
 	// The states which only the central server can put a job in, not the worker
 	private static final List<JobState> NOT_REPORTABLE_BY_WORKER = List.of(JobState.DRAFT, JobState.TOQUEUE,
-			JobState.SCHEDULED, JobState.QUEUED);
+			JobState.SCHEDULED, JobState.QUEUED, JobState.LOSTCONTACT);
+
+	// the jobs which a worker has started and so is expected to keep in touch about
+	private static final List<JobState> HELD_BY_WORKER_LONG_TERM = List.of(JobState.RUNNING, JobState.PAUSED);
 
 	private static final List<JobState> CANCELABLE = List.of(JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED,
 			JobState.RUNNING, JobState.PAUSED);
@@ -97,6 +100,20 @@ public final class JobStateTransitions {
 			return new ToApplyJobStateChange(current, JobState.CANCELED);
 
 		return new ToApplyJobStateChange(JobState.CANCELED, requested);
+	}
+
+	/**
+	 * The job of a worker which is gone. Only the central server decides it, from a
+	 * job which a worker holds and has not been heard of for too long.
+	 */
+	public static ToApplyJobStateChange loseContact(JobState current, JobState requested) {
+
+		if (!HELD_BY_WORKER_LONG_TERM.contains(current))
+			throw new InvalidJobStateException(
+					"The job must be in the [RUNNING,PAUSED] states in order to lose contact with its worker, but it is "
+							+ current);
+
+		return new ToApplyJobStateChange(JobState.LOSTCONTACT, null);
 	}
 
 	public static ToApplyJobStateChange reportStateAppliedByWorker(JobState current, JobState requested, JobState reported) {

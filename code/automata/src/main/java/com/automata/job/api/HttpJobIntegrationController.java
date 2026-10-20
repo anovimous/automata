@@ -29,6 +29,9 @@ public class HttpJobIntegrationController {
 	@GetMapping("/poll/{jobId}")
 	public ResponseEntity<JobPollDto> pollJob(@PathVariable Long jobId) {
 
+		// every poll shows that the worker of the job is alive
+		stateService.recordWorkerContact(jobId);
+
 		HttpJob job = queryService.getJob(jobId);
 
 		JobState requestedState = job.getGenericDetails().getRequestedState() == null
