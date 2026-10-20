@@ -8,8 +8,6 @@ public record HttpJobCreationRequest(GenericHttpJobDetailsDto genericDetails,
 
 		NarrowHttpJobDetailsDto narrowJobDetails,
 
-		WideHttpJobDetailsDto wideJobDetails,
-
-		GlobalHttpJobDetailsDto globalJobDetails) {
+		WideHttpJobDetailsDto wideJobDetails) {
 
 }
