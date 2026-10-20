@@ -85,8 +85,19 @@ class HttpJobStateServiceCancelJobTest {
 	}
 
 	@Test
-	void runningJobCanNotBeCanceled() {
+	void runningJobIsOnlyRequestedToCancel() {
 		HttpJob job = jobIn(JobState.RUNNING);
+
+		service.cancelJob(1L);
+
+		assertEquals(JobState.RUNNING, job.getGenericDetails().getCurrentState());
+		assertEquals(JobState.CANCELED, job.getGenericDetails().getRequestedState());
+		verify(jobRepo).save(job);
+	}
+
+	@Test
+	void finishedJobCanNotBeCanceled() {
+		HttpJob job = jobIn(JobState.FINISHED);
 
 		assertThrows(InvalidJobStateException.class, () -> service.cancelJob(1L));
 

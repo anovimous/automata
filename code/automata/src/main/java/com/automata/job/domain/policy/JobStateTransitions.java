@@ -32,17 +32,18 @@ public final class JobStateTransitions {
 			JobState.SCHEDULED, JobState.QUEUED);
 
 	private static final List<JobState> CANCELABLE = List.of(JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED,
-			JobState.PAUSED);
+			JobState.RUNNING, JobState.PAUSED);
 
 	// The worker holds these jobs, so canceling them is only requested
-	private static final List<JobState> CANCELABLE_BY_REQUEST = List.of(JobState.QUEUED, JobState.PAUSED);
+	private static final List<JobState> CANCELABLE_BY_REQUEST = List.of(JobState.QUEUED, JobState.RUNNING, JobState.PAUSED);
 
 	// What a worker may report, by the current state of the job. The jobs which no
 	// worker holds, and the ended ones, are not in it, so nothing can be reported
 	// for them.
 	private static final Map<JobState, Set<JobState>> REPORTABLE_BY_WORKER = Map.of(
 			JobState.QUEUED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.FAILED, JobState.TERMINATED),
-			JobState.RUNNING, EnumSet.of(JobState.PAUSED, JobState.FINISHED, JobState.FAILED, JobState.TERMINATED),
+			JobState.RUNNING, EnumSet.of(JobState.PAUSED, JobState.CANCELED, JobState.FINISHED, JobState.FAILED,
+					JobState.TERMINATED),
 			JobState.PAUSED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.TERMINATED));
 
 	// The states which a worker reports only when the user has requested them
@@ -89,7 +90,7 @@ public final class JobStateTransitions {
 
 		if (!CANCELABLE.contains(current))
 			throw new InvalidJobStateException(
-					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it, but it is "
+					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,RUNNING,PAUSED] states in order to cancel it, but it is "
 							+ current);
 
 		if (CANCELABLE_BY_REQUEST.contains(current))
