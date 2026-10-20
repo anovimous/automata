@@ -79,7 +79,7 @@ class JobStateTransitionsTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = JobState.class, names = { "QUEUED", "PAUSED" })
+	@EnumSource(value = JobState.class, names = { "QUEUED", "RUNNING", "PAUSED" })
 	void aJobHeldByAWorkerIsOnlyRequestedToCancel(JobState current) {
 		assertEquals(new ToApplyJobStateChange(current, JobState.CANCELED), JobStateTransitions.cancel(current, null));
 	}
@@ -90,12 +90,12 @@ class JobStateTransitionsTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = JobState.class, names = { "TOQUEUE", "SCHEDULED", "QUEUED", "PAUSED" }, mode = EnumSource.Mode.EXCLUDE)
+	@EnumSource(value = JobState.class, names = { "TOQUEUE", "SCHEDULED", "QUEUED", "RUNNING", "PAUSED" }, mode = EnumSource.Mode.EXCLUDE)
 	void otherJobsCannotBeCanceled(JobState current) {
 		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
 				() -> JobStateTransitions.cancel(current, null));
 		assertEquals(
-				"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,PAUSED] states in order to cancel it, but it is "
+				"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,RUNNING,PAUSED] states in order to cancel it, but it is "
 						+ current,
 				ex.getMessage());
 	}
@@ -104,7 +104,8 @@ class JobStateTransitionsTest {
 
 	private static final Map<JobState, Set<JobState>> ALLOWED_REPORTS = Map.of(
 			JobState.QUEUED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.FAILED, JobState.TERMINATED),
-			JobState.RUNNING, EnumSet.of(JobState.PAUSED, JobState.FINISHED, JobState.FAILED, JobState.TERMINATED),
+			JobState.RUNNING, EnumSet.of(JobState.PAUSED, JobState.CANCELED, JobState.FINISHED, JobState.FAILED,
+					JobState.TERMINATED),
 			JobState.PAUSED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.TERMINATED));
 
 	private static final Set<JobState> REPORTABLE = EnumSet.of(JobState.RUNNING, JobState.PAUSED,
@@ -145,6 +146,15 @@ class JobStateTransitionsTest {
 				() -> JobStateTransitions.reportStateAppliedByWorker(current, other, reported));
 		assertEquals("A worker can only report the state " + reported
 				+ " for a job for which it was requested, but " + other + " is requested", ex.getMessage());
+	}
+
+	@Test
+	void aRunningJobIsReportedCanceledOnlyWhenItWasRequested() {
+		assertEquals(new ToApplyJobStateChange(JobState.CANCELED, null),
+				JobStateTransitions.reportStateAppliedByWorker(JobState.RUNNING, JobState.CANCELED, JobState.CANCELED));
+
+		assertThrows(InvalidJobStateException.class, () -> JobStateTransitions
+				.reportStateAppliedByWorker(JobState.RUNNING, null, JobState.CANCELED));
 	}
 
 	@Test
