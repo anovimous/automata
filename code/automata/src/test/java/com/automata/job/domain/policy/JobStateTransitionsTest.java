@@ -103,13 +103,13 @@ class JobStateTransitionsTest {
 	// ---- reportStateAppliedByWorker
 
 	private static final Map<JobState, Set<JobState>> ALLOWED_REPORTS = Map.of(
-			JobState.QUEUED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.FAILED, JobState.TERMINATED),
+			JobState.QUEUED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.FAILED, JobState.SELFTERMINATED),
 			JobState.RUNNING, EnumSet.of(JobState.PAUSED, JobState.CANCELED, JobState.FINISHED, JobState.FAILED,
-					JobState.TERMINATED),
-			JobState.PAUSED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.TERMINATED));
+					JobState.SELFTERMINATED),
+			JobState.PAUSED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.SELFTERMINATED));
 
 	private static final Set<JobState> REPORTABLE = EnumSet.of(JobState.RUNNING, JobState.PAUSED,
-			JobState.CANCELED, JobState.FINISHED, JobState.FAILED, JobState.TERMINATED);
+			JobState.CANCELED, JobState.FINISHED, JobState.FAILED, JobState.SELFTERMINATED);
 
 	@Test
 	void aWorkerReportSetsTheCurrentStateAndClearsTheRequestedOne() {
@@ -203,7 +203,7 @@ class JobStateTransitionsTest {
 
 	@ParameterizedTest
 	@EnumSource(value = JobState.class, names = { "DRAFT", "TOQUEUE", "SCHEDULED", "FINISHED", "FAILED", "CANCELED",
-			"TERMINATED" })
+			"SELFTERMINATED" })
 	void nothingNewCanBeReportedForAJobNoWorkerHoldsOrWhichEnded(JobState current) {
 		for (JobState reported : REPORTABLE)
 			if (!isAcceptedRepeat(current, reported))
@@ -212,7 +212,7 @@ class JobStateTransitionsTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = JobState.class, names = { "PAUSED", "FINISHED", "FAILED", "CANCELED", "TERMINATED" })
+	@EnumSource(value = JobState.class, names = { "PAUSED", "FINISHED", "FAILED", "CANCELED", "SELFTERMINATED" })
 	void aRepeatedReportIsAcceptedAndChangesNothing(JobState state) {
 		assertEquals(new ToApplyJobStateChange(state, JobState.RUNNING),
 				JobStateTransitions.reportStateAppliedByWorker(state, JobState.RUNNING, state));

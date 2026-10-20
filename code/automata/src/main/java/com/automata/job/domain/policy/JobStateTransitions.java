@@ -41,10 +41,10 @@ public final class JobStateTransitions {
 	// worker holds, and the ended ones, are not in it, so nothing can be reported
 	// for them.
 	private static final Map<JobState, Set<JobState>> REPORTABLE_BY_WORKER = Map.of(
-			JobState.QUEUED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.FAILED, JobState.TERMINATED),
+			JobState.QUEUED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.FAILED, JobState.SELFTERMINATED),
 			JobState.RUNNING, EnumSet.of(JobState.PAUSED, JobState.CANCELED, JobState.FINISHED, JobState.FAILED,
-					JobState.TERMINATED),
-			JobState.PAUSED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.TERMINATED));
+					JobState.SELFTERMINATED),
+			JobState.PAUSED, EnumSet.of(JobState.RUNNING, JobState.CANCELED, JobState.SELFTERMINATED));
 
 	// The states which a worker reports only when the user has requested them
 	private static final Set<JobState> REPORTABLE_ONLY_WHEN_REQUESTED = EnumSet.of(JobState.PAUSED,

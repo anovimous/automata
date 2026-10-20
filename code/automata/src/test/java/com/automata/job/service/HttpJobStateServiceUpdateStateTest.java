@@ -92,7 +92,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void terminationMessageIsStoredToo() {
 		HttpJob job = runningJob();
 
-		service.updateCurrentJobState(1L, JobState.TERMINATED, "worker lost its brain");
+		service.updateCurrentJobState(1L, JobState.SELFTERMINATED, "worker lost its brain");
 
 		assertEquals("worker lost its brain", job.getResult().getFailureMsg());
 	}
@@ -136,7 +136,7 @@ class HttpJobStateServiceUpdateStateTest {
 
 	@Test
 	void rejectedReportStoresNoMessage() {
-		// a paused job can't fail, only be terminated
+		// a paused job can't fail, only be self-terminated
 		HttpJob job = new WideHttpJob();
 		job.setGenericDetails(HttpJobGenericDetails.builder().currentState(JobState.PAUSED).build());
 		when(jobRepo.findById(1L)).thenReturn(Optional.of(job));

@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class HttpJobStateService {
 
 	// the states in which a worker explains with a message why the job ended
-	private static final Set<JobState> FAILURE_STATES = EnumSet.of(JobState.FAILED, JobState.TERMINATED);
+	private static final Set<JobState> FAILURE_STATES = EnumSet.of(JobState.FAILED, JobState.SELFTERMINATED);
 
 	private final HttpJobRepository jobRepo;
 
