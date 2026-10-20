@@ -19,11 +19,11 @@ public class JobQueueService {
 
 		HttpJobQueueMetadata metadata = new HttpJobQueueMetadata(jobDto.id(), routineKey);
 
-		rabbit.convertAndSend("jobs.http.ready", metadata, message -> {
+		rabbit.convertAndSend(HttpJobRabbitMQConfig.ROUTING_KEY, metadata, message -> {
 			if (JobDispatchOrder.isEager(jobDto.priority()))
-				message.getMessageProperties().setPriority(2);
+				message.getMessageProperties().setPriority(HttpJobRabbitMQConfig.EAGER_MESSAGE_PRIORITY);
 			else
-				message.getMessageProperties().setPriority(1);
+				message.getMessageProperties().setPriority(HttpJobRabbitMQConfig.LAZY_MESSAGE_PRIORITY);
 			return message;
 		});
 
