@@ -2,6 +2,7 @@ package com.automata;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -43,6 +44,14 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(UnsupportedOperationException.class)
 	public ResponseEntity<String> handleNotImplemented(UnsupportedOperationException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(ex.getMessage());
+	}
+
+	// a body which is not JSON, or has a value the type does not have (an unknown
+	// enum name, for instance), is the fault of the caller
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<String> handleUnreadableBody(HttpMessageNotReadableException ex) {
+		log.info("Unreadable request body: {}", ex.getMessage());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)

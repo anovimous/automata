@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import com.automata.job.domain.exception.IneligibleJobTargetException;
@@ -34,6 +36,16 @@ class GlobalExceptionHandlerTest {
 
 		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
 		assertEquals("wrong state", response.getBody());
+	}
+
+	@Test
+	void unreadableRequestBodyMapsTo400() {
+		HttpMessageNotReadableException ex = new HttpMessageNotReadableException("JSON parse error", (HttpInputMessage) null);
+
+		ResponseEntity<String> response = new GlobalExceptionHandler().handleUnreadableBody(ex);
+
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		assertEquals(ex.getMessage(), response.getBody());
 	}
 
 	@Test
