@@ -66,18 +66,9 @@ public class HttpJobCreationService {
 
 		NarrowHttpJobBuilder<?, ?> builder = NarrowHttpJob.builder();
 
-		Routine routine = routineRepo.findById(genericDto.routineId())
-				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
+		builder.routine(findRoutine(genericDto));
 
-		builder.routine(routine);
-
-		HttpJobGenericDetails genericDetails = HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.NARROW)
-				.currentState(JobState.DRAFT).verbosity(genericDto.verbosity()).priority(genericDto.priority())
-				.rate(genericDto.rate()).targetSelector(genericDto.targetSelector())
-				.genericConfig(GenericConfig.of(genericDto.matchAndReplace())).customConfig(genericDto.customConfig())
-				.build();
-
-		builder.genericDetails(genericDetails);
+		builder.genericDetails(draftDetails(genericDto, HttpJobScope.NARROW));
 
 		builder.duration(narrowDto.duration());
 
@@ -95,11 +86,7 @@ public class HttpJobCreationService {
 
 		builder.tenant(tenant);
 
-		List<Wordlist> wordlists = new ArrayList<>();
-		if (genericDto.wordlistsIds() != null)
-			wordlists = wordlistRepo.findAllById(genericDto.wordlistsIds());
-
-		builder.wordlists(wordlists);
+		builder.wordlists(findWordlists(genericDto));
 
 		NarrowHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 
@@ -127,12 +114,7 @@ public class HttpJobCreationService {
 
 		};
 
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCommit() {
-				configFileService.prepareConfigFiles(fullyConfiguredJob.getId());
-			}
-		});
+		prepareConfigFilesAfterCommit(fullyConfiguredJob.getId());
 
 		return fullyConfiguredJob;
 
@@ -143,29 +125,16 @@ public class HttpJobCreationService {
 
 		WideHttpJobBuilder<?, ?> builder = WideHttpJob.builder();
 
-		Routine routine = routineRepo.findById(genericDto.routineId())
-				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
+		builder.routine(findRoutine(genericDto));
 
-		builder.routine(routine);
-
-		HttpJobGenericDetails genericDetails = HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.WIDE)
-				.currentState(JobState.DRAFT).verbosity(genericDto.verbosity()).priority(genericDto.priority())
-				.rate(genericDto.rate()).targetSelector(genericDto.targetSelector())
-				.genericConfig(GenericConfig.of(genericDto.matchAndReplace())).customConfig(genericDto.customConfig())
-				.build();
-
-		builder.genericDetails(genericDetails);
+		builder.genericDetails(draftDetails(genericDto, HttpJobScope.WIDE));
 
 		Program program = programRepo.findById(wideDto.programId())
 				.orElseThrow(() -> new EntityNotFoundException("Program not found"));
 
 		builder.program(program);
 
-		List<Wordlist> wordlists = new ArrayList<>();
-		if (genericDto.wordlistsIds() != null)
-			wordlists = wordlistRepo.findAllById(genericDto.wordlistsIds());
-
-		builder.wordlists(wordlists);
+		builder.wordlists(findWordlists(genericDto));
 
 		WideHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 
@@ -183,16 +152,38 @@ public class HttpJobCreationService {
 
 		};
 
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCommit() {
-				configFileService.prepareConfigFiles(fullyConfiguredJob.getId());
-			}
-		});
+		prepareConfigFilesAfterCommit(fullyConfiguredJob.getId());
 
 		return fullyConfiguredJob;
 
 	};
+
+	Routine findRoutine(GenericHttpJobDetailsDto genericDto) {
+		return routineRepo.findById(genericDto.routineId())
+				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
+	}
+
+	HttpJobGenericDetails draftDetails(GenericHttpJobDetailsDto genericDto, HttpJobScope scope) {
+		return HttpJobGenericDetails.builder().httpJobScope(scope).currentState(JobState.DRAFT)
+				.verbosity(genericDto.verbosity()).priority(genericDto.priority()).rate(genericDto.rate())
+				.targetSelector(genericDto.targetSelector()).genericConfig(GenericConfig.of(genericDto.matchAndReplace()))
+				.customConfig(genericDto.customConfig()).build();
+	}
+
+	List<Wordlist> findWordlists(GenericHttpJobDetailsDto genericDto) {
+		if (genericDto.wordlistsIds() == null)
+			return new ArrayList<>();
+		return wordlistRepo.findAllById(genericDto.wordlistsIds());
+	}
+
+	void prepareConfigFilesAfterCommit(Long jobId) {
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				configFileService.prepareConfigFiles(jobId);
+			}
+		});
+	}
 
 	// a single host or request target must belong to the host the job (and its rate
 	// limits) is for
