@@ -25,4 +25,9 @@ public interface RequestEqualityRelationRepository extends JpaRepository<Request
 	@Query("SELECT rel.request FROM RequestEqualityRelation rel WHERE rel.set = :set")
 	Page<Request> findAllInSet(RequestEqualitySet set, Pageable pageable);
 
+	List<RequestEqualityRelation> findAllBySet(RequestEqualitySet set);
+
+	@Query("SELECT rel.request FROM RequestEqualityRelation rel WHERE rel.set = :set ORDER BY rel.request.insertionDate DESC LIMIT 1")
+	Request findTopBySetOrderByRequestInsertionDateDesc(RequestEqualitySet set);
+
 }
