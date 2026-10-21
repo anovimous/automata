@@ -7,6 +7,7 @@ import java.util.List;
 import org.hibernate.annotations.CreationTimestamp;
 
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
+import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.program.Program;
 import com.automata.routine.Routine;
 import com.automata.wordlist.Wordlist;
@@ -15,6 +16,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -64,5 +67,18 @@ public abstract class HttpJob {
 
 	@ManyToMany
 	private List<Wordlist> wordlists = new ArrayList<>();
+
+	private String aiDescription;
+
+	private String aiResult;
+
+	@Column(nullable = false)
+	@Enumerated(EnumType.STRING)
+	@lombok.Builder.Default
+	private JobCreator createdBy = JobCreator.USER;
+
+	@Column(nullable = false)
+	@lombok.Builder.Default
+	private boolean approved = true;
 
 }
