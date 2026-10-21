@@ -63,6 +63,8 @@ class HttpJobCreationServiceCreateNarrowJobTest {
 	@Mock
 	JobConfigFileAsyncService configFileService;
 	@Mock
+	CustomConfigValidator customConfigValidator;
+	@Mock
 	S3Service s3;
 
 	@InjectMocks
