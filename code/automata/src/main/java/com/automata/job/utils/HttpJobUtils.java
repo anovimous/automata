@@ -8,6 +8,7 @@ import com.automata.job.api.dto.HttpJobFilter;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.enums.HttpJobScope;
+import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.request.Request;
@@ -41,13 +42,14 @@ public abstract class HttpJobUtils {
 
 		return Specification.<HttpJob>unrestricted().and(hasProgramId(filter.programId()))
 				.and(hasRoutineId(filter.routineId())).and(hasScope(filter.scope()))
-				.and(hasCurrentStates(filter.currentStates()));
+				.and(hasCurrentStates(filter.currentStates())).and(hasCreatedBy(filter.createdBy()));
 	}
 
 	private static Specification<HttpJob> buildNarrowSpecification(HttpJobFilter filter) {
 		return Specification.<HttpJob>unrestricted().and(hasProgramId(filter.programId()))
 				.and(hasRoutineId(filter.routineId())).and(hasScope(filter.scope()))
-				.and(hasCurrentStates(filter.currentStates())).and(hasHostId(filter.hostId()));
+				.and(hasCurrentStates(filter.currentStates())).and(hasHostId(filter.hostId()))
+				.and(hasCreatedBy(filter.createdBy()));
 	}
 
 	private static Specification<HttpJob> hasHostId(Long hostId) {
@@ -75,6 +77,10 @@ public abstract class HttpJobUtils {
 	private static Specification<HttpJob> hasCurrentStates(Set<JobState> currentStates) {
 		return (root, query, cb) -> currentStates == null || currentStates.isEmpty() ? null
 				: root.get("genericDetails").get("currentState").in(currentStates);
+	}
+
+	private static Specification<HttpJob> hasCreatedBy(JobCreator createdBy) {
+		return (root, query, cb) -> createdBy == null ? null : cb.equal(root.get("createdBy"), createdBy);
 	}
 
 }

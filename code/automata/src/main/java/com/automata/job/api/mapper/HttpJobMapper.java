@@ -20,7 +20,8 @@ public abstract class HttpJobMapper {
 						.build())
 				.routine(RoutineSummaryDetailsResponseDto.builder().id(dto.routineId()).key(dto.routineKey()).build())
 				.failureMessage(dto.failureMessage()).configFileStatus(dto.configFileStatus())
-				.configFileFailure(dto.configFileFailure()).build();
+				.configFileFailure(dto.configFileFailure()).aiDescription(dto.aiDescription())
+				.aiResult(dto.aiResult()).createdBy(dto.createdBy()).approved(dto.approved()).build();
 	}
 
 	public static Page<HttpJobSummaryResponseDto> toResponseDtos(Page<HttpJobSummaryInternalDto> internalDtos) {
@@ -30,7 +31,7 @@ public abstract class HttpJobMapper {
 	public static HttpJobSummaryResponseDto toResponseDto(HttpJobSummaryInternalDto dto) {
 		return HttpJobSummaryResponseDto.builder().id(dto.id()).creationDate(dto.creationDate()).scope(dto.scope())
 				.currentState(dto.currentState()).priority(dto.priority()).rate(dto.rate()).routineId(dto.routineId())
-				.routineKey(dto.routineKey()).build();
+				.routineKey(dto.routineKey()).createdBy(dto.createdBy()).approved(dto.approved()).build();
 	}
 
 }
