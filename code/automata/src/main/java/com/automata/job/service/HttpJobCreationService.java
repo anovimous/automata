@@ -69,12 +69,14 @@ public class HttpJobCreationService {
 
 	private final JobConfigFileAsyncService configFileService;
 
+	private final CustomConfigValidator customConfigValidator;
+
 	@Transactional
 	public NarrowHttpJob createDraftNarrowJob(GenericHttpJobDetailsDto genericDto, NarrowHttpJobDetailsDto narrowDto) {
 
 		NarrowHttpJobBuilder<?, ?> builder = NarrowHttpJob.builder();
 
-		builder.routine(findRoutine(genericDto));
+		builder.routine(findRoutineAndValidateCustomConfig(genericDto));
 
 		builder.genericDetails(draftDetails(genericDto, HttpJobScope.NARROW));
 
@@ -133,7 +135,7 @@ public class HttpJobCreationService {
 
 		WideHttpJobBuilder<?, ?> builder = WideHttpJob.builder();
 
-		builder.routine(findRoutine(genericDto));
+		builder.routine(findRoutineAndValidateCustomConfig(genericDto));
 
 		builder.genericDetails(draftDetails(genericDto, HttpJobScope.WIDE));
 
@@ -176,6 +178,8 @@ public class HttpJobCreationService {
 
 		Routine routine = routineRepo.findById(aiRequest.routineId())
 				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
+
+		customConfigValidator.validate(routine, aiRequest.customConfig());
 
 		Host host = request.getHost();
 
@@ -227,6 +231,12 @@ public class HttpJobCreationService {
 
 		return fullyConfiguredJob;
 
+	}
+
+	Routine findRoutineAndValidateCustomConfig(GenericHttpJobDetailsDto genericDto) {
+		Routine routine = findRoutine(genericDto);
+		customConfigValidator.validate(routine, genericDto.customConfig());
+		return routine;
 	}
 
 	Routine findRoutine(GenericHttpJobDetailsDto genericDto) {

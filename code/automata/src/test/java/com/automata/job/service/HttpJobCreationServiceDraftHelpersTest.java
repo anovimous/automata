@@ -23,6 +23,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.automata.job.api.dto.GenericHttpJobDetailsDto;
+import com.automata.job.domain.exception.InvalidCustomConfigException;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.embedded.TargetSelector;
 import com.automata.job.domain.model.enums.HttpJobScope;
@@ -48,6 +49,8 @@ class HttpJobCreationServiceDraftHelpersTest {
 	WordlistRepository wordlistRepo;
 	@Mock
 	JobConfigFileAsyncService configFileService;
+	@Mock
+	CustomConfigValidator customConfigValidator;
 
 	@InjectMocks
 	HttpJobCreationService service;
@@ -80,6 +83,38 @@ class HttpJobCreationServiceDraftHelpersTest {
 		when(routineRepo.findById(1L)).thenReturn(Optional.empty());
 
 		assertThrows(EntityNotFoundException.class, () -> service.findRoutine(genericDto(null)));
+	}
+
+	@Test
+	void findRoutineAndValidateCustomConfigValidatesTheConfigOfTheDtoAgainstTheRoutine() {
+		Routine routine = new Routine();
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
+		GenericHttpJobDetailsDto dto = genericDto(null);
+
+		assertSame(routine, service.findRoutineAndValidateCustomConfig(dto));
+
+		verify(customConfigValidator).validate(routine, dto.customConfig());
+	}
+
+	@Test
+	void findRoutineAndValidateCustomConfigOfAnUnknownRoutineIsReportedWithoutValidating() {
+		when(routineRepo.findById(1L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class,
+				() -> service.findRoutineAndValidateCustomConfig(genericDto(null)));
+
+		verifyNoInteractions(customConfigValidator);
+	}
+
+	@Test
+	void findRoutineAndValidateCustomConfigPassesOnAnInvalidConfig() {
+		Routine routine = new Routine();
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
+		GenericHttpJobDetailsDto dto = genericDto(null);
+		org.mockito.Mockito.doThrow(new InvalidCustomConfigException("fuzz", List.of("bad"))).when(customConfigValidator)
+				.validate(routine, dto.customConfig());
+
+		assertThrows(InvalidCustomConfigException.class, () -> service.findRoutineAndValidateCustomConfig(dto));
 	}
 
 	@Test

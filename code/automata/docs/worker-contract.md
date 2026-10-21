@@ -56,7 +56,7 @@ The core writes it with the application's Jackson mapper (`FAIL_ON_UNKNOWN_PROPE
 | `auth.lifeTimeInSeconds`, `auth.populatedAt` | ISO-8601 instant strings | the worker keeps them as strings and never reads them |
 | `targetType` | `REQUEST` \| `HOST` | `HOST` for single/multiple host selectors; the worker does not read it |
 | `genericConfig.matchAndReplace` | array of `{targetType, rule, targetKey, value}` | `targetType` is `HEADER` only; `rule` is `ADD` \| `REPLACE` \| `DELETE` |
-| `customConfig` | any JSON, or `null` | opaque to the core, see 3.3 |
+| `customConfig` | any JSON, or `null` | checked by the core against the routine's `configSchema` when the job is created, see 3.3 |
 
 The file holds credentials (`auth`). The buckets are public today (known, see the review file).
 
@@ -75,7 +75,9 @@ The worker never parses this file: the orchestrator downloads it and the connect
 
 ### 3.3 `customConfig` per routine
 
-Only the connector of the routine parses it; both ignore unknown fields and reject a flag outside their allow-list (`Unknown flag provided in custom config`). A `customConfig` that can not be used (wrong shape, unknown flag, a request that is not Base64) makes the connector report the job `FAILED` with the reason.
+The core checks it when a job is created (narrow, wide and AI jobs): if the routine has a `configSchema` (JSON Schema, draft 2020-12, given when the routine is created or patched) the `customConfig` has to satisfy it, otherwise the creation is answered with 400 and the list of violations. A routine without a `configSchema` is not checked. **The flag enums of the schema of `fuzz` and `masser` have to equal `allowedFlags` of the worker connectors; nothing checks this automatically, so change them together.**
+
+The connector of the routine is still the one that parses it; both ignore unknown fields and reject a flag outside their allow-list (`Unknown flag provided in custom config`). A `customConfig` that can not be used (wrong shape, unknown flag, a request that is not Base64) makes the connector report the job `FAILED` with the reason.
 
 | Routine | Shape | Becomes |
 |---|---|---|
