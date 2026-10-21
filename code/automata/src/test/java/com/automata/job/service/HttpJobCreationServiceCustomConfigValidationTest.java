@@ -3,7 +3,6 @@ package com.automata.job.service;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -11,6 +10,8 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +19,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.automata.agentcontext.AgentContext;
+import com.automata.agentcontext.AgentContextService;
+import com.automata.host.Host;
 import com.automata.job.api.dto.AiJobCreationRequest;
 import com.automata.job.api.dto.GenericHttpJobDetailsDto;
 import com.automata.job.api.dto.NarrowHttpJobDetailsDto;
@@ -55,6 +59,8 @@ class HttpJobCreationServiceCustomConfigValidationTest {
 	JobConfigFileAsyncService configFileService;
 	@Mock
 	CustomConfigValidator customConfigValidator;
+	@Mock
+	AgentContextService agentContextService;
 
 	@InjectMocks
 	HttpJobCreationService service;
@@ -94,12 +100,18 @@ class HttpJobCreationServiceCustomConfigValidationTest {
 
 	@Test
 	void invalidCustomConfigOfAnAiJobIsRejectedBeforeAnythingIsSaved() {
-		Request request = mock(Request.class);
+		Host host = Host.of(4L);
+		Request request = Request.of(5L);
+		request.setHost(host);
+		routine.setId(1L);
+		AgentContext context = AgentContext.builder().host(host).allowedRoutines(List.of(routine)).build();
+		UUID contextUuid = UUID.randomUUID();
+		when(agentContextService.getContextByUuid(contextUuid)).thenReturn(context);
 		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
 		doThrow(invalid).when(customConfigValidator).validate(routine, CUSTOM_CONFIG);
-		AiJobCreationRequest aiRequest = new AiJobCreationRequest(5L, "goal", 1L, Duration.SHORT, null, null, null,
-				null, CUSTOM_CONFIG);
+		AiJobCreationRequest aiRequest = new AiJobCreationRequest(5L, contextUuid, "goal", 1L, Duration.SHORT, Set.of(),
+				null, null, null, CUSTOM_CONFIG);
 
 		assertThrows(InvalidCustomConfigException.class, () -> service.createDraftAiNarrowJob(aiRequest));
 

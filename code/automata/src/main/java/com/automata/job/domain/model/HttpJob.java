@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.automata.agentcontext.AgentContext;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.program.Program;
@@ -17,6 +18,7 @@ import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -80,5 +82,8 @@ public abstract class HttpJob {
 	@Column(nullable = false)
 	@lombok.Builder.Default
 	private boolean approved = true;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	private AgentContext agentContext;
 
 }

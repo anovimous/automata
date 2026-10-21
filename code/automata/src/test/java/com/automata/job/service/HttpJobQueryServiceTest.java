@@ -95,7 +95,7 @@ class HttpJobQueryServiceTest {
 		when(jobRepo.findAll(any(Specification.class), eq(pageable)))
 				.thenReturn(new PageImpl<>(List.of(job), pageable, 41));
 
-		Page<HttpJobSummaryInternalDto> page = service.getAllJobs(new HttpJobFilter(null, null, null, null, null, null),
+		Page<HttpJobSummaryInternalDto> page = service.getAllJobs(new HttpJobFilter(null, null, null, null, null, null, null),
 				pageable);
 
 		assertEquals(41, page.getTotalElements());
@@ -108,7 +108,7 @@ class HttpJobQueryServiceTest {
 	@Test
 	void fullDetailsAreReturned() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, null, JobState.DRAFT, null, null,
-				1, 1, null, null, null, 1L, "p", 1L, "r", null, null, null, null, null, JobCreator.USER, true);
+				1, 1, null, null, null, 1L, "p", 1L, "r", null, null, null, null, null, JobCreator.USER, true, null);
 		when(jobRepo.findFullDetailsByJobId(1L)).thenReturn(Optional.of(dto));
 
 		assertSame(dto, service.getJobFullDetails(1L));
