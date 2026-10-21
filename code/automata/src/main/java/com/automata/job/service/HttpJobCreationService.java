@@ -11,10 +11,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
+import com.automata.job.api.dto.AiJobCreationRequest;
 import com.automata.job.api.dto.GenericHttpJobDetailsDto;
 import com.automata.job.api.dto.NarrowHttpJobDetailsDto;
 import com.automata.job.api.dto.WideHttpJobDetailsDto;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
+import com.automata.job.utils.HttpJobUtils;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.WideHttpJob;
@@ -24,11 +26,15 @@ import com.automata.job.domain.model.embedded.GenericConfig;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.embedded.TargetSelector;
 import com.automata.job.domain.model.enums.HttpJobScope;
+import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
+import com.automata.job.domain.model.enums.ResultsVerbosity;
 import com.automata.job.domain.valueobject.TargetSelectionResult;
 import com.automata.job.repository.HttpJobRepository;
 import com.automata.program.Program;
 import com.automata.program.ProgramRepository;
+import com.automata.request.Request;
+import com.automata.request.RequestRepository;
 import com.automata.routine.Routine;
 import com.automata.routine.RoutineRepository;
 import com.automata.tenant.Tenant;
@@ -50,6 +56,8 @@ public class HttpJobCreationService {
 	private final ProgramRepository programRepo;
 
 	private final HostRepository hostRepo;
+
+	private final RequestRepository requestRepo;
 
 	private final TenantRepository tenantRepo;
 
@@ -157,6 +165,69 @@ public class HttpJobCreationService {
 		return fullyConfiguredJob;
 
 	};
+
+	@Transactional
+	public NarrowHttpJob createDraftAiNarrowJob(AiJobCreationRequest aiRequest) {
+
+		Request request = requestRepo.findById(aiRequest.requestId())
+				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+
+		HttpJobUtils.requireJobEligible(request);
+
+		Routine routine = routineRepo.findById(aiRequest.routineId())
+				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
+
+		Host host = request.getHost();
+
+		int rate = aiRequest.rate() != null ? aiRequest.rate() : host.getHostRateLimit();
+		if (host.getHostRateLimit() > 0 && rate > host.getHostRateLimit())
+			rate = host.getHostRateLimit();
+
+		ResultsVerbosity verbosity = aiRequest.verbosity() != null ? aiRequest.verbosity() : ResultsVerbosity.VERBOSE;
+		int priority = aiRequest.priority() != null ? aiRequest.priority() : 1;
+
+		TargetSelector targetSelector = new TargetSelector();
+		targetSelector.setSelectorType(com.automata.job.domain.model.enums.SelectorType.SINGLE_REQUEST);
+		com.automata.job.domain.model.embedded.SingleRequestSelector singleSelector = new com.automata.job.domain.model.embedded.SingleRequestSelector();
+		singleSelector.setRequestId(aiRequest.requestId());
+		com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+		targetSelector.setSelector(mapper.valueToTree(singleSelector));
+
+		HttpJobGenericDetails genericDetails = HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.NARROW)
+				.currentState(JobState.DRAFT).verbosity(verbosity).priority(priority).rate(rate)
+				.targetSelector(targetSelector).customConfig(aiRequest.customConfig()).build();
+
+		NarrowHttpJobBuilder<?, ?> builder = NarrowHttpJob.builder();
+		builder.routine(routine);
+		builder.genericDetails(genericDetails);
+		builder.duration(aiRequest.duration());
+		builder.host(host);
+		builder.program(host.getProgram());
+		builder.tenant(request.getTenant());
+		builder.createdBy(JobCreator.AI);
+		builder.approved(false);
+		builder.aiDescription(aiRequest.aiDescription());
+
+		if (aiRequest.wordlistsIds() != null && !aiRequest.wordlistsIds().isEmpty())
+			builder.wordlists(wordlistRepo.findAllById(aiRequest.wordlistsIds()));
+
+		NarrowHttpJob newlyPersistedJob = jobRepo.save(builder.build());
+
+		TargetSelectionResult selectionResult = targetSelectionService.handleTargetSelector(targetSelector);
+
+		NarrowHttpJob fullyConfiguredJob = switch (selectionResult) {
+		case TargetSelectionResult.SingleRequest selected -> {
+			requireTargetOfJobHost(selected.hostId(), host.getId());
+			yield targetConfigService.configureRequestsAsTarget(newlyPersistedJob, Set.of(selected.requestId()));
+		}
+		default -> throw new IllegalArgumentException("AI job creation supports only single-request targets");
+		};
+
+		prepareConfigFilesAfterCommit(fullyConfiguredJob.getId());
+
+		return fullyConfiguredJob;
+
+	}
 
 	Routine findRoutine(GenericHttpJobDetailsDto genericDto) {
 		return routineRepo.findById(genericDto.routineId())

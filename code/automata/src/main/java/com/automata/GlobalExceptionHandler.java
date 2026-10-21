@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
+import com.automata.job.domain.exception.JobNotApprovedException;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
@@ -31,6 +32,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(InvalidJobStateException.class)
 	public ResponseEntity<String> handleInvalidJobState(InvalidJobStateException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(JobNotApprovedException.class)
+	public ResponseEntity<String> handleJobNotApproved(JobNotApprovedException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
 	}
 

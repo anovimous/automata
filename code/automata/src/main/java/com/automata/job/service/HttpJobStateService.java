@@ -11,10 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.automata.job.domain.exception.InvalidJobStateException;
+import com.automata.job.domain.exception.JobNotApprovedException;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.JobResult;
 import com.automata.job.domain.model.enums.ConfigFileStatus;
+import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.policy.JobPreparationPolicy;
 import com.automata.job.domain.policy.JobStateTransitions;
@@ -33,6 +36,9 @@ public class HttpJobStateService {
 	// the states in which a worker explains with a message why the job ended
 	private static final Set<JobState> FAILURE_STATES = EnumSet.of(JobState.FAILED, JobState.SELFTERMINATED);
 
+	private static final Set<JobState> TERMINAL_STATES = EnumSet.of(JobState.FINISHED, JobState.FAILED,
+			JobState.SELFTERMINATED, JobState.CANCELED, JobState.LOSTCONTACT);
+
 	// how long a job which a worker holds may go without any contact from it
 	public static final Duration LOST_CONTACT_AFTER = Duration.ofMinutes(30);
 
@@ -45,6 +51,9 @@ public class HttpJobStateService {
 
 		HttpJob job = jobRepo.findById(draftJobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		if (job.getCreatedBy() == JobCreator.AI && !job.isApproved())
+			throw new JobNotApprovedException(draftJobId);
 
 		JobPreparationPolicy.requireReadyToPrepareForQueueing(job.getGenericDetails().getConfigFileStatus());
 
@@ -192,6 +201,43 @@ public class HttpJobStateService {
 	private void applyStateChange(HttpJob job, ToApplyJobStateChange change) {
 		job.getGenericDetails().setCurrentState(change.toApplyCurrentState());
 		job.getGenericDetails().setRequestedState(change.toApplyRequestedState());
+	}
+
+	@Transactional
+	public void approveJob(Long jobId) {
+
+		HttpJob job = jobRepo.findById(jobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		if (job.getCreatedBy() != JobCreator.AI)
+			throw new InvalidJobStateException("Only AI-created jobs can be approved");
+
+		if (job.getGenericDetails().getCurrentState() != JobState.DRAFT)
+			throw InvalidJobStateException.requiredState(JobState.DRAFT,
+					job.getGenericDetails().getCurrentState(), "approve");
+
+		job.setApproved(true);
+		jobRepo.save(job);
+
+	}
+
+	@Transactional
+	public void setAiResult(Long jobId, String aiResult) {
+
+		HttpJob job = jobRepo.findById(jobId)
+				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
+
+		if (job.getCreatedBy() != JobCreator.AI)
+			throw new InvalidJobStateException("Only AI-created jobs can have an AI result set");
+
+		JobState state = job.getGenericDetails().getCurrentState();
+		if (!TERMINAL_STATES.contains(state))
+			throw new InvalidJobStateException(
+					String.format("Job must be in a terminal state to set AI result, but it is %s", state));
+
+		job.setAiResult(aiResult);
+		jobRepo.save(job);
+
 	}
 
 	@Transactional
