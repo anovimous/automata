@@ -98,6 +98,15 @@ public class HostService {
 		if (patchRequest.scope() != null)
 			host.setScope(patchRequest.scope());
 
+		if (patchRequest.description() != null)
+			host.setDescription(patchRequest.description());
+
+		if (patchRequest.technologies() != null)
+			host.setTechnologies(patchRequest.technologies());
+
+		if (patchRequest.notes() != null)
+			host.setNotes(patchRequest.notes());
+
 		hostRepo.save(host);
 
 		return host;
