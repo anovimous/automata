@@ -51,6 +51,8 @@ class HttpJobCreationServiceDraftHelpersTest {
 	JobConfigFileAsyncService configFileService;
 	@Mock
 	CustomConfigValidator customConfigValidator;
+	@Mock
+	com.automata.agentcontext.AgentContextService agentContextService;
 
 	@InjectMocks
 	HttpJobCreationService service;

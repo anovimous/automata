@@ -42,14 +42,15 @@ public abstract class HttpJobUtils {
 
 		return Specification.<HttpJob>unrestricted().and(hasProgramId(filter.programId()))
 				.and(hasRoutineId(filter.routineId())).and(hasScope(filter.scope()))
-				.and(hasCurrentStates(filter.currentStates())).and(hasCreatedBy(filter.createdBy()));
+				.and(hasCurrentStates(filter.currentStates())).and(hasCreatedBy(filter.createdBy()))
+				.and(hasAgentContextId(filter.agentContextId()));
 	}
 
 	private static Specification<HttpJob> buildNarrowSpecification(HttpJobFilter filter) {
 		return Specification.<HttpJob>unrestricted().and(hasProgramId(filter.programId()))
 				.and(hasRoutineId(filter.routineId())).and(hasScope(filter.scope()))
 				.and(hasCurrentStates(filter.currentStates())).and(hasHostId(filter.hostId()))
-				.and(hasCreatedBy(filter.createdBy()));
+				.and(hasCreatedBy(filter.createdBy())).and(hasAgentContextId(filter.agentContextId()));
 	}
 
 	private static Specification<HttpJob> hasHostId(Long hostId) {
@@ -77,6 +78,11 @@ public abstract class HttpJobUtils {
 	private static Specification<HttpJob> hasCurrentStates(Set<JobState> currentStates) {
 		return (root, query, cb) -> currentStates == null || currentStates.isEmpty() ? null
 				: root.get("genericDetails").get("currentState").in(currentStates);
+	}
+
+	private static Specification<HttpJob> hasAgentContextId(Long agentContextId) {
+		return (root, query, cb) -> agentContextId == null ? null
+				: cb.equal(root.get("agentContext").get("id"), agentContextId);
 	}
 
 	private static Specification<HttpJob> hasCreatedBy(JobCreator createdBy) {

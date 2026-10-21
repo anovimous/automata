@@ -1,5 +1,7 @@
 package com.automata.job.api.dto;
 
+import java.util.UUID;
+
 import org.springframework.lang.Nullable;
 
 import com.automata.job.domain.model.embedded.GenericConfig;
@@ -21,6 +23,7 @@ public record HttpJobResponseDto(Long jobId, HttpJobScope httpJobScope, JobState
 		TargetSelector targetSelector, GenericConfig genericConfig, JsonNode customConfig,
 		ProgramSummaryDetailsResponseDto program, RoutineSummaryDetailsResponseDto routine,
 		@Nullable String failureMessage, ConfigFileStatus configFileStatus, @Nullable String configFileFailure,
-		@Nullable String aiDescription, @Nullable String aiResult, JobCreator createdBy, boolean approved) {
+		@Nullable String aiDescription, @Nullable String aiResult, JobCreator createdBy, boolean approved,
+		@Nullable UUID agentContextUuid) {
 
 }

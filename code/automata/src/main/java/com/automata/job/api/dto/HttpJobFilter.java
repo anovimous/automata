@@ -7,6 +7,6 @@ import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
 
 public record HttpJobFilter(Long programId, Long hostId, Long routineId, HttpJobScope scope,
-		Set<JobState> currentStates, JobCreator createdBy) {
+		Set<JobState> currentStates, JobCreator createdBy, Long agentContextId) {
 
 }

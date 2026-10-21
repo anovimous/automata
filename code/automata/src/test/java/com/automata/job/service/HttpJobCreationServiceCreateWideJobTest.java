@@ -69,6 +69,8 @@ class HttpJobCreationServiceCreateWideJobTest {
 	@Mock
 	CustomConfigValidator customConfigValidator;
 	@Mock
+	com.automata.agentcontext.AgentContextService agentContextService;
+	@Mock
 	S3Service s3;
 
 	@InjectMocks

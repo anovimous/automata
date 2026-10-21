@@ -61,10 +61,12 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 			    j.aiDescription,
 			    j.aiResult,
 			    j.createdBy,
-			    j.approved
+			    j.approved,
+			    ac.uuid
 			)
 			FROM HttpJob j
 			LEFT JOIN j.program
+			LEFT JOIN j.agentContext ac
 			JOIN j.routine
 			WHERE j.id = :jobId
 			""")

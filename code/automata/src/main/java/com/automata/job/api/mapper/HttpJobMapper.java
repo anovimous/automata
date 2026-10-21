@@ -21,7 +21,8 @@ public abstract class HttpJobMapper {
 				.routine(RoutineSummaryDetailsResponseDto.builder().id(dto.routineId()).key(dto.routineKey()).build())
 				.failureMessage(dto.failureMessage()).configFileStatus(dto.configFileStatus())
 				.configFileFailure(dto.configFileFailure()).aiDescription(dto.aiDescription())
-				.aiResult(dto.aiResult()).createdBy(dto.createdBy()).approved(dto.approved()).build();
+				.aiResult(dto.aiResult()).createdBy(dto.createdBy()).approved(dto.approved())
+				.agentContextUuid(dto.agentContextUuid()).build();
 	}
 
 	public static Page<HttpJobSummaryResponseDto> toResponseDtos(Page<HttpJobSummaryInternalDto> internalDtos) {

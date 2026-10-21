@@ -19,12 +19,14 @@ import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 
 class HttpJobMapperTest {
 
+	private static final java.util.UUID CONTEXT_UUID = java.util.UUID.randomUUID();
+
 	@Test
 	void fullDetailsAreMappedIncludingProgramAndRoutine() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(7L, HttpJobScope.WIDE, JobState.PAUSED,
 				JobState.RUNNING, null, 3, 20, null, null, null, 11L, "prog", 12L, "routine-key", "it broke",
 				com.automata.job.domain.model.enums.ConfigFileStatus.FAILED, "S3 is down", "test description",
-				"test result", JobCreator.AI, false);
+				"test result", JobCreator.AI, false, CONTEXT_UUID);
 
 		HttpJobResponseDto response = HttpJobMapper.toResponseDto(dto);
 
@@ -45,13 +47,14 @@ class HttpJobMapperTest {
 		assertEquals("test result", response.aiResult());
 		assertEquals(JobCreator.AI, response.createdBy());
 		assertEquals(false, response.approved());
+		assertEquals(CONTEXT_UUID, response.agentContextUuid());
 	}
 
 	@Test
 	void fullDetailsWithNullAiFieldsAreMapped() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, HttpJobScope.NARROW,
 				JobState.DRAFT, null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", null, null, null, null,
-				null, JobCreator.USER, true);
+				null, JobCreator.USER, true, null);
 
 		HttpJobResponseDto response = HttpJobMapper.toResponseDto(dto);
 
@@ -59,6 +62,7 @@ class HttpJobMapperTest {
 		assertNull(response.aiResult());
 		assertEquals(JobCreator.USER, response.createdBy());
 		assertTrue(response.approved());
+		assertNull(response.agentContextUuid());
 	}
 
 	@Test

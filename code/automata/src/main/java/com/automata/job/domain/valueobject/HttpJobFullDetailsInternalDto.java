@@ -1,5 +1,7 @@
 package com.automata.job.domain.valueobject;
 
+import java.util.UUID;
+
 import org.springframework.lang.Nullable;
 
 import com.automata.job.domain.model.embedded.GenericConfig;
@@ -16,6 +18,6 @@ public record HttpJobFullDetailsInternalDto(Long jobId, HttpJobScope httpJobScop
 		TargetSelector targetSelector, GenericConfig genericConfig, JsonNode customConfig, Long programId,
 		String programName, Long routineId, String routineKey, @Nullable String failureMessage,
 		ConfigFileStatus configFileStatus, @Nullable String configFileFailure, @Nullable String aiDescription,
-		@Nullable String aiResult, JobCreator createdBy, boolean approved) {
+		@Nullable String aiResult, JobCreator createdBy, boolean approved, @Nullable UUID agentContextUuid) {
 
 }
