@@ -19,15 +19,13 @@ import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.service.HttpJobCreationService;
 import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobStateService;
-import com.automata.job.service.HttpJobsSynchronizationService;
 
 class HttpJobControllerCreateNewJobTest {
 
 	private final HttpJobCreationService creationService = mock(HttpJobCreationService.class);
 
 	private final HttpJobController controller = new HttpJobController(creationService,
-			mock(HttpJobQueryService.class), mock(HttpJobStateService.class),
-			mock(HttpJobsSynchronizationService.class));
+			mock(HttpJobQueryService.class), mock(HttpJobStateService.class));
 
 	private final GenericHttpJobDetailsDto generic = mock(GenericHttpJobDetailsDto.class);
 

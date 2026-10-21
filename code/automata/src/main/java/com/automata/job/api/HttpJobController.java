@@ -35,8 +35,6 @@ import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.service.HttpJobCreationService;
 import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobStateService;
-import com.automata.job.service.HttpJobsSynchronizationService;
-
 import io.awspring.cloud.s3.S3Resource;
 import lombok.RequiredArgsConstructor;
 
@@ -50,8 +48,6 @@ public class HttpJobController {
 	private final HttpJobQueryService queryService;
 
 	private final HttpJobStateService stateService;
-
-	private final HttpJobsSynchronizationService syncService;
 
 	@GetMapping("/{jobId}")
 	public ResponseEntity<HttpJobResponseDto> getJob(@PathVariable Long jobId) {
@@ -153,16 +149,6 @@ public class HttpJobController {
 
 		return ResponseEntity.accepted().build();
 
-	}
-
-	// TEST METHOD:
-
-	@PostMapping("/sync")
-	public ResponseEntity<Void> syncJob() {
-
-		syncService.syncToQueueJobs();
-
-		return ResponseEntity.status(204).build();
 	}
 
 //	@PostMapping("/{draftJobId}/schedule")
