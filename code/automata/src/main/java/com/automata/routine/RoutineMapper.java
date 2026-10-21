@@ -13,7 +13,7 @@ public abstract class RoutineMapper {
 				.isAvailableAtConsumer(routine.isAvailableAtConsumer()).overhead(routine.getOverhead())
 				.protocol(routine.getProtocol()).allowedTargets(routine.getAllowedTargets())
 				.vulnerabilityId(routine.getVulnerability() != null ? routine.getVulnerability().getId() : null)
-				.build();
+				.configSchema(routine.getConfigSchema()).build();
 	}
 
 	public static Page<RoutineSummaryResponseDto> toSummaryResponse(Page<Routine> routines) {
