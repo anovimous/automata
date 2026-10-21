@@ -75,6 +75,11 @@ public class RoutineService {
 
 		patchRequest.protocol().ifPresent(routine::setProtocol);
 
+		if (patchRequest.setConfigSchemaNull())
+			routine.setConfigSchema(null);
+		else
+			patchRequest.configSchema().ifPresent(routine::setConfigSchema);
+
 		if (patchRequest.setVulnerabilityNull())
 			routine.setVulnerability(null);
 		else
