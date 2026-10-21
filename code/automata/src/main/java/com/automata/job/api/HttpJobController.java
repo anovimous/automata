@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.automata.common.dto.response.PageHolderResponse;
+import com.automata.job.api.dto.AiJobCreationRequest;
+import com.automata.job.api.dto.AiResultRequest;
 import com.automata.job.api.dto.HttpJobCreationRequest;
 import com.automata.job.api.dto.HttpJobFilter;
 import com.automata.job.api.dto.HttpJobResponseDto;
@@ -106,6 +108,33 @@ public class HttpJobController {
 		};
 
 		return ResponseEntity.created(URI.create(String.format("/api/jobs/http/%d", newlyCreatedJob.getId()))).build();
+
+	}
+
+	@PostMapping("/ai")
+	public ResponseEntity<Void> createAiJob(@RequestBody AiJobCreationRequest request) {
+
+		HttpJob newlyCreatedJob = creationService.createDraftAiNarrowJob(request);
+
+		return ResponseEntity.created(URI.create(String.format("/api/jobs/http/%d", newlyCreatedJob.getId()))).build();
+
+	}
+
+	@PostMapping("/{jobId}/approve")
+	public ResponseEntity<Void> approveJob(@PathVariable Long jobId) {
+
+		stateService.approveJob(jobId);
+
+		return ResponseEntity.status(204).build();
+
+	}
+
+	@PostMapping("/{jobId}/ai-result")
+	public ResponseEntity<Void> setAiResult(@PathVariable Long jobId, @RequestBody AiResultRequest request) {
+
+		stateService.setAiResult(jobId, request.aiResult());
+
+		return ResponseEntity.status(204).build();
 
 	}
 
