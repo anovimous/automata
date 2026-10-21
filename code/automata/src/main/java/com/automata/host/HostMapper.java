@@ -12,7 +12,8 @@ public abstract class HostMapper {
 		return HostDetailedResponse.builder().id(host.getId()).insertionDate(host.getInsertionDate())
 				.host(host.getHost()).level(host.getLevel()).scope(host.getScope()).outOfScope(host.isOutOfScope())
 				.hostRateLimit(host.getHostRateLimit()).shortRateLimit(host.getShortRateLimit())
-				.longRateLimit(host.getLongRateLimit()).programId(host.getProgram().getId()).build();
+				.longRateLimit(host.getLongRateLimit()).programId(host.getProgram().getId())
+				.description(host.getDescription()).technologies(host.getTechnologies()).notes(host.getNotes()).build();
 
 	}
 
