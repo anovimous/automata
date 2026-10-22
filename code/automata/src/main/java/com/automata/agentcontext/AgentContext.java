@@ -12,6 +12,7 @@ import com.automata.host.Host;
 import com.automata.job.domain.model.enums.ResultsVerbosity;
 import com.automata.routine.Routine;
 import com.automata.routine.common.enums.Duration;
+import com.automata.tenant.Tenant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -64,6 +65,12 @@ public class AgentContext {
 	@ManyToMany
 	@Builder.Default
 	private List<Routine> allowedRoutines = new ArrayList<>();
+
+	// Tenants (identities of the host, with their authentication) the agent can
+	// test with, all of the context's host
+	@ManyToMany
+	@Builder.Default
+	private List<Tenant> tenants = new ArrayList<>();
 
 	@Enumerated(EnumType.STRING)
 	private Duration defaultDuration;

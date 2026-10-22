@@ -8,6 +8,7 @@ import com.automata.routine.common.enums.Duration;
 
 public record AgentContextCreationRequest(String name, String description, Long hostId,
 		boolean defaultAutoApproval, RepresentativeStrategy representativeStrategy, List<Long> allowedRoutineIds,
-		Duration defaultDuration, ResultsVerbosity defaultVerbosity, Integer defaultPriority, Integer maxRate) {
+		Duration defaultDuration, ResultsVerbosity defaultVerbosity, Integer defaultPriority, Integer maxRate,
+		List<Long> tenantIds) {
 
 }

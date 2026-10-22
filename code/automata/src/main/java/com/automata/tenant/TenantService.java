@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.automata.agentcontext.AgentContextRepository;
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.request.RequestRepository;
@@ -21,6 +22,8 @@ public class TenantService {
 	private final HostRepository hostRepo;
 
 	private final RequestRepository requestRepo;
+
+	private final AgentContextRepository agentContextRepo;
 
 	public Tenant getTenantById(Long tenantId) {
 
@@ -72,6 +75,9 @@ public class TenantService {
 
 		if (requestRepo.existsByTenant(tenant))
 			throw new IllegalArgumentException("Tenant can't be deleted if it is associated with any request");
+
+		if (agentContextRepo.existsByTenantsId(tenantId))
+			throw new IllegalArgumentException("Tenant can't be deleted if it is part of an agent context");
 
 		tenantRepo.delete(tenant);
 

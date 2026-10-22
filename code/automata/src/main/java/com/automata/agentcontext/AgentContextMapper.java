@@ -6,6 +6,7 @@ import com.automata.agentcontext.common.dto.AgentContextDetailedResponse;
 import com.automata.agentcontext.common.dto.AgentContextItemResponse;
 import com.automata.agentcontext.common.dto.AgentContextSummaryResponse;
 import com.automata.routine.Routine;
+import com.automata.tenant.Tenant;
 
 public abstract class AgentContextMapper {
 
@@ -15,6 +16,7 @@ public abstract class AgentContextMapper {
 				.defaultAutoApproval(context.isDefaultAutoApproval())
 				.representativeStrategy(context.getRepresentativeStrategy())
 				.allowedRoutineIds(context.getAllowedRoutines().stream().map(Routine::getId).toList())
+				.tenantIds(context.getTenants().stream().map(Tenant::getId).toList())
 				.defaultDuration(context.getDefaultDuration()).defaultVerbosity(context.getDefaultVerbosity())
 				.defaultPriority(context.getDefaultPriority()).maxRate(context.getMaxRate())
 				.creationDate(context.getCreationDate()).items(context.getItems().stream()

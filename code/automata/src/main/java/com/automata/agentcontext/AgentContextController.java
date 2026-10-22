@@ -25,6 +25,7 @@ import com.automata.agentcontext.common.dto.AgentContextItemAddRequest;
 import com.automata.agentcontext.common.dto.AgentContextItemResponse;
 import com.automata.agentcontext.common.dto.AgentContextPatchRequest;
 import com.automata.agentcontext.common.dto.AgentContextSummaryResponse;
+import com.automata.agentcontext.common.dto.AgentContextTenantAddRequest;
 import com.automata.agentcontext.common.dto.ResolvedTarget;
 import com.automata.common.dto.response.PageHolderResponse;
 
@@ -110,6 +111,25 @@ public class AgentContextController {
 	public ResponseEntity<Void> removeItem(@PathVariable Long contextId, @PathVariable Long itemId) {
 
 		contextService.removeItem(contextId, itemId);
+
+		return ResponseEntity.status(204).build();
+
+	}
+
+	@PostMapping("/{contextId}/tenants")
+	public ResponseEntity<Void> addTenant(@PathVariable Long contextId,
+			@RequestBody AgentContextTenantAddRequest request) {
+
+		contextService.addTenant(contextId, request.tenantId());
+
+		return ResponseEntity.status(204).build();
+
+	}
+
+	@DeleteMapping("/{contextId}/tenants/{tenantId}")
+	public ResponseEntity<Void> removeTenant(@PathVariable Long contextId, @PathVariable Long tenantId) {
+
+		contextService.removeTenant(contextId, tenantId);
 
 		return ResponseEntity.status(204).build();
 

@@ -119,4 +119,20 @@ class AgentContextMapperTest {
 		assertEquals(20L, response.equalitySetId());
 	}
 
+	@Test
+	void toDetailedResponseListsTheTenantIds() {
+		com.automata.tenant.Tenant t1 = com.automata.tenant.Tenant.builder().id(4L).build();
+		com.automata.tenant.Tenant t2 = com.automata.tenant.Tenant.builder().id(9L).build();
+		AgentContext ctx = AgentContext.builder().id(1L).host(host(7L)).tenants(List.of(t1, t2)).build();
+
+		assertEquals(List.of(4L, 9L), AgentContextMapper.toDetailedResponse(ctx).tenantIds());
+	}
+
+	@Test
+	void toDetailedResponseWithoutTenantsHasAnEmptyList() {
+		AgentContext ctx = AgentContext.builder().id(1L).host(host(7L)).build();
+
+		assertEquals(List.of(), AgentContextMapper.toDetailedResponse(ctx).tenantIds());
+	}
+
 }
