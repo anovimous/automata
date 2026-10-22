@@ -780,4 +780,23 @@ class AgentContextServiceTest {
 		assertThrows(EntityNotFoundException.class, () -> service.getContextTenants(uuid));
 	}
 
+	// ---- getContextHost
+
+	@Test
+	void contextHostIsTheHostOfTheContext() {
+		Host h = host(1L);
+		AgentContext ctx = AgentContext.builder().id(1L).uuid(java.util.UUID.randomUUID()).host(h).build();
+		when(contextRepo.findByUuid(ctx.getUuid())).thenReturn(Optional.of(ctx));
+
+		assertEquals(h, service.getContextHost(ctx.getUuid()));
+	}
+
+	@Test
+	void contextHostOfAnUnknownContextIsNotFound() {
+		java.util.UUID uuid = java.util.UUID.randomUUID();
+		when(contextRepo.findByUuid(uuid)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getContextHost(uuid));
+	}
+
 }

@@ -296,6 +296,13 @@ public class AgentContextService {
 
 	}
 
+	@Transactional(readOnly = true)
+	public Host getContextHost(UUID contextUuid) {
+
+		return this.getContextByUuid(contextUuid).getHost();
+
+	}
+
 	// The tenants of the context, each with the requests of the context it is tied to
 	@Transactional(readOnly = true)
 	public List<AgentContextTenantResponse> getContextTenants(UUID contextUuid) {
