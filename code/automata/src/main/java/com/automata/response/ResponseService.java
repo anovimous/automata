@@ -55,14 +55,37 @@ public class ResponseService {
 
 	}
 
-	public StoredBody getResponseBodyFile(Long responseId) {
+	@Transactional(readOnly = true)
+	public ResponseMetadataDto getResponseMetadata(Long responseId) {
 
 		Response response = this.getResponseById(responseId);
 
-		if (!response.isBodyStoredAsFile())
-			throw new EntityNotFoundException("Response has no body file");
+		ResponseRaw raw = responseRawRepo.findById(responseId)
+				.orElseThrow(() -> new EntityNotFoundException("Response not found"));
 
-		return bodyStorage.downloadResponseBody(responseId);
+		return ResponseMapper.toMetadataDto(response, raw.getRawHeadBase64());
+
+	}
+
+	// The body of the response wherever it is stored: in object storage or inline in
+	// the raw table
+	@Transactional(readOnly = true)
+	public StoredBody getResponseBody(Long responseId) {
+
+		Response response = this.getResponseById(responseId);
+
+		if (response.isBodyStoredAsFile())
+			return bodyStorage.downloadResponseBody(responseId);
+
+		ResponseRaw raw = responseRawRepo.findById(responseId)
+				.orElseThrow(() -> new EntityNotFoundException("Response not found"));
+
+		if (raw.getRawBodyBase64() == null)
+			throw new EntityNotFoundException("Response has no body");
+
+		String contentType = HttpMessageUtils.contentTypeOfHead(Base64Utils.decodeToBytes(raw.getRawHeadBase64()));
+
+		return StoredBody.inline(Base64Utils.decodeToBytes(raw.getRawBodyBase64()), contentType);
 
 	}
 

@@ -255,33 +255,107 @@ class RequestServiceBodyStorageTest {
 		assertThrows(EntityNotFoundException.class, () -> service.getRawRequest(5L));
 	}
 
-	// getRequestBodyFile
+	// getRequestBody
+
+	private static String headOf(String contentTypeLine) {
+		return Base64Utils.encode(bytes("POST /api/u?x=1 HTTP/1.1\r\nHost: a\r\n" + contentTypeLine + "\r\n"));
+	}
 
 	@Test
-	void getRequestBodyFile_bodyStoredAsFile_readsFromStorage() {
+	void getRequestBody_bodyStoredAsFile_readsFromStorage() {
 		Request request = Request.of(5L);
 		request.setBodyStoredAsFile(true);
 		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
 		StoredBody stored = new StoredBody(null, "a/b", 1);
 		when(bodyStorage.downloadRequestBody(5L)).thenReturn(stored);
 
-		assertSame(stored, service.getRequestBodyFile(5L));
+		assertSame(stored, service.getRequestBody(5L));
+
+		verifyNoInteractions(requestRawRepo);
 	}
 
 	@Test
-	void getRequestBodyFile_noFile_isNotFound_withoutTouchingStorage() {
+	void getRequestBody_inlineBody_isServedFromTheRawTableWithTheHeadContentType() throws Exception {
 		when(requestRepo.findById(5L)).thenReturn(Optional.of(Request.of(5L)));
+		when(requestRawRepo.findById(5L)).thenReturn(Optional.of(
+				rawOf(false, headOf("Content-Type: application/json\r\n"), Base64Utils.encode(bytes("{\"a\":1}")))));
 
-		assertThrows(EntityNotFoundException.class, () -> service.getRequestBodyFile(5L));
+		StoredBody body = service.getRequestBody(5L);
+
+		assertEquals("application/json", body.contentType());
+		assertEquals(7, body.size());
+		assertArrayEquals(bytes("{\"a\":1}"), body.stream().readAllBytes());
+		verifyNoInteractions(bodyStorage);
+	}
+
+	@Test
+	void getRequestBody_inlineBodyWithoutContentTypeHeader_hasNullContentType() {
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(Request.of(5L)));
+		when(requestRawRepo.findById(5L))
+				.thenReturn(Optional.of(rawOf(false, headOf(""), Base64Utils.encode(bytes("x")))));
+
+		assertNull(service.getRequestBody(5L).contentType());
+	}
+
+	@Test
+	void getRequestBody_noBody_isNotFound() {
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(Request.of(5L)));
+		when(requestRawRepo.findById(5L)).thenReturn(Optional.of(rawOf(false, headOf(""), null)));
+
+		assertThrows(EntityNotFoundException.class, () -> service.getRequestBody(5L));
 
 		verifyNoInteractions(bodyStorage);
 	}
 
 	@Test
-	void getRequestBodyFile_unknownRequest_isNotFound() {
+	void getRequestBody_unknownRequest_isNotFound() {
 		when(requestRepo.findById(5L)).thenReturn(Optional.empty());
 
-		assertThrows(EntityNotFoundException.class, () -> service.getRequestBodyFile(5L));
+		assertThrows(EntityNotFoundException.class, () -> service.getRequestBody(5L));
+	}
+
+	@Test
+	void getRequestBody_missingRawRow_isNotFound() {
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(Request.of(5L)));
+		when(requestRawRepo.findById(5L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getRequestBody(5L));
+	}
+
+	// getRequestMetadata
+
+	@Test
+	void getRequestMetadata_buildsTheMetadataFromTheRequestAndItsStoredHead() {
+		Request request = Request.of(5L);
+		request.setHost(Host.of(1L));
+		com.automata.program.Program program = new com.automata.program.Program();
+		program.setId(2L);
+		request.setProgram(program);
+		request.setBodySizeBytes(7);
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(requestRawRepo.findById(5L)).thenReturn(Optional.of(
+				rawOf(false, headOf("Content-Type: application/json\r\n"), Base64Utils.encode(bytes("{\"a\":1}")))));
+
+		var metadata = service.getRequestMetadata(5L);
+
+		assertEquals(5L, metadata.requestId());
+		assertEquals("/api/u?x=1", metadata.line().target());
+		assertEquals("application/json", metadata.body().contentType());
+	}
+
+	@Test
+	void getRequestMetadata_unknownRequest_isNotFound() {
+		when(requestRepo.findById(5L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getRequestMetadata(5L));
+	}
+
+	@Test
+	void getRequestMetadata_missingRawRow_isNotFound() {
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(Request.of(5L)));
+		when(requestRawRepo.findById(5L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getRequestMetadata(5L));
 	}
 
 }

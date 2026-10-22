@@ -18,6 +18,7 @@ import com.automata.request.body.BodyPropertyService;
 import com.automata.request.common.dto.InternalRequestPersistanceDto;
 import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.dto.RequestFilter;
+import com.automata.request.common.dto.RequestMetadataResponse;
 import com.automata.request.comparator.ComparatorRepository;
 import com.automata.request.equalityset.RequestEqualityRelationRepository;
 import com.automata.request.equalityset.RequestEqualitySet;
@@ -83,14 +84,37 @@ public class RequestService {
 
 	}
 
-	public StoredBody getRequestBodyFile(Long requestId) {
+	@Transactional(readOnly = true)
+	public RequestMetadataResponse getRequestMetadata(Long requestId) {
 
 		Request request = this.getRequestById(requestId);
 
-		if (!request.isBodyStoredAsFile())
-			throw new EntityNotFoundException("Request has no body file");
+		RequestRaw raw = requestRawRepo.findById(requestId)
+				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
 
-		return bodyStorage.downloadRequestBody(requestId);
+		return RequestMapper.toMetadataResponse(request, raw.getRawHeadBase64());
+
+	}
+
+	// The body of the request wherever it is stored: in object storage or inline in
+	// the raw table
+	@Transactional(readOnly = true)
+	public StoredBody getRequestBody(Long requestId) {
+
+		Request request = this.getRequestById(requestId);
+
+		if (request.isBodyStoredAsFile())
+			return bodyStorage.downloadRequestBody(requestId);
+
+		RequestRaw raw = requestRawRepo.findById(requestId)
+				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+
+		if (raw.getRawBodyBase64() == null)
+			throw new EntityNotFoundException("Request has no body");
+
+		String contentType = HttpMessageUtils.contentTypeOfHead(Base64Utils.decodeToBytes(raw.getRawHeadBase64()));
+
+		return StoredBody.inline(Base64Utils.decodeToBytes(raw.getRawBodyBase64()), contentType);
 
 	}
 

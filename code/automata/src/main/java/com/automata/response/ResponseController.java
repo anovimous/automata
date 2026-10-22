@@ -27,14 +27,10 @@ public class ResponseController {
 
 	private final ResponseService responseService;
 
-	@GetMapping("/{responseId}")
-	public ResponseEntity<ResponseDto> getResponse(@PathVariable Long responseId) {
+	@GetMapping("/{responseId}/metadata")
+	public ResponseEntity<ResponseMetadataDto> getResponseMetadata(@PathVariable Long responseId) {
 
-		Response response = responseService.getResponseById(responseId);
-
-		ResponseDto responseDto = ResponseMapper.toResponseDto(response);
-
-		return ResponseEntity.ok(responseDto);
+		return ResponseEntity.ok(responseService.getResponseMetadata(responseId));
 
 	}
 
@@ -50,23 +46,23 @@ public class ResponseController {
 
 	}
 
-	@GetMapping("/{responseId}/body")
-	public ResponseEntity<InputStreamResource> downloadResponseBody(@PathVariable Long responseId) {
+	@GetMapping("/{responseId}/body/stream")
+	public ResponseEntity<InputStreamResource> streamResponseBody(@PathVariable Long responseId) {
 
-		StoredBody body = responseService.getResponseBodyFile(responseId);
+		StoredBody body = responseService.getResponseBody(responseId);
 
 		return BodyDownloads.attachment(body, "response-" + responseId);
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<ResponseDto>> getResponses(@ModelAttribute ResponseFilter filter,
+	public ResponseEntity<PageHolderResponse<ResponseSummaryDto>> getResponses(@ModelAttribute ResponseFilter filter,
 			@PageableDefault(size = 40, sort = {
 					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Response> responses = responseService.getResponsesFilteredAndPaged(filter, pageable);
 
-		Page<ResponseDto> cleanedResponses = ResponseMapper.toResponseDtoPage(responses);
+		Page<ResponseSummaryDto> cleanedResponses = ResponseMapper.toSummaryDtoPage(responses);
 
 		return ResponseEntity.ok(new PageHolderResponse<>(cleanedResponses));
 

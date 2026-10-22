@@ -24,9 +24,10 @@ import com.automata.common.dto.response.ListHolderResponse;
 import com.automata.common.dto.response.PageHolderResponse;
 import com.automata.request.common.dto.EqualizationResponse;
 import com.automata.request.common.dto.RawRequestAdditionDto;
+import com.automata.request.common.dto.RequestMetadataResponse;
 import com.automata.request.common.dto.RequestFilter;
 import com.automata.request.common.dto.RequestRawResponse;
-import com.automata.request.common.dto.RequestResponse;
+import com.automata.request.common.dto.RequestSummaryResponse;
 import com.automata.request.common.dto.RequestsEqualizationDto;
 import com.automata.request.equalityset.Equalization;
 import com.automata.request.equalityset.EqualizationMapper;
@@ -50,8 +51,15 @@ public class RequestController {
 
 	private final ResponseService responseService;
 
-	@GetMapping("/{requestId}")
-	public ResponseEntity<RequestRawResponse> getRequest(@PathVariable Long requestId) {
+	@GetMapping("/{requestId}/metadata")
+	public ResponseEntity<RequestMetadataResponse> getRequestMetadata(@PathVariable Long requestId) {
+
+		return ResponseEntity.ok(requestService.getRequestMetadata(requestId));
+
+	}
+
+	@GetMapping("/{requestId}/raw")
+	public ResponseEntity<RequestRawResponse> getRawRequest(@PathVariable Long requestId) {
 
 		RawHttpMessage rawRequest = requestService.getRawRequest(requestId);
 
@@ -64,60 +72,60 @@ public class RequestController {
 
 	}
 
-	@GetMapping("/{requestId}/body")
-	public ResponseEntity<InputStreamResource> downloadRequestBody(@PathVariable Long requestId) {
+	@GetMapping("/{requestId}/body/stream")
+	public ResponseEntity<InputStreamResource> streamRequestBody(@PathVariable Long requestId) {
 
-		StoredBody body = requestService.getRequestBodyFile(requestId);
+		StoredBody body = requestService.getRequestBody(requestId);
 
 		return BodyDownloads.attachment(body, "request-" + requestId);
 
 	}
 
 	@GetMapping("")
-	public ResponseEntity<PageHolderResponse<RequestResponse>> getRequests(@ModelAttribute RequestFilter filter,
+	public ResponseEntity<PageHolderResponse<RequestSummaryResponse>> getRequests(@ModelAttribute RequestFilter filter,
 			@PageableDefault(size = 40, sort = {
 					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Request> requests = requestService.getRequestsFilteredAndPaged(filter, pageable);
 
-		Page<RequestResponse> cleanedRequests = RequestMapper.toRequestResponseList(requests);
+		Page<RequestSummaryResponse> cleanedRequests = RequestMapper.toRequestSummaryPage(requests);
 
 		return ResponseEntity.ok(new PageHolderResponse<>(cleanedRequests));
 
 	}
 
 	@GetMapping("/equal")
-	public ResponseEntity<PageHolderResponse<RequestResponse>> getEqualRequests(@RequestParam Long equalitySetId,
+	public ResponseEntity<PageHolderResponse<RequestSummaryResponse>> getEqualRequests(@RequestParam Long equalitySetId,
 			@PageableDefault(size = 40, sort = {
 					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 
 		Page<Request> requests = requestService.getEqualRequestsPaged(equalitySetId, pageable);
 
-		Page<RequestResponse> cleanedRequests = RequestMapper.toRequestResponseList(requests);
+		Page<RequestSummaryResponse> cleanedRequests = RequestMapper.toRequestSummaryPage(requests);
 
 		return ResponseEntity.ok(new PageHolderResponse<>(cleanedRequests));
 
 	}
 
 	@PostMapping("/raw")
-	public ResponseEntity<RequestResponse> addRawRequestWithResponse(@RequestBody RawRequestAdditionDto dto) {
+	public ResponseEntity<RequestSummaryResponse> addRawRequestWithResponse(@RequestBody RawRequestAdditionDto dto) {
 
 		Request request = requestService.addRawRequestWithResponse(dto);
 
-		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
+		RequestSummaryResponse requestResponse = RequestMapper.toRequestSummaryResponse(request);
 
 		return ResponseEntity.status(201).body(requestResponse);
 	}
 
 	@PostMapping("/{requestId}/response")
-	public ResponseEntity<RequestResponse> associateExistingRequestToNewRawResponse(@PathVariable Long requestId,
+	public ResponseEntity<RequestSummaryResponse> associateExistingRequestToNewRawResponse(@PathVariable Long requestId,
 			@RequestBody RawResponseAdditionDto dto) {
 
 		Request request = requestService.getRequestById(requestId);
 
 		responseService.addResponseToRequest(dto.responseBase64(), request);
 
-		RequestResponse requestResponse = RequestMapper.toRequestResponse(request);
+		RequestSummaryResponse requestResponse = RequestMapper.toRequestSummaryResponse(request);
 
 		return ResponseEntity.ok(requestResponse);
 
