@@ -202,33 +202,98 @@ class ResponseServiceBodyStorageTest {
 		assertThrows(EntityNotFoundException.class, () -> service.getRawResponse(8L));
 	}
 
-	// getResponseBodyFile
+	// getResponseBody
+
+	private static String headOf(String contentTypeLine) {
+		return Base64Utils.encode(bytes("HTTP/1.1 200 OK\r\n" + contentTypeLine + "\r\n"));
+	}
 
 	@Test
-	void getResponseBodyFile_bodyStoredAsFile_readsFromStorage() {
+	void getResponseBody_bodyStoredAsFile_readsFromStorage() {
 		Response response = new Response();
 		response.setBodyStoredAsFile(true);
 		when(responseRepo.findById(8L)).thenReturn(Optional.of(response));
 		StoredBody stored = new StoredBody(null, "text/html", 1);
 		when(bodyStorage.downloadResponseBody(8L)).thenReturn(stored);
 
-		assertSame(stored, service.getResponseBodyFile(8L));
+		assertSame(stored, service.getResponseBody(8L));
+
+		verifyNoInteractions(responseRawRepo);
 	}
 
 	@Test
-	void getResponseBodyFile_noFile_isNotFound_withoutTouchingStorage() {
+	void getResponseBody_inlineBody_isServedFromTheRawTableWithTheHeadContentType() throws Exception {
 		when(responseRepo.findById(8L)).thenReturn(Optional.of(new Response()));
+		when(responseRawRepo.findById(8L)).thenReturn(Optional.of(
+				rawOf(false, headOf("Content-Type: application/json\r\n"), Base64Utils.encode(bytes("{\"a\":1}")))));
 
-		assertThrows(EntityNotFoundException.class, () -> service.getResponseBodyFile(8L));
+		StoredBody body = service.getResponseBody(8L);
+
+		assertEquals("application/json", body.contentType());
+		assertEquals(7, body.size());
+		assertArrayEquals(bytes("{\"a\":1}"), body.stream().readAllBytes());
+		verifyNoInteractions(bodyStorage);
+	}
+
+	@Test
+	void getResponseBody_noBody_isNotFound() {
+		when(responseRepo.findById(8L)).thenReturn(Optional.of(new Response()));
+		when(responseRawRepo.findById(8L)).thenReturn(Optional.of(rawOf(false, headOf(""), null)));
+
+		assertThrows(EntityNotFoundException.class, () -> service.getResponseBody(8L));
 
 		verifyNoInteractions(bodyStorage);
 	}
 
 	@Test
-	void getResponseBodyFile_unknownResponse_isNotFound() {
+	void getResponseBody_unknownResponse_isNotFound() {
 		when(responseRepo.findById(8L)).thenReturn(Optional.empty());
 
-		assertThrows(EntityNotFoundException.class, () -> service.getResponseBodyFile(8L));
+		assertThrows(EntityNotFoundException.class, () -> service.getResponseBody(8L));
+	}
+
+	@Test
+	void getResponseBody_missingRawRow_isNotFound() {
+		when(responseRepo.findById(8L)).thenReturn(Optional.of(new Response()));
+		when(responseRawRepo.findById(8L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getResponseBody(8L));
+	}
+
+	// getResponseMetadata
+
+	@Test
+	void getResponseMetadata_buildsTheMetadataFromTheResponseAndItsStoredHead() {
+		Response response = new Response();
+		response.setId(8L);
+		response.setStatusCode(200);
+		response.setBodyStoredAsFile(true);
+		response.setBodySizeBytes(30);
+		response.setRequest(request);
+		when(responseRepo.findById(8L)).thenReturn(Optional.of(response));
+		when(responseRawRepo.findById(8L))
+				.thenReturn(Optional.of(rawOf(true, headOf("Content-Type: text/javascript\r\n"), null)));
+
+		var metadata = service.getResponseMetadata(8L);
+
+		assertEquals(8L, metadata.responseId());
+		assertEquals("text/javascript", metadata.body().contentType());
+		assertEquals(com.automata.common.dto.BodyStorage.FILE, metadata.body().storage());
+	}
+
+	@Test
+	void getResponseMetadata_unknownResponse_isNotFound() {
+		when(responseRepo.findById(8L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getResponseMetadata(8L));
+	}
+
+	@Test
+	void getResponseMetadata_missingRawRow_isNotFound() {
+		when(responseRepo.findById(8L)).thenReturn(Optional.of(new Response()));
+		when(responseRawRepo.findById(8L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getResponseMetadata(8L));
 	}
 
 }
