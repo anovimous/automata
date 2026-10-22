@@ -8,7 +8,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import com.automata.tenant.Tenant;
 
 import org.hibernate.type.SqlTypes;
-import org.springframework.lang.Nullable;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,13 +40,6 @@ public class Authentication {
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(columnDefinition = "jsonb", nullable = false)
 	private StaticAuthData authData;
-
-	private boolean isDynamicPopulationAvailable;
-
-	@Nullable
-	@JdbcTypeCode(SqlTypes.JSON)
-	@Column(columnDefinition = "jsonb")
-	private DynamicCode code;
 
 	@OneToOne(mappedBy = "authentication")
 	private Tenant tenant;
