@@ -35,6 +35,8 @@ import com.automata.request.equalityset.RequestEqualityRelationRepository;
 import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.automata.routine.RoutineRepository;
+import com.automata.tenant.Tenant;
+import com.automata.tenant.TenantRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -55,6 +57,8 @@ class AgentContextServiceTest {
 	RequestEqualitySetRepository equalitySetRepo;
 	@Mock
 	RequestEqualityRelationRepository equalityRelationRepo;
+	@Mock
+	TenantRepository tenantRepo;
 
 	@InjectMocks
 	AgentContextService service;
@@ -74,7 +78,7 @@ class AgentContextServiceTest {
 		when(contextRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		AgentContextCreationRequest request = new AgentContextCreationRequest("ctx", "desc", 1L, false,
-				RepresentativeStrategy.LATEST, null, null, null, null, null);
+				RepresentativeStrategy.LATEST, null, null, null, null, null, null);
 
 		AgentContext ctx = service.createContext(request);
 
@@ -88,7 +92,7 @@ class AgentContextServiceTest {
 		when(hostRepo.findById(99L)).thenReturn(Optional.empty());
 
 		AgentContextCreationRequest request = new AgentContextCreationRequest("ctx", null, 99L, false,
-				RepresentativeStrategy.LATEST, null, null, null, null, null);
+				RepresentativeStrategy.LATEST, null, null, null, null, null, null);
 
 		assertThrows(EntityNotFoundException.class, () -> service.createContext(request));
 	}
@@ -458,6 +462,147 @@ class AgentContextServiceTest {
 		List<ResolvedTarget> targets = service.resolveContextTargets(1L);
 
 		assertTrue(targets.isEmpty());
+	}
+
+	// ---- tenants
+
+	private Tenant tenant(Long id, Host host) {
+		return Tenant.builder().id(id).name("t" + id).email("t" + id + "@a.com").host(host).build();
+	}
+
+	private AgentContextCreationRequest creationWithTenants(java.util.List<Long> tenantIds) {
+		return new AgentContextCreationRequest("ctx", null, 1L, false, RepresentativeStrategy.LATEST, null, null,
+				null, null, null, tenantIds);
+	}
+
+	@Test
+	void createContextWithTenantsStoresThem() {
+		Host h = host(1L);
+		when(hostRepo.findById(1L)).thenReturn(Optional.of(h));
+		when(contextRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(tenantRepo.findAllById(List.of(4L, 5L))).thenReturn(List.of(tenant(4L, h), tenant(5L, h)));
+
+		AgentContext ctx = service.createContext(creationWithTenants(List.of(4L, 5L)));
+
+		assertEquals(List.of(4L, 5L), ctx.getTenants().stream().map(Tenant::getId).toList());
+	}
+
+	@Test
+	void createContextWithoutTenantsHasNone() {
+		when(hostRepo.findById(1L)).thenReturn(Optional.of(host(1L)));
+		when(contextRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		assertTrue(service.createContext(creationWithTenants(null)).getTenants().isEmpty());
+		assertTrue(service.createContext(creationWithTenants(List.of())).getTenants().isEmpty());
+	}
+
+	@Test
+	void createContextIgnoresDuplicateTenantIds() {
+		Host h = host(1L);
+		when(hostRepo.findById(1L)).thenReturn(Optional.of(h));
+		when(contextRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		when(tenantRepo.findAllById(List.of(4L))).thenReturn(List.of(tenant(4L, h)));
+
+		AgentContext ctx = service.createContext(creationWithTenants(List.of(4L, 4L)));
+
+		assertEquals(1, ctx.getTenants().size());
+	}
+
+	@Test
+	void createContextWithUnknownTenantThrows() {
+		Host h = host(1L);
+		when(hostRepo.findById(1L)).thenReturn(Optional.of(h));
+		when(tenantRepo.findAllById(List.of(4L, 5L))).thenReturn(List.of(tenant(4L, h)));
+
+		assertThrows(EntityNotFoundException.class, () -> service.createContext(creationWithTenants(List.of(4L, 5L))));
+	}
+
+	@Test
+	void createContextWithTenantOfOtherHostThrows() {
+		Host h = host(1L);
+		when(hostRepo.findById(1L)).thenReturn(Optional.of(h));
+		when(tenantRepo.findAllById(List.of(4L))).thenReturn(List.of(tenant(4L, host(2L))));
+
+		assertThrows(IllegalArgumentException.class, () -> service.createContext(creationWithTenants(List.of(4L))));
+	}
+
+	@Test
+	void addTenantAddsItToTheContext() {
+		Host h = host(1L);
+		AgentContext ctx = AgentContext.builder().id(1L).host(h).build();
+		Tenant t = tenant(4L, h);
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		when(tenantRepo.findById(4L)).thenReturn(Optional.of(t));
+
+		service.addTenant(1L, 4L);
+
+		assertEquals(List.of(t), ctx.getTenants());
+		verify(contextRepo).save(ctx);
+	}
+
+	@Test
+	void addTenantOfOtherHostThrows() {
+		AgentContext ctx = AgentContext.builder().id(1L).host(host(1L)).build();
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		when(tenantRepo.findById(4L)).thenReturn(Optional.of(tenant(4L, host(2L))));
+
+		assertThrows(IllegalArgumentException.class, () -> service.addTenant(1L, 4L));
+		assertTrue(ctx.getTenants().isEmpty());
+	}
+
+	@Test
+	void addTenantTwiceThrows() {
+		Host h = host(1L);
+		Tenant t = tenant(4L, h);
+		AgentContext ctx = AgentContext.builder().id(1L).host(h).tenants(new java.util.ArrayList<>(List.of(t))).build();
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		when(tenantRepo.findById(4L)).thenReturn(Optional.of(t));
+
+		assertThrows(IllegalArgumentException.class, () -> service.addTenant(1L, 4L));
+		assertEquals(1, ctx.getTenants().size());
+	}
+
+	@Test
+	void addUnknownTenantThrows() {
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(AgentContext.builder().id(1L).host(host(1L)).build()));
+		when(tenantRepo.findById(4L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.addTenant(1L, 4L));
+	}
+
+	@Test
+	void addTenantToUnknownContextThrows() {
+		when(contextRepo.findById(1L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.addTenant(1L, 4L));
+	}
+
+	@Test
+	void removeTenantTakesItOutOfTheContext() {
+		Host h = host(1L);
+		AgentContext ctx = AgentContext.builder().id(1L).host(h)
+				.tenants(new java.util.ArrayList<>(List.of(tenant(4L, h), tenant(5L, h)))).build();
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+
+		service.removeTenant(1L, 4L);
+
+		assertEquals(List.of(5L), ctx.getTenants().stream().map(Tenant::getId).toList());
+		verify(contextRepo).save(ctx);
+	}
+
+	@Test
+	void removeTenantThatIsNotInTheContextThrows() {
+		AgentContext ctx = AgentContext.builder().id(1L).host(host(1L)).build();
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+
+		assertThrows(EntityNotFoundException.class, () -> service.removeTenant(1L, 4L));
+	}
+
+	@Test
+	void removeTenantOfUnknownContextThrows() {
+		when(contextRepo.findById(1L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.removeTenant(1L, 4L));
 	}
 
 }

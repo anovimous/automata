@@ -27,6 +27,8 @@ import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.automata.routine.Routine;
 import com.automata.routine.RoutineRepository;
+import com.automata.tenant.Tenant;
+import com.automata.tenant.TenantRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +46,8 @@ public class AgentContextService {
 	private final RoutineRepository routineRepo;
 
 	private final RequestRepository requestRepo;
+
+	private final TenantRepository tenantRepo;
 
 	private final RequestEqualitySetRepository equalitySetRepo;
 
@@ -80,9 +84,71 @@ public class AgentContextService {
 				.host(host).defaultAutoApproval(request.defaultAutoApproval())
 				.representativeStrategy(request.representativeStrategy()).allowedRoutines(allowedRoutines)
 				.defaultDuration(request.defaultDuration()).defaultVerbosity(request.defaultVerbosity())
-				.defaultPriority(request.defaultPriority()).maxRate(request.maxRate()).build();
+				.defaultPriority(request.defaultPriority()).maxRate(request.maxRate())
+				.tenants(this.resolveTenants(host, request.tenantIds())).build();
 
 		return contextRepo.save(context);
+
+	}
+
+	// Every tenant must exist and belong to the host of the context
+	private List<Tenant> resolveTenants(Host host, List<Long> tenantIds) {
+
+		if (tenantIds == null || tenantIds.isEmpty())
+			return new ArrayList<>();
+
+		List<Long> distinctIds = tenantIds.stream().distinct().toList();
+
+		List<Tenant> tenants = tenantRepo.findAllById(distinctIds);
+
+		if (tenants.size() != distinctIds.size())
+			throw new EntityNotFoundException("Tenant not found");
+
+		tenants.forEach(tenant -> this.requireTenantOfHost(tenant, host));
+
+		return new ArrayList<>(tenants);
+
+	}
+
+	private void requireTenantOfHost(Tenant tenant, Host host) {
+
+		if (!tenant.getHost().getId().equals(host.getId()))
+			throw new IllegalArgumentException("Tenant does not belong to the context's host");
+
+	}
+
+	@Transactional
+	public void addTenant(Long contextId, Long tenantId) {
+
+		AgentContext context = contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		Tenant tenant = tenantRepo.findById(tenantId)
+				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+
+		this.requireTenantOfHost(tenant, context.getHost());
+
+		if (context.getTenants().stream().anyMatch(t -> t.getId().equals(tenantId)))
+			throw new IllegalArgumentException("Tenant is already in this context");
+
+		context.getTenants().add(tenant);
+
+		contextRepo.save(context);
+
+	}
+
+	@Transactional
+	public void removeTenant(Long contextId, Long tenantId) {
+
+		AgentContext context = contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		boolean removed = context.getTenants().removeIf(t -> t.getId().equals(tenantId));
+
+		if (!removed)
+			throw new EntityNotFoundException("Tenant is not in this context");
+
+		contextRepo.save(context);
 
 	}
 

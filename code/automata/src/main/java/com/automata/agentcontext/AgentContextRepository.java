@@ -15,4 +15,6 @@ public interface AgentContextRepository extends JpaRepository<AgentContext, Long
 
 	Page<AgentContext> findByHostId(Long hostId, Pageable pageable);
 
+	boolean existsByTenantsId(Long tenantId);
+
 }
