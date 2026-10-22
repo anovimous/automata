@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +29,7 @@ import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.request.Request;
 import com.automata.request.RequestRepository;
+import com.automata.request.RequestTenantPair;
 import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.equalityset.Equalization;
 import com.automata.request.equalityset.RequestEqualityRelation;
@@ -603,6 +605,179 @@ class AgentContextServiceTest {
 		when(contextRepo.findById(1L)).thenReturn(Optional.empty());
 
 		assertThrows(EntityNotFoundException.class, () -> service.removeTenant(1L, 4L));
+	}
+
+	// ---- isRequestInContext / requireRequestInContext
+
+	private RequestEqualitySet setOf(Long id, Host h) {
+		return RequestEqualitySet.builder().id(id).equalization(Equalization.builder().id(5L).host(h).build())
+				.alias("s").build();
+	}
+
+	private AgentContextItem setItem(RequestEqualitySet set) {
+		return AgentContextItem.builder().itemType(AgentContextItemType.EQUALITY_SET).equalitySet(set).build();
+	}
+
+	private AgentContextItem requestItem(Long requestId) {
+		return AgentContextItem.builder().itemType(AgentContextItemType.REQUEST).request(Request.of(requestId))
+				.build();
+	}
+
+	private AgentContext contextOf(RepresentativeStrategy strategy, AgentContextItem... items) {
+		return AgentContext.builder().id(1L).host(host(1L)).representativeStrategy(strategy)
+				.items(List.of(items)).build();
+	}
+
+	@Test
+	void requestItemPutsItsRequestInTheContext() {
+		AgentContext ctx = contextOf(RepresentativeStrategy.LATEST, requestItem(10L));
+
+		assertTrue(service.isRequestInContext(ctx, 10L));
+		assertFalse(service.isRequestInContext(ctx, 11L));
+	}
+
+	@Test
+	void emptyContextHasNoRequests() {
+		assertFalse(service.isRequestInContext(contextOf(RepresentativeStrategy.LATEST), 10L));
+		assertFalse(service.isRequestInContext(contextOf(RepresentativeStrategy.AI_JUDGEMENT), 10L));
+	}
+
+	@Test
+	void latestStrategyPutsOnlyTheLatestRequestOfASetInTheContext() {
+		RequestEqualitySet set = setOf(30L, host(1L));
+		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set)).thenReturn(Request.of(20L));
+		AgentContext ctx = contextOf(RepresentativeStrategy.LATEST, setItem(set));
+
+		assertTrue(service.isRequestInContext(ctx, 20L));
+		assertFalse(service.isRequestInContext(ctx, 21L));
+		verify(equalityRelationRepo, never()).existsBySetAndRequestId(any(), any());
+	}
+
+	@Test
+	void latestStrategyWithAnEmptySetHasNoRequest() {
+		RequestEqualitySet set = setOf(30L, host(1L));
+		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set)).thenReturn(null);
+
+		assertFalse(service.isRequestInContext(contextOf(RepresentativeStrategy.LATEST, setItem(set)), 20L));
+	}
+
+	@Test
+	void aiJudgementStrategyPutsEveryRequestOfASetInTheContext() {
+		RequestEqualitySet set = setOf(30L, host(1L));
+		when(equalityRelationRepo.existsBySetAndRequestId(set, 20L)).thenReturn(true);
+		when(equalityRelationRepo.existsBySetAndRequestId(set, 21L)).thenReturn(false);
+		AgentContext ctx = contextOf(RepresentativeStrategy.AI_JUDGEMENT, setItem(set));
+
+		assertTrue(service.isRequestInContext(ctx, 20L));
+		assertFalse(service.isRequestInContext(ctx, 21L));
+		verify(equalityRelationRepo, never()).findTopBySetOrderByRequestInsertionDateDesc(any());
+	}
+
+	@Test
+	void anyOfSeveralItemsCanPutARequestInTheContext() {
+		RequestEqualitySet first = setOf(30L, host(1L));
+		RequestEqualitySet second = setOf(31L, host(1L));
+		when(equalityRelationRepo.existsBySetAndRequestId(first, 20L)).thenReturn(false);
+		when(equalityRelationRepo.existsBySetAndRequestId(second, 20L)).thenReturn(true);
+		AgentContext ctx = contextOf(RepresentativeStrategy.AI_JUDGEMENT, requestItem(10L), setItem(first),
+				setItem(second));
+
+		assertTrue(service.isRequestInContext(ctx, 20L));
+		assertTrue(service.isRequestInContext(ctx, 10L));
+	}
+
+	@Test
+	void requireRequestInContextAcceptsARequestOfTheContext() {
+		java.util.UUID uuid = java.util.UUID.randomUUID();
+		when(contextRepo.findByUuid(uuid))
+				.thenReturn(Optional.of(contextOf(RepresentativeStrategy.LATEST, requestItem(10L))));
+
+		service.requireRequestInContext(uuid, 10L);
+	}
+
+	@Test
+	void requireRequestInContextAnswersNotFoundForARequestOutsideTheContext() {
+		java.util.UUID uuid = java.util.UUID.randomUUID();
+		when(contextRepo.findByUuid(uuid))
+				.thenReturn(Optional.of(contextOf(RepresentativeStrategy.LATEST, requestItem(10L))));
+
+		assertThrows(EntityNotFoundException.class, () -> service.requireRequestInContext(uuid, 11L));
+	}
+
+	@Test
+	void requireRequestInContextOfAnUnknownContextIsNotFound() {
+		java.util.UUID uuid = java.util.UUID.randomUUID();
+		when(contextRepo.findByUuid(uuid)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.requireRequestInContext(uuid, 10L));
+	}
+
+	// ---- getContextTenants
+
+	@Test
+	void contextTenantsListEachTenantWithItsRequestsOfTheContext() {
+		Host h = host(1L);
+		Tenant alice = tenant(4L, h);
+		Tenant bob = tenant(5L, h);
+		AgentContext ctx = AgentContext.builder().id(1L).uuid(java.util.UUID.randomUUID()).host(h)
+				.representativeStrategy(RepresentativeStrategy.LATEST).tenants(List.of(alice, bob))
+				.items(List.of(requestItem(10L), requestItem(11L), requestItem(12L))).build();
+		when(contextRepo.findByUuid(ctx.getUuid())).thenReturn(Optional.of(ctx));
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		when(requestRepo.findTenantPairsByIdIn(List.of(10L, 11L, 12L))).thenReturn(List.of(
+				new RequestTenantPair(10L, 4L), new RequestTenantPair(11L, 5L), new RequestTenantPair(12L, 4L)));
+
+		var tenants = service.getContextTenants(ctx.getUuid());
+
+		assertEquals(2, tenants.size());
+		assertEquals(4L, tenants.get(0).tenantId());
+		assertEquals(List.of(10L, 12L), tenants.get(0).requestIds());
+		assertEquals(5L, tenants.get(1).tenantId());
+		assertEquals(List.of(11L), tenants.get(1).requestIds());
+	}
+
+	@Test
+	void contextTenantWithoutRequestsInTheContextHasAnEmptyList() {
+		Host h = host(1L);
+		AgentContext ctx = AgentContext.builder().id(1L).uuid(java.util.UUID.randomUUID()).host(h)
+				.representativeStrategy(RepresentativeStrategy.LATEST).tenants(List.of(tenant(4L, h)))
+				.items(List.of(requestItem(10L))).build();
+		when(contextRepo.findByUuid(ctx.getUuid())).thenReturn(Optional.of(ctx));
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		when(requestRepo.findTenantPairsByIdIn(List.of(10L))).thenReturn(List.of());
+
+		assertEquals(List.of(), service.getContextTenants(ctx.getUuid()).get(0).requestIds());
+	}
+
+	@Test
+	void contextTenantsOfAContextWithoutRequestsDoNotQueryTheRequests() {
+		Host h = host(1L);
+		AgentContext ctx = AgentContext.builder().id(1L).uuid(java.util.UUID.randomUUID()).host(h)
+				.representativeStrategy(RepresentativeStrategy.LATEST).tenants(List.of(tenant(4L, h))).build();
+		when(contextRepo.findByUuid(ctx.getUuid())).thenReturn(Optional.of(ctx));
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+
+		assertEquals(List.of(), service.getContextTenants(ctx.getUuid()).get(0).requestIds());
+
+		verify(requestRepo, never()).findTenantPairsByIdIn(any());
+	}
+
+	@Test
+	void contextWithoutTenantsHasNoTenants() {
+		AgentContext ctx = AgentContext.builder().id(1L).uuid(java.util.UUID.randomUUID()).host(host(1L))
+				.representativeStrategy(RepresentativeStrategy.LATEST).build();
+		when(contextRepo.findByUuid(ctx.getUuid())).thenReturn(Optional.of(ctx));
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+
+		assertTrue(service.getContextTenants(ctx.getUuid()).isEmpty());
+	}
+
+	@Test
+	void contextTenantsOfAnUnknownContextIsNotFound() {
+		java.util.UUID uuid = java.util.UUID.randomUUID();
+		when(contextRepo.findByUuid(uuid)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getContextTenants(uuid));
 	}
 
 }

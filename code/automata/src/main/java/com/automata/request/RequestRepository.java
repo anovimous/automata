@@ -1,5 +1,6 @@
 package com.automata.request;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 
@@ -27,6 +28,9 @@ public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpec
 	Page<Request> findByIdIn(List<Long> ids, Pageable ofSize);
 
 	boolean existsByTenant(Tenant tenant);
+
+	@Query("SELECT new com.automata.request.RequestTenantPair(r.id, r.tenant.id) FROM Request r WHERE r.id IN :ids AND r.tenant IS NOT NULL")
+	List<RequestTenantPair> findTenantPairsByIdIn(@Param("ids") Collection<Long> ids);
 
 //	@Query("""
 //			    select r.id

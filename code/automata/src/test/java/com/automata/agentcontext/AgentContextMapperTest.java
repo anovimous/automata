@@ -135,4 +135,30 @@ class AgentContextMapperTest {
 		assertEquals(List.of(), AgentContextMapper.toDetailedResponse(ctx).tenantIds());
 	}
 
+	@Test
+	void toTenantResponseCarriesTheAuthenticationAndTheRequests() {
+		com.automata.tenant.authentication.StaticAuthData authData = new com.automata.tenant.authentication.StaticAuthData();
+		com.automata.tenant.Tenant tenant = com.automata.tenant.Tenant.builder().id(4L).name("alice")
+				.email("a@a.com").authentication(
+						com.automata.tenant.authentication.Authentication.builder().authData(authData).build())
+				.build();
+
+		com.automata.agentcontext.common.dto.AgentContextTenantResponse response = AgentContextMapper
+				.toTenantResponse(tenant, List.of(10L, 12L));
+
+		assertEquals(4L, response.tenantId());
+		assertEquals("alice", response.name());
+		assertEquals("a@a.com", response.email());
+		assertEquals(authData, response.authData());
+		assertEquals(List.of(10L, 12L), response.requestIds());
+	}
+
+	@Test
+	void toTenantResponseWithoutAuthenticationHasNullAuthData() {
+		com.automata.tenant.Tenant tenant = com.automata.tenant.Tenant.builder().id(4L).name("alice")
+				.email("a@a.com").build();
+
+		assertNull(AgentContextMapper.toTenantResponse(tenant, List.of()).authData());
+	}
+
 }
