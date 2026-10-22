@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -101,7 +102,7 @@ class HttpJobCreationServiceAiJobTest {
 
 	private AiJobCreationRequest aiRequest(Duration duration, Integer rate, ResultsVerbosity verbosity,
 			Integer priority) {
-		return new AiJobCreationRequest(5L, CONTEXT_UUID, "checks the id parameter", 1L, duration, Set.of(), rate,
+		return new AiJobCreationRequest(5L, "checks the id parameter", 1L, duration, Set.of(), rate,
 				verbosity, priority, null);
 	}
 
@@ -123,7 +124,7 @@ class HttpJobCreationServiceAiJobTest {
 	}
 
 	private NarrowHttpJob createAndCapture(AiJobCreationRequest aiRequest) {
-		service.createDraftAiNarrowJob(aiRequest);
+		service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest);
 		ArgumentCaptor<HttpJob> saved = ArgumentCaptor.forClass(HttpJob.class);
 		verify(jobRepo).save(saved.capture());
 		return (NarrowHttpJob) saved.getValue();
@@ -154,11 +155,31 @@ class HttpJobCreationServiceAiJobTest {
 		assertFalse(createAndCapture(aiRequest(Duration.SHORT, null, null, null)).isApproved());
 	}
 
-	@Test
-	void jobNeedsApprovalWhenTheRequestIsNotAResolvedTargetOfTheContext() {
-		givenJobCanBeCreated(List.of());
+	private void givenOnlyTheTargetsAreResolved(List<ResolvedTarget> resolvedTargets) {
+		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(resolvedTargets);
+	}
 
-		assertFalse(createAndCapture(aiRequest(Duration.SHORT, null, null, null)).isApproved());
+	@Test
+	void requestThatIsNotAResolvedTargetOfTheContextIsNotFoundAndNothingIsSaved() {
+		givenOnlyTheTargetsAreResolved(List.of());
+
+		assertThrows(jakarta.persistence.EntityNotFoundException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, null, null, null)));
+
+		verify(jobRepo, never()).save(any(HttpJob.class));
+		verifyNoInteractions(targetSelectionService, targetConfigService, configFileService);
+	}
+
+	@Test
+	void onlyTheResolvedTargetsOfTheContextCanBeTheTarget() {
+		givenOnlyTheTargetsAreResolved(List.of(ResolvedTarget.builder().requestId(6L).autoApproval(true).build()));
+
+		assertThrows(jakarta.persistence.EntityNotFoundException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, null, null, null)));
+
+		verify(jobRepo, never()).save(any(HttpJob.class));
 	}
 
 	@Test
@@ -211,10 +232,11 @@ class HttpJobCreationServiceAiJobTest {
 	void durationIsRequiredWhenNeitherTheRequestNorTheContextGivesIt() {
 		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
 		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
 
 		assertThrows(IllegalArgumentException.class,
-				() -> service.createDraftAiNarrowJob(aiRequest(null, null, null, null)));
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(null, null, null, null)));
 
 		verify(jobRepo, never()).save(any(HttpJob.class));
 	}
@@ -224,10 +246,11 @@ class HttpJobCreationServiceAiJobTest {
 		context.setAllowedRoutines(List.of());
 		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
 		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
 
 		assertThrows(IllegalArgumentException.class,
-				() -> service.createDraftAiNarrowJob(aiRequest(Duration.SHORT, null, null, null)));
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, null, null, null)));
 
 		verify(jobRepo, never()).save(any(HttpJob.class));
 	}
@@ -237,9 +260,10 @@ class HttpJobCreationServiceAiJobTest {
 		context.setHost(Host.of(99L));
 		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
 		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
 
 		assertThrows(IneligibleJobTargetException.class,
-				() -> service.createDraftAiNarrowJob(aiRequest(Duration.SHORT, null, null, null)));
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, null, null, null)));
 
 		verify(jobRepo, never()).save(any(HttpJob.class));
 	}
@@ -250,7 +274,7 @@ class HttpJobCreationServiceAiJobTest {
 				.thenThrow(new jakarta.persistence.EntityNotFoundException("AgentContext not found"));
 
 		assertThrows(jakarta.persistence.EntityNotFoundException.class,
-				() -> service.createDraftAiNarrowJob(aiRequest(Duration.SHORT, null, null, null)));
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, null, null, null)));
 	}
 
 	// ---- requireAiJobFields
@@ -259,12 +283,11 @@ class HttpJobCreationServiceAiJobTest {
 	void everyRequiredFieldOfTheRequestIsChecked() {
 		Set<Long> none = Set.of();
 		List<AiJobCreationRequest> invalid = List.of(
-				new AiJobCreationRequest(5L, null, "goal", 1L, null, none, null, null, null, null),
-				new AiJobCreationRequest(null, CONTEXT_UUID, "goal", 1L, null, none, null, null, null, null),
-				new AiJobCreationRequest(5L, CONTEXT_UUID, "goal", null, null, none, null, null, null, null),
-				new AiJobCreationRequest(5L, CONTEXT_UUID, null, 1L, null, none, null, null, null, null),
-				new AiJobCreationRequest(5L, CONTEXT_UUID, "  ", 1L, null, none, null, null, null, null),
-				new AiJobCreationRequest(5L, CONTEXT_UUID, "goal", 1L, null, null, null, null, null, null));
+				new AiJobCreationRequest(null, "goal", 1L, null, none, null, null, null, null),
+				new AiJobCreationRequest(5L, "goal", null, null, none, null, null, null, null),
+				new AiJobCreationRequest(5L, null, 1L, null, none, null, null, null, null),
+				new AiJobCreationRequest(5L, "  ", 1L, null, none, null, null, null, null),
+				new AiJobCreationRequest(5L, "goal", 1L, null, null, null, null, null, null));
 
 		for (AiJobCreationRequest aiRequest : invalid)
 			assertThrows(IllegalArgumentException.class, () -> service.requireAiJobFields(aiRequest));
@@ -291,21 +314,23 @@ class HttpJobCreationServiceAiJobTest {
 		assertThrows(IllegalArgumentException.class, () -> service.requireRoutineAllowedInContext(other, context));
 	}
 
-	// ---- isAutoApproved
+	// ---- resolvedTargetOfContext
 
 	@Test
-	void autoApprovalOfTheResolvedTargetIsUsed() {
-		when(agentContextService.resolveContextTargets(9L))
-				.thenReturn(List.of(ResolvedTarget.builder().requestId(6L).autoApproval(false).build(), target(true)));
+	void resolvedTargetOfTheRequestIsReturned() {
+		ResolvedTarget wanted = target(true);
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(
+				List.of(ResolvedTarget.builder().requestId(6L).autoApproval(false).build(), wanted));
 
-		assertTrue(service.isAutoApproved(context, 5L));
+		assertSame(wanted, service.resolvedTargetOfContext(context, 5L));
 	}
 
 	@Test
-	void aRequestThatIsNotAResolvedTargetIsNotAutoApproved() {
+	void requestWithoutAResolvedTargetIsNotFound() {
 		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
 
-		assertFalse(service.isAutoApproved(context, 77L));
+		assertThrows(jakarta.persistence.EntityNotFoundException.class,
+				() -> service.resolvedTargetOfContext(context, 77L));
 	}
 
 	// ---- cappedRate

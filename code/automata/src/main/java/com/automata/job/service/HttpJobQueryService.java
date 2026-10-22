@@ -1,5 +1,7 @@
 package com.automata.job.service;
 
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -9,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.automata.job.api.dto.HttpJobFilter;
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.HttpJob;
+import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.JobResultFile;
@@ -33,6 +36,21 @@ public class HttpJobQueryService {
 	public HttpJob getJob(Long jobId) {
 
 		return jobRepo.findById(jobId).orElseThrow(() -> new EntityNotFoundException("Job not found"));
+
+	}
+
+	// The job when it is an AI job of the given context. Any other job, the jobs of
+	// other contexts and the jobs of users included, answers as if it did not exist.
+	@Transactional(readOnly = true)
+	public HttpJob getJobOfContext(UUID contextUuid, Long jobId) {
+
+		HttpJob job = this.getJob(jobId);
+
+		if (job.getCreatedBy() != JobCreator.AI || job.getAgentContext() == null
+				|| !job.getAgentContext().getUuid().equals(contextUuid))
+			throw new EntityNotFoundException("Job not found");
+
+		return job;
 
 	}
 

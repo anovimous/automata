@@ -109,11 +109,13 @@ class HttpJobCreationServiceCustomConfigValidationTest {
 		when(agentContextService.getContextByUuid(contextUuid)).thenReturn(context);
 		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
+		when(agentContextService.resolveContextTargets(context.getId())).thenReturn(
+				List.of(com.automata.agentcontext.common.dto.ResolvedTarget.builder().requestId(5L).build()));
 		doThrow(invalid).when(customConfigValidator).validate(routine, CUSTOM_CONFIG);
-		AiJobCreationRequest aiRequest = new AiJobCreationRequest(5L, contextUuid, "goal", 1L, Duration.SHORT, Set.of(),
+		AiJobCreationRequest aiRequest = new AiJobCreationRequest(5L, "goal", 1L, Duration.SHORT, Set.of(),
 				null, null, null, CUSTOM_CONFIG);
 
-		assertThrows(InvalidCustomConfigException.class, () -> service.createDraftAiNarrowJob(aiRequest));
+		assertThrows(InvalidCustomConfigException.class, () -> service.createDraftAiNarrowJob(contextUuid, aiRequest));
 
 		verify(jobRepo, never()).save(any(HttpJob.class));
 		verifyNoInteractions(targetSelectionService, targetConfigService, configFileService);
