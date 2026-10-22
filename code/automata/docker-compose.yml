@@ -63,13 +63,20 @@ services:
     depends_on:
       rustfs:
         condition: service_healthy
+    environment:
+      REQUEST_BODIES_BUCKET: request-bodies
+      RESPONSE_BODIES_BUCKET: response-bodies
     entrypoint: >
       /bin/sh -c "
         mc alias set rustfs http://rustfs:9000 automata OjN86GXh6bLX9ltp &&
         mc mb --ignore-existing rustfs/job-configuration &&
         mc anonymous set public rustfs/job-configuration &&
         mc mb --ignore-existing rustfs/job-results &&
-        mc anonymous set public rustfs/job-results
+        mc anonymous set public rustfs/job-results &&
+        mc mb --ignore-existing rustfs/$${REQUEST_BODIES_BUCKET} &&
+        mc anonymous set public rustfs/$${REQUEST_BODIES_BUCKET} &&
+        mc mb --ignore-existing rustfs/$${RESPONSE_BODIES_BUCKET} &&
+        mc anonymous set public rustfs/$${RESPONSE_BODIES_BUCKET}
       "
 
   app:
@@ -96,6 +103,10 @@ services:
       RUSTFS_ACCESS_KEY: automata
       RUSTFS_SECRET_KEY: OjN86GXh6bLX9ltp
       RUSTFS_REGION: us-east-1
+
+      # Buckets for request / response bodies stored as files (created by rustfs-init)
+      REQUEST_BODIES_BUCKET: request-bodies
+      RESPONSE_BODIES_BUCKET: response-bodies
 
       # Tmp storage for job config files
       TMP_FILES_PATH: /app/files

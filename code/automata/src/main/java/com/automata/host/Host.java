@@ -1,8 +1,11 @@
 package com.automata.host;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import com.automata.host.common.enums.Scope;
 import com.automata.program.Program;
@@ -60,5 +63,13 @@ public class Host {
 
 	@ManyToOne
 	private Program program;
+
+	private String description;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "jsonb")
+	private List<String> technologies;
+
+	private String notes;
 
 }

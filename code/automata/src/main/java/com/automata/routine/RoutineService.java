@@ -43,6 +43,9 @@ public class RoutineService {
 	@Transactional
 	public Routine createRoutine(Routine toBeCreatedRoutine, Long vulnId) {
 
+		if (toBeCreatedRoutine.getResultContentType() == null)
+			throw new IllegalArgumentException("resultContentType is required");
+
 		Vulnerability vulnerability = null;
 
 		if (vulnId != null)
@@ -74,6 +77,11 @@ public class RoutineService {
 			routine.setAllowedTargets(patchRequest.allowedTargets());
 
 		patchRequest.protocol().ifPresent(routine::setProtocol);
+
+		if (patchRequest.setConfigSchemaNull())
+			routine.setConfigSchema(null);
+		else
+			patchRequest.configSchema().ifPresent(routine::setConfigSchema);
 
 		if (patchRequest.setVulnerabilityNull())
 			routine.setVulnerability(null);

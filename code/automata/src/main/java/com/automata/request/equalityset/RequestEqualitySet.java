@@ -32,4 +32,7 @@ public class RequestEqualitySet {
 	@ManyToOne(optional = false)
 	private Equalization equalization;
 
+	@Builder.Default
+	private boolean autoApproval = false;
+
 }

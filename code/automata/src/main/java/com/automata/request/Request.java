@@ -65,13 +65,19 @@ public class Request {
 	// Includes the Protocol
 	private String version;
 
-	// This is automatically set, equals bodyProperties.length()-1
+	// This is automatically set, equals the number of body properties
 	private int numberOfProperties;
 
-	// For now, request will only support JSON and POST form data
+	// Any content type is accepted, but detailed body properties are only stored for
+	// JSON and FORM bodies
 
 	@Enumerated(EnumType.STRING)
 	private RequestContentType contentType;
+
+	// True when the body is kept in object storage (and not in the raw table)
+	private boolean bodyStoredAsFile;
+
+	private long bodySizeBytes;
 
 	@Column(nullable = false)
 	@Enumerated(EnumType.STRING)

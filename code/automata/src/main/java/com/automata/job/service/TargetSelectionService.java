@@ -1,15 +1,10 @@
 package com.automata.job.service;
 
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.host.HostRepository;
-import com.automata.job.domain.model.embedded.MultipleEqualitySetsSelector;
 import com.automata.job.domain.model.embedded.MultipleHostsSelector;
 import com.automata.job.domain.model.embedded.MultipleRequestsSelector;
-import com.automata.job.domain.model.embedded.SingleEqualitySetSelector;
 import com.automata.job.domain.model.embedded.SingleHostSelector;
 import com.automata.job.domain.model.embedded.SingleRequestSelector;
 import com.automata.job.domain.model.embedded.TargetSelector;
@@ -17,8 +12,8 @@ import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.valueobject.TargetSelectionResult;
 import com.automata.request.Request;
 import com.automata.request.RequestRepository;
-import com.automata.request.equalityset.RequestEqualityRelationRepository;
-import com.automata.request.equalityset.RequestEqualitySetRepository;
+import com.automata.job.utils.HttpJobUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -32,10 +27,6 @@ public class TargetSelectionService {
 
 	private final RequestRepository requestRepo;
 
-	private final RequestEqualitySetRepository equalitySetRepo;
-
-	private final RequestEqualityRelationRepository requestEqualityRelationRepo;
-
 	public TargetSelectionResult handleTargetSelector(TargetSelector selector) {
 
 		ObjectMapper mapper = new ObjectMapper();
@@ -48,17 +39,13 @@ public class TargetSelectionService {
 				this.handleSingleHostSelector(mapper.treeToValue(selector.getSelector(), SingleHostSelector.class));
 			case SelectorType.SINGLE_REQUEST -> this.handleSingleRequestSelector(
 					mapper.treeToValue(selector.getSelector(), SingleRequestSelector.class));
-			case SelectorType.SINGLE_EQUALITY_SET -> this.handleSingleEqualitySetSelector(
-					mapper.treeToValue(selector.getSelector(), SingleEqualitySetSelector.class));
 			case SelectorType.MULTIPLE_HOSTS -> this.handleMultipleHostsSelector(
 					mapper.treeToValue(selector.getSelector(), MultipleHostsSelector.class));
 			case SelectorType.MULTIPLE_REQUESTS -> this.handleMultipleRequestsSelector(
 					mapper.treeToValue(selector.getSelector(), MultipleRequestsSelector.class));
-			case SelectorType.MULTIPLE_EQUALITY_SETS -> this.handleMultipleEqualitySetsSelector(
-					mapper.treeToValue(selector.getSelector(), MultipleEqualitySetsSelector.class));
 			default -> throw new IllegalArgumentException("Illegal selector");
 			};
-		} catch (Exception e) {
+		} catch (JsonProcessingException e) {
 			throw new IllegalArgumentException(e.getMessage());
 		}
 
@@ -73,7 +60,7 @@ public class TargetSelectionService {
 		boolean exists = hostRepo.existsById(hostId);
 
 		if (exists)
-			return TargetSelectionResult.builder().hostId(hostId).build();
+			return new TargetSelectionResult.SingleHost(hostId);
 		else
 			throw new EntityNotFoundException("Host not found based on the given selector");
 
@@ -83,49 +70,24 @@ public class TargetSelectionService {
 
 		Long requestId = selector.getRequestId();
 
-		boolean exists = requestRepo.existsById(requestId);
+		Request request = requestRepo.findById(requestId)
+				.orElseThrow(() -> new EntityNotFoundException("Request can't be found based on the given selector"));
 
-		if (exists)
-			return TargetSelectionResult.builder().requestId(requestId).build();
-		else
-			throw new EntityNotFoundException("Request can't be found based on the given selector");
+		HttpJobUtils.requireJobEligible(request);
 
-	}
-
-	@Transactional
-	private TargetSelectionResult handleSingleEqualitySetSelector(SingleEqualitySetSelector selector) {
-
-		Long equalitySetId = selector.getEqualitySetId();
-
-		boolean exists = equalitySetRepo.existsById(equalitySetId);
-
-		if (!exists)
-			throw new EntityNotFoundException("EqualitySet can't be found based on the given selector");
-
-		Request req = requestEqualityRelationRepo
-				.findAllInSet(equalitySetRepo.getReferenceById(equalitySetId),
-						PageRequest.of(0, 1, Sort.by("insertionDate").descending()))
-				.stream().findFirst()
-				.orElseThrow(() -> new RuntimeException("Illegal equality set, no requests attached to it"));
-
-		return TargetSelectionResult.builder().requestId(req.getId()).build();
-
-	}
-
-	private TargetSelectionResult handleMultipleEqualitySetsSelector(MultipleEqualitySetsSelector selector) {
-//TODO
-		throw new RuntimeException("Not implemented yet");
+		// the host is already loaded together with the request, so this costs no query
+		return new TargetSelectionResult.SingleRequest(requestId, request.getHost().getId());
 
 	}
 
 	private TargetSelectionResult handleMultipleRequestsSelector(MultipleRequestsSelector selector) {
 //TODO
-		throw new RuntimeException("Not implemented yet");
+		throw new UnsupportedOperationException("Not implemented yet");
 	}
 
 	private TargetSelectionResult handleMultipleHostsSelector(MultipleHostsSelector selector) {
 //TODO
-		throw new RuntimeException("Not implemented yet");
+		throw new UnsupportedOperationException("Not implemented yet");
 	}
 
 }

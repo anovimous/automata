@@ -18,7 +18,11 @@ import com.automata.job.domain.model.embedded.WideTargetConfig;
 import com.automata.job.repository.HttpJobRepository;
 import com.automata.job.repository.NarrowJobTargetRequestRepository;
 import com.automata.job.repository.WideJobTargetHostRepository;
+import com.automata.job.utils.HttpJobUtils;
 import com.automata.request.Request;
+import com.automata.request.RequestRepository;
+
+import jakarta.persistence.EntityNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,6 +33,8 @@ public class JobTargetConfigService {
 	private final HttpJobRepository jobRepo;
 
 	private final HostRepository hostRepo;
+
+	private final RequestRepository requestRepo;
 
 	private final NarrowJobTargetRequestRepository jobTargetRequestRepo;
 
@@ -49,6 +55,13 @@ public class JobTargetConfigService {
 
 	@Transactional
 	public NarrowHttpJob configureRequestsAsTarget(NarrowHttpJob newlyPersistedJob, Set<Long> requestsIds) {
+
+		List<Request> requests = requestRepo.findAllById(requestsIds);
+
+		if (requests.size() != requestsIds.size())
+			throw new EntityNotFoundException("Some of the target requests can't be found");
+
+		requests.forEach(HttpJobUtils::requireJobEligible);
 
 		List<NarrowJobTargetRequest> jobTargetRequestRelations = requestsIds.stream()
 				.map((requestId) -> NarrowJobTargetRequest.of(newlyPersistedJob, Request.of(requestId)))

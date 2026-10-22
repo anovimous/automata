@@ -35,5 +35,18 @@ public class RequestParseResult {
 	@Builder.Default
 	private List<Header> headers = new ArrayList<>();
 
+	// The raw message split into its head (start line + headers) and its body
+	private byte[] rawHead;
+
+	@Builder.Default
+	private byte[] rawBody = new byte[0];
+
+	// True when the body goes to object storage instead of the raw table
+	private boolean bodyStoredAsFile;
+
+	// The Content-Type header value as received (boundary included), only set when
+	// there is a body
+	private String bodyContentType;
+
 	private ValidationResult validationResult;
 }

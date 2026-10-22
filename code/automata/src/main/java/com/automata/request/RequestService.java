@@ -1,7 +1,5 @@
 package com.automata.request;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -10,31 +8,29 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.automata.common.dto.RawHttpMessage;
 import com.automata.common.utils.Base64Utils;
+import com.automata.common.utils.HttpMessageUtils;
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
-import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.request.body.BodyProperty;
-import com.automata.request.body.BodyPropertyRepository;
 import com.automata.request.body.BodyPropertyService;
-import com.automata.request.common.dto.BodyPropertyInternalDto;
 import com.automata.request.common.dto.InternalRequestPersistanceDto;
-import com.automata.request.common.dto.PathVariableInternalDto;
-import com.automata.request.common.dto.QueryParameterInternalDto;
 import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.dto.RequestFilter;
-import com.automata.request.common.dto.RequestPatchDto;
+import com.automata.request.common.dto.RequestMetadataResponse;
 import com.automata.request.comparator.ComparatorRepository;
 import com.automata.request.equalityset.RequestEqualityRelationRepository;
 import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.automata.request.header.HeaderService;
 import com.automata.request.parameter.QueryParameter;
-import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.parameter.QueryParameterService;
 import com.automata.request.path.PathService;
 import com.automata.request.path.PathVariable;
-import com.automata.request.path.PathVariableRepository;
+import com.automata.response.ResponseService;
+import com.automata.storage.BodyObjectStorage;
+import com.automata.storage.StoredBody;
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
 
@@ -55,11 +51,11 @@ public class RequestService {
 
 	private final ComparatorRepository comparatorRepo;
 
-	private final PathVariableRepository pathVariableRepo;
+	private final RequestRawRepository requestRawRepo;
 
-	private final QueryParameterRepository queryParameterRepo;
+	private final ResponseService responseService;
 
-	private final BodyPropertyRepository bodyPropertyRepo;
+	private final BodyObjectStorage bodyStorage;
 
 	private final RequestEqualityRelationRepository equalityRelationRepo;
 
@@ -78,36 +74,47 @@ public class RequestService {
 	}
 
 	@Transactional(readOnly = true)
-	public String getRawRequestBase64(Long requestId) {
+	public RawHttpMessage getRawRequest(Long requestId) {
 
-		Request request = requestRepo.findById(requestId)
+		RequestRaw raw = requestRawRepo.findById(requestId)
 				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
 
-		RequestInternalDto dto = RequestInternalDto.builder().requestId(requestId).method(request.getMethod())
-				.computatedPath(request.getComputatedPath()).version(request.getVersion())
-				.extension(request.getExtension()).numberOfProperties(request.getNumberOfProperties())
-				.contentType(request.getContentType()).source(request.getSource()).build();
+		return new RawHttpMessage(raw.getRawHeadBase64(), raw.getRawBodyBase64(),
+				raw.getRequest().isBodyStoredAsFile());
 
-		List<Long> ids = List.of(request.getId());
+	}
 
-		List<PathVariableInternalDto> pathVariables = pathVariableRepo.getPathVariableDtosOfRequests(ids);
+	@Transactional(readOnly = true)
+	public RequestMetadataResponse getRequestMetadata(Long requestId) {
 
-		List<QueryParameterInternalDto> queryParameters = queryParameterRepo.getQueryParameterDtosByRequestsIds(ids);
+		Request request = this.getRequestById(requestId);
 
-		List<BodyPropertyInternalDto> bodyProperties = bodyPropertyRepo.getBodyPropertyDtosByRequestsIds(ids);
+		RequestRaw raw = requestRawRepo.findById(requestId)
+				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
 
-		dto.setPathVariableDtos(pathVariables);
+		return RequestMapper.toMetadataResponse(request, raw.getRawHeadBase64());
 
-		dto.setQueryParameterDtos(queryParameters);
+	}
 
-		dto.setBodyPropertyDtos(bodyProperties);
+	// The body of the request wherever it is stored: in object storage or inline in
+	// the raw table
+	@Transactional(readOnly = true)
+	public StoredBody getRequestBody(Long requestId) {
 
-		String host = request.getHost().getHost();
+		Request request = this.getRequestById(requestId);
 
-		String rawRequest = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, host),
-				request.getVersion());
+		if (request.isBodyStoredAsFile())
+			return bodyStorage.downloadRequestBody(requestId);
 
-		return Base64.getEncoder().encodeToString(rawRequest.getBytes(StandardCharsets.UTF_8));
+		RequestRaw raw = requestRawRepo.findById(requestId)
+				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+
+		if (raw.getRawBodyBase64() == null)
+			throw new EntityNotFoundException("Request has no body");
+
+		String contentType = HttpMessageUtils.contentTypeOfHead(Base64Utils.decodeToBytes(raw.getRawHeadBase64()));
+
+		return StoredBody.inline(Base64Utils.decodeToBytes(raw.getRawBodyBase64()), contentType);
 
 	}
 
@@ -131,6 +138,18 @@ public class RequestService {
 
 	}
 
+	// Request and response (with their raw forms) are persisted together
+	@Transactional
+	public Request addRawRequestWithResponse(RawRequestAdditionDto dto) {
+
+		Request request = this.addRawRequest(dto);
+
+		responseService.addResponseToRequest(dto.responseBase64(), request);
+
+		return request;
+
+	}
+
 	@Transactional
 	public Request addRawRequest(RawRequestAdditionDto dto) {
 
@@ -141,7 +160,7 @@ public class RequestService {
 			tenant = tenantRepo.findById(dto.tenantId())
 					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
-		String rawRequest = Base64Utils.decode(dto.requestBase64());
+		byte[] rawRequest = Base64Utils.decodeToBytes(dto.requestBase64());
 
 		RequestParseResult parseResult = RequestUtils.parseRawRequest(rawRequest);
 
@@ -160,53 +179,14 @@ public class RequestService {
 
 		Request persistedRequest = this.internalPersistRequest(internalDto);
 
+		requestRawRepo.save(new RequestRaw(persistedRequest, Base64Utils.encode(parseResult.getRawHead()),
+				HttpMessageUtils.encodeInlineBody(parseResult.getRawBody(), parseResult.isBodyStoredAsFile())));
+
+		if (parseResult.isBodyStoredAsFile())
+			bodyStorage.storeRequestBody(persistedRequest.getId(), parseResult.getRawBody(),
+					parseResult.getBodyContentType());
+
 		return persistedRequest;
-
-	}
-
-	@Transactional
-	public Request patchRequest(Long requestId, RequestPatchDto dto) {
-
-		throw new RuntimeException("Patch operation is not implemented yet");
-
-//		Request request = requestRepo.findById(requestId)
-//				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
-//
-//		if (narrowJobTargetRequestRepo.existsByTargetRequestId(requestId))
-//			throw new IllegalArgumentException("Updating a request which is associated with a job is not allowed");
-//
-//		if (equalitySetRepo.existsByRequests_Id(requestId))
-//			throw new RuntimeException("Request can't be modified if it exists in an equalityset");
-//
-//		dto.method().ifPresent(request::setMethod);
-//
-//		dto.source().ifPresent(request::setSource);
-//
-//		dto.tenantId().ifPresent((tenantId) -> {
-//
-//			Tenant tenant = tenantRepo.findById(tenantId)
-//					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
-//
-//			request.setTenant(tenant);
-//
-//		});
-//
-//		dto.path().ifPresentOrElse(path -> pathService.updatePath(request, path), () -> {
-//			dto.extension().ifPresent(request::setExtension);
-//		});
-//
-//		dto.queryStringBase64().ifPresent(queryStringBase64 -> queryParameterService
-//				.updateQueryParametersProvidedQueryString(request, Base64Utils.decode(queryStringBase64)));
-//
-//		if (dto.bodyBase64().isPresent() && dto.contentType().isPresent())
-//			bodyService.updateBodyProvidedRaw(request, Base64Utils.decode(dto.bodyBase64().get()));
-//		else {
-//			if (dto.bodyBase64().isPresent() || dto.contentType().isPresent())
-//				throw new IllegalArgumentException(
-//						"Body and contentType must be provided in conjunction with each other");
-//		}
-//
-//		return request;
 
 	}
 
@@ -237,6 +217,13 @@ public class RequestService {
 		request.setComputatedPath(internalDto.getRequestParseResult().getPathParseResult().getComputatedPath());
 
 		request.setExtension(internalDto.getRequestParseResult().getPathParseResult().getExtension());
+
+		request.setNumberOfProperties(
+				internalDto.getRequestParseResult().getBodyParseResult().getBodyProperties().size());
+
+		request.setBodyStoredAsFile(internalDto.getRequestParseResult().isBodyStoredAsFile());
+
+		request.setBodySizeBytes(internalDto.getRequestParseResult().getRawBody().length);
 
 		request.setProgram(internalDto.getProgram());
 

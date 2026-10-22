@@ -1,6 +1,7 @@
 package com.automata.job.infra;
 
 import java.io.BufferedWriter;
+import java.io.Closeable;
 import java.io.FileWriter;
 import java.io.IOException;
 
@@ -12,13 +13,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 
 @Getter
-public class JobDataJsonLinesWriter {
+public class JobDataJsonLinesWriter implements Closeable {
 
 	public JobDataJsonLinesWriter(String fileLocation) throws IOException {
 
 		this.fileLocation = fileLocation;
 
-		this.writer = new BufferedWriter(new FileWriter(fileLocation, true));
+		this.writer = new BufferedWriter(new FileWriter(fileLocation));
 
 		this.mapper = new ObjectMapper();
 
@@ -28,7 +29,7 @@ public class JobDataJsonLinesWriter {
 
 		this.fileLocation = fileLocation;
 
-		this.writer = new BufferedWriter(new FileWriter(fileLocation, true));
+		this.writer = new BufferedWriter(new FileWriter(fileLocation));
 
 		this.mapper = mapper;
 
@@ -57,7 +58,12 @@ public class JobDataJsonLinesWriter {
 	}
 	
 	public void flushAndClose() throws IOException {
-		writer.flush();
+		close();
+	}
+
+	// closing the buffered writer flushes it, and closing it again does nothing
+	@Override
+	public void close() throws IOException {
 		writer.close();
 	}
 	

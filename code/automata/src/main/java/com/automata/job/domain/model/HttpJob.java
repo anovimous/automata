@@ -6,7 +6,9 @@ import java.util.List;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.automata.agentcontext.AgentContext;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
+import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.program.Program;
 import com.automata.routine.Routine;
 import com.automata.wordlist.Wordlist;
@@ -15,6 +17,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -22,6 +27,7 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -39,6 +45,11 @@ public abstract class HttpJob {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+
+	// makes a write based on a stale copy of the job fail instead of overwriting
+	// what was written in between
+	@Version
+	private Long version;
 
 	@CreationTimestamp
 	@Column(nullable = false, updatable = false)
@@ -58,5 +69,21 @@ public abstract class HttpJob {
 
 	@ManyToMany
 	private List<Wordlist> wordlists = new ArrayList<>();
+
+	private String aiDescription;
+
+	private String aiResult;
+
+	@Column(nullable = false)
+	@Enumerated(EnumType.STRING)
+	@lombok.Builder.Default
+	private JobCreator createdBy = JobCreator.USER;
+
+	@Column(nullable = false)
+	@lombok.Builder.Default
+	private boolean approved = true;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	private AgentContext agentContext;
 
 }

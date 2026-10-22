@@ -8,11 +8,32 @@ import com.automata.job.api.dto.HttpJobFilter;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.enums.HttpJobScope;
+import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
+import com.automata.job.domain.exception.IneligibleJobTargetException;
+import com.automata.request.Request;
+import com.automata.request.common.enums.RequestContentType;
 
 import jakarta.persistence.criteria.Root;
 
 public abstract class HttpJobUtils {
+
+	// A request can be a job target when it can be rebuilt from its detailed components: it has
+	// no body at all, or its body is JSON or FORM (the only bodies with BodyProperty rows)
+	public static boolean isJobEligible(RequestContentType contentType, long bodySizeBytes) {
+		if (bodySizeBytes == 0)
+			return true;
+		return contentType == RequestContentType.JSON || contentType == RequestContentType.FORM;
+	}
+
+	public static boolean isJobEligible(Request request) {
+		return isJobEligible(request.getContentType(), request.getBodySizeBytes());
+	}
+
+	public static void requireJobEligible(Request request) {
+		if (!isJobEligible(request))
+			throw IneligibleJobTargetException.forRequest(request.getId(), request.getContentType());
+	}
 
 	public static Specification<HttpJob> buildSpecification(HttpJobFilter filter) {
 		if (filter.hostId() != null) {
@@ -21,13 +42,15 @@ public abstract class HttpJobUtils {
 
 		return Specification.<HttpJob>unrestricted().and(hasProgramId(filter.programId()))
 				.and(hasRoutineId(filter.routineId())).and(hasScope(filter.scope()))
-				.and(hasCurrentStates(filter.currentStates()));
+				.and(hasCurrentStates(filter.currentStates())).and(hasCreatedBy(filter.createdBy()))
+				.and(hasAgentContextId(filter.agentContextId()));
 	}
 
 	private static Specification<HttpJob> buildNarrowSpecification(HttpJobFilter filter) {
 		return Specification.<HttpJob>unrestricted().and(hasProgramId(filter.programId()))
 				.and(hasRoutineId(filter.routineId())).and(hasScope(filter.scope()))
-				.and(hasCurrentStates(filter.currentStates())).and(hasHostId(filter.hostId()));
+				.and(hasCurrentStates(filter.currentStates())).and(hasHostId(filter.hostId()))
+				.and(hasCreatedBy(filter.createdBy())).and(hasAgentContextId(filter.agentContextId()));
 	}
 
 	private static Specification<HttpJob> hasHostId(Long hostId) {
@@ -55,6 +78,15 @@ public abstract class HttpJobUtils {
 	private static Specification<HttpJob> hasCurrentStates(Set<JobState> currentStates) {
 		return (root, query, cb) -> currentStates == null || currentStates.isEmpty() ? null
 				: root.get("genericDetails").get("currentState").in(currentStates);
+	}
+
+	private static Specification<HttpJob> hasAgentContextId(Long agentContextId) {
+		return (root, query, cb) -> agentContextId == null ? null
+				: cb.equal(root.get("agentContext").get("id"), agentContextId);
+	}
+
+	private static Specification<HttpJob> hasCreatedBy(JobCreator createdBy) {
+		return (root, query, cb) -> createdBy == null ? null : cb.equal(root.get("createdBy"), createdBy);
 	}
 
 }

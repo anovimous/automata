@@ -29,6 +29,7 @@ public class RequestInternalDto {
 	private final String version;
 	private final int numberOfProperties;
 	private final RequestContentType contentType;
+	private final long bodySizeBytes;
 	private final Source source;
 	private List<PathVariableInternalDto> pathVariableDtos;
 	private List<QueryParameterInternalDto> queryParameterDtos;

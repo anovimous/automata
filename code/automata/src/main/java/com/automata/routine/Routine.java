@@ -11,8 +11,10 @@ import org.hibernate.type.SqlTypes;
 
 import com.automata.routine.common.enums.Overhead;
 import com.automata.routine.common.enums.Protocol;
+import com.automata.routine.common.enums.ResultContentType;
 import com.automata.routine.common.enums.TargetCardinalityPair;
 import com.automata.vulnerability.Vulnerability;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -60,6 +62,14 @@ public class Routine {
 	@JdbcTypeCode(SqlTypes.JSON)
 	@Column(columnDefinition = "jsonb", nullable = false)
 	private Set<TargetCardinalityPair> allowedTargets;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(columnDefinition = "jsonb")
+	private JsonNode configSchema;
+
+	@Column(nullable = false)
+	@Enumerated(EnumType.STRING)
+	private ResultContentType resultContentType;
 
 	@ManyToOne
 	private Vulnerability vulnerability;

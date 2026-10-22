@@ -50,6 +50,29 @@ public class RequestEqualityService {
 
 	private final HashStrategyResolver resolver;
 
+	public RequestEqualitySet getEqualitySet(Long setId) {
+
+		return equalitySetRepo.findById(setId)
+				.orElseThrow(() -> new EntityNotFoundException("Equality set not found"));
+
+	}
+
+	@Transactional
+	public RequestEqualitySet patchEqualitySet(Long setId, String alias, Boolean autoApproval) {
+
+		RequestEqualitySet set = equalitySetRepo.findById(setId)
+				.orElseThrow(() -> new EntityNotFoundException("Equality set not found"));
+
+		if (alias != null)
+			set.setAlias(alias);
+
+		if (autoApproval != null)
+			set.setAutoApproval(autoApproval);
+
+		return equalitySetRepo.save(set);
+
+	}
+
 	public List<Equalization> getEqualizations(Long hostId) {
 
 		Host host = hostRepo.findById(hostId).orElseThrow(() -> new EntityNotFoundException("Host not found"));

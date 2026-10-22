@@ -58,7 +58,7 @@ public class JobDetailsService {
 		}
 
 		Set<String> wordlistsPaths = httpJobRepo.findWordlistPathsByJobId(job.getId());
-		log.info("Wordlist paths  size in jobDetailsService:" + wordlistsPaths.size());
+		log.debug("Job {} uses {} wordlists", job.getId(), wordlistsPaths.size());
 		return JobDetailsFileContainer.builder().jobId(job.getId()).rate(job.getGenericDetails().getRate())
 				.verbosity(job.getGenericDetails().getVerbosity()).targetType(targetType).routineKey(routine.getKey())
 				.auth(authData).wordlistsPaths(wordlistsPaths).customConfig(job.getGenericDetails().getCustomConfig())
