@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.automata.agentcontext.common.dto.AgentContextTenantResponse;
 import com.automata.agentcontext.common.dto.ResolvedTarget;
 import com.automata.common.dto.RawHttpMessage;
+import com.automata.host.HostMapper;
+import com.automata.host.common.dto.HostDetailedResponse;
 import com.automata.request.RequestMapper;
 import com.automata.request.RequestService;
 import com.automata.request.common.dto.RequestMetadataResponse;
@@ -47,6 +49,13 @@ public class AgentContextReadController {
 		Long contextId = contextService.getContextByUuid(uuid).getId();
 
 		return ResponseEntity.ok(contextService.resolveContextTargets(contextId));
+
+	}
+
+	@GetMapping("/host")
+	public ResponseEntity<HostDetailedResponse> getHost(@PathVariable UUID uuid) {
+
+		return ResponseEntity.ok(HostMapper.toDetailedResponse(contextService.getContextHost(uuid)));
 
 	}
 

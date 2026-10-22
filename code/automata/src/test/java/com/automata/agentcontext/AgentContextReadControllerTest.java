@@ -266,4 +266,33 @@ class AgentContextReadControllerTest {
 		mvc.perform(get(BASE + "/tenants")).andExpect(status().isNotFound());
 	}
 
+	// host
+
+	@Test
+	void host_isTheHostOfTheContext() throws Exception {
+		com.automata.host.Host host = com.automata.host.Host.of(3L);
+		host.setHost("api.example.com");
+		host.setDescription("main api");
+		host.setTechnologies(List.of("nginx", "spring"));
+		host.setNotes("rate limited");
+		com.automata.program.Program program = new com.automata.program.Program();
+		program.setId(2L);
+		host.setProgram(program);
+		when(contextService.getContextHost(UUID_OF_CONTEXT)).thenReturn(host);
+
+		mvc.perform(get(BASE + "/host")).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(3))
+				.andExpect(jsonPath("$.host").value("api.example.com"))
+				.andExpect(jsonPath("$.programId").value(2)).andExpect(jsonPath("$.description").value("main api"))
+				.andExpect(jsonPath("$.technologies[1]").value("spring"))
+				.andExpect(jsonPath("$.notes").value("rate limited"));
+	}
+
+	@Test
+	void host_unknownContext_is404() throws Exception {
+		when(contextService.getContextHost(UUID_OF_CONTEXT))
+				.thenThrow(new EntityNotFoundException("AgentContext not found"));
+
+		mvc.perform(get(BASE + "/host")).andExpect(status().isNotFound());
+	}
+
 }
