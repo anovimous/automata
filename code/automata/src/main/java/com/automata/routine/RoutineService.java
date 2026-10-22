@@ -43,6 +43,9 @@ public class RoutineService {
 	@Transactional
 	public Routine createRoutine(Routine toBeCreatedRoutine, Long vulnId) {
 
+		if (toBeCreatedRoutine.getResultContentType() == null)
+			throw new IllegalArgumentException("resultContentType is required");
+
 		Vulnerability vulnerability = null;
 
 		if (vulnId != null)

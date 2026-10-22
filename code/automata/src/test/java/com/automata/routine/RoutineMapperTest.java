@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.Test;
 
 import com.automata.routine.common.dto.RoutineDetailedResponseDto;
+import com.automata.routine.common.enums.ResultContentType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -26,6 +27,14 @@ class RoutineMapperTest {
 		RoutineDetailedResponseDto response = RoutineMapper.toDetailedResponse(routine);
 
 		assertEquals(schema, response.configSchema());
+	}
+
+	@Test
+	void toDetailedResponseMapsResultContentType() {
+		Routine routine = new Routine();
+		routine.setResultContentType(ResultContentType.TEXT);
+
+		assertEquals(ResultContentType.TEXT, RoutineMapper.toDetailedResponse(routine).resultContentType());
 	}
 
 	@Test
