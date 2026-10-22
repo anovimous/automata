@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import lombok.Builder;
 
 @Builder
-public record AuthenticationDto(Long id, LocalDate creationDate, StaticAuthData authData,
-		boolean isDynamicPopulationAvailable, DynamicCode code, Long tenantId) {
+public record AuthenticationDto(Long id, LocalDate creationDate, StaticAuthData authData, Long tenantId) {
 
 }

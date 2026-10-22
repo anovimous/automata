@@ -63,10 +63,6 @@ public class AuthenticationService {
 
 		patchRequest.authData().ifPresent(authentication::setAuthData);
 
-		patchRequest.isDynamicPopulationAvailable().ifPresent(authentication::setDynamicPopulationAvailable);
-
-		patchRequest.code().ifPresent(authentication::setCode);
-
 		authRepo.save(authentication);
 
 		return authentication;
