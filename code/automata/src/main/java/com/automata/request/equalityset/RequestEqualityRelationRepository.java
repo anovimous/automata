@@ -27,7 +27,9 @@ public interface RequestEqualityRelationRepository extends JpaRepository<Request
 
 	List<RequestEqualityRelation> findAllBySet(RequestEqualitySet set);
 
-	@Query("SELECT rel.request FROM RequestEqualityRelation rel WHERE rel.set = :set ORDER BY rel.request.insertionDate DESC LIMIT 1")
+	boolean existsBySetAndRequestId(RequestEqualitySet set, Long requestId);
+
+	@Query("SELECT rel.request FROM RequestEqualityRelation rel WHERE rel.set = :set ORDER BY rel.request.insertionDate DESC, rel.request.id DESC LIMIT 1")
 	Request findTopBySetOrderByRequestInsertionDateDesc(RequestEqualitySet set);
 
 }

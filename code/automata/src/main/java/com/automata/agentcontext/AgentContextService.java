@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.automata.agentcontext.common.dto.AgentContextCreationRequest;
 import com.automata.agentcontext.common.dto.AgentContextItemAddRequest;
 import com.automata.agentcontext.common.dto.AgentContextPatchRequest;
+import com.automata.agentcontext.common.dto.AgentContextTenantResponse;
 import com.automata.agentcontext.common.dto.ResolvedTarget;
 import com.automata.agentcontext.common.enums.AgentContextItemType;
 import com.automata.agentcontext.common.enums.RepresentativeStrategy;
@@ -21,6 +23,7 @@ import com.automata.host.HostRepository;
 import com.automata.job.utils.HttpJobUtils;
 import com.automata.request.Request;
 import com.automata.request.RequestRepository;
+import com.automata.request.RequestTenantPair;
 import com.automata.request.equalityset.RequestEqualityRelation;
 import com.automata.request.equalityset.RequestEqualityRelationRepository;
 import com.automata.request.equalityset.RequestEqualitySet;
@@ -261,6 +264,66 @@ public class AgentContextService {
 			throw new IllegalArgumentException("Item does not belong to this context");
 
 		itemRepo.delete(item);
+
+	}
+
+	// A request is in the context when a REQUEST item is it, or when it is in an
+	// EQUALITY_SET item: only the latest request of the set under LATEST, any request
+	// of the set under AI_JUDGEMENT
+	@Transactional(readOnly = true)
+	public boolean isRequestInContext(AgentContext context, Long requestId) {
+
+		for (AgentContextItem item : context.getItems()) {
+
+			if (item.getItemType() == AgentContextItemType.REQUEST) {
+
+				if (item.getRequest().getId().equals(requestId))
+					return true;
+
+			} else if (context.getRepresentativeStrategy() == RepresentativeStrategy.LATEST) {
+
+				Request latest = equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(item.getEqualitySet());
+
+				if (latest != null && latest.getId().equals(requestId))
+					return true;
+
+			} else if (equalityRelationRepo.existsBySetAndRequestId(item.getEqualitySet(), requestId))
+				return true;
+
+		}
+
+		return false;
+
+	}
+
+	// The tenants of the context, each with the requests of the context it is tied to
+	@Transactional(readOnly = true)
+	public List<AgentContextTenantResponse> getContextTenants(UUID contextUuid) {
+
+		AgentContext context = this.getContextByUuid(contextUuid);
+
+		List<Long> requestIds = this.resolveContextTargets(context.getId()).stream().map(ResolvedTarget::requestId)
+				.toList();
+
+		Map<Long, List<Long>> requestIdsByTenantId = new LinkedHashMap<>();
+
+		if (!requestIds.isEmpty())
+			for (RequestTenantPair pair : requestRepo.findTenantPairsByIdIn(requestIds))
+				requestIdsByTenantId.computeIfAbsent(pair.tenantId(), id -> new ArrayList<>()).add(pair.requestId());
+
+		return context.getTenants().stream().map(tenant -> AgentContextMapper.toTenantResponse(tenant,
+				requestIdsByTenantId.getOrDefault(tenant.getId(), List.of()))).toList();
+
+	}
+
+	// Answers as if the request did not exist when it is not in the context
+	@Transactional(readOnly = true)
+	public void requireRequestInContext(UUID contextUuid, Long requestId) {
+
+		AgentContext context = this.getContextByUuid(contextUuid);
+
+		if (!this.isRequestInContext(context, requestId))
+			throw new EntityNotFoundException("Request not found");
 
 	}
 

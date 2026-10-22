@@ -65,8 +65,7 @@ public class RequestController {
 
 		Response res = responseService.getResponseOfRequest(requestId);
 
-		RequestRawResponse response = new RequestRawResponse(rawRequest.rawHeadBase64(), rawRequest.rawBodyBase64(),
-				rawRequest.bodyStoredAsFile(), res != null ? res.getId() : null);
+		RequestRawResponse response = RequestMapper.toRawResponse(rawRequest, res != null ? res.getId() : null);
 
 		return ResponseEntity.ok(response);
 

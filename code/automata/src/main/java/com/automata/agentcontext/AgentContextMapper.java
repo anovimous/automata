@@ -5,6 +5,7 @@ import java.util.List;
 import com.automata.agentcontext.common.dto.AgentContextDetailedResponse;
 import com.automata.agentcontext.common.dto.AgentContextItemResponse;
 import com.automata.agentcontext.common.dto.AgentContextSummaryResponse;
+import com.automata.agentcontext.common.dto.AgentContextTenantResponse;
 import com.automata.routine.Routine;
 import com.automata.tenant.Tenant;
 
@@ -35,6 +36,13 @@ public abstract class AgentContextMapper {
 		return AgentContextItemResponse.builder().id(item.getId()).itemType(item.getItemType())
 				.requestId(item.getRequest() != null ? item.getRequest().getId() : null)
 				.equalitySetId(item.getEqualitySet() != null ? item.getEqualitySet().getId() : null).build();
+	}
+
+	public static AgentContextTenantResponse toTenantResponse(Tenant tenant, List<Long> requestIds) {
+		return AgentContextTenantResponse.builder().tenantId(tenant.getId()).name(tenant.getName())
+				.email(tenant.getEmail())
+				.authData(tenant.getAuthentication() != null ? tenant.getAuthentication().getAuthData() : null)
+				.requestIds(requestIds).build();
 	}
 
 	public static List<AgentContextItemResponse> toItemResponses(List<AgentContextItem> items) {

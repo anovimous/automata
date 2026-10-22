@@ -198,4 +198,27 @@ class RequestMapperBodyTest {
 		assertTrue(dto.headers().isEmpty());
 	}
 
+	// toRawResponse
+
+	@Test
+	void toRawResponse_carriesTheMessageAndTheResponseId() {
+		com.automata.request.common.dto.RequestRawResponse dto = RequestMapper
+				.toRawResponse(new com.automata.common.dto.RawHttpMessage("aA==", "Yg==", false), 8L);
+
+		assertEquals("aA==", dto.rawHeadBase64());
+		assertEquals("Yg==", dto.rawBodyBase64());
+		assertFalse(dto.bodyStoredAsFile());
+		assertEquals(8L, dto.responseId());
+	}
+
+	@Test
+	void toRawResponse_fileBodyWithoutAResponse() {
+		com.automata.request.common.dto.RequestRawResponse dto = RequestMapper
+				.toRawResponse(new com.automata.common.dto.RawHttpMessage("aA==", null, true), null);
+
+		assertNull(dto.rawBodyBase64());
+		assertTrue(dto.bodyStoredAsFile());
+		assertNull(dto.responseId());
+	}
+
 }

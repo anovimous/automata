@@ -5,11 +5,13 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 
 import com.automata.common.dto.BodyMetadata;
+import com.automata.common.dto.RawHttpMessage;
 import com.automata.common.dto.HeaderEntry;
 import com.automata.common.utils.Base64Utils;
 import com.automata.common.utils.HttpMessageUtils;
 import com.automata.request.common.dto.RequestLine;
 import com.automata.request.common.dto.RequestMetadataResponse;
+import com.automata.request.common.dto.RequestRawResponse;
 import com.automata.request.common.dto.RequestSummaryResponse;
 import com.automata.request.common.dto.RequestSummaryResponse.RequestSummaryResponseBuilder;
 
@@ -37,6 +39,13 @@ public abstract class RequestMapper {
 			builder.responseId(request.getResponse().getId());
 
 		return builder.build();
+
+	}
+
+	public static RequestRawResponse toRawResponse(RawHttpMessage rawRequest, Long responseId) {
+
+		return new RequestRawResponse(rawRequest.rawHeadBase64(), rawRequest.rawBodyBase64(),
+				rawRequest.bodyStoredAsFile(), responseId);
 
 	}
 
