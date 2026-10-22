@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
@@ -32,6 +33,7 @@ import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
+import com.automata.job.domain.valueobject.JobResultFile;
 import com.automata.job.service.HttpJobCreationService;
 import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobStateService;
@@ -73,15 +75,22 @@ public class HttpJobController {
 	}
 
 	@GetMapping("/{jobId}/result")
-	public ResponseEntity<StreamingResponseBody> downloadJobResult(@PathVariable Long jobId) {
+	public ResponseEntity<StreamingResponseBody> downloadJobResult(@PathVariable Long jobId,
+			@RequestParam(defaultValue = "false") boolean inline) {
 
-		S3Resource resource = queryService.getJobResult(jobId);
+		JobResultFile result = queryService.getJobResult(jobId);
+
+		S3Resource resource = result.resource();
 
 		StreamingResponseBody stream = outputStream -> {
 			try (InputStream inputStream = resource.getInputStream()) {
 				inputStream.transferTo(outputStream);
 			}
 		};
+
+		if (inline)
+			return ResponseEntity.ok().contentType(result.contentType().mediaType())
+					.contentLength(resource.contentLength()).body(stream);
 
 		String contentDispositionHeader = String.format("attachment; filename=\"%d.result\"", jobId);
 

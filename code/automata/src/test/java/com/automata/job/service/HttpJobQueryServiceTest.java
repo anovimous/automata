@@ -36,9 +36,11 @@ import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
+import com.automata.job.domain.valueobject.JobResultFile;
 import com.automata.job.infra.S3Service;
 import com.automata.job.repository.HttpJobRepository;
 import com.automata.routine.Routine;
+import com.automata.routine.common.enums.ResultContentType;
 
 import io.awspring.cloud.s3.S3Resource;
 import jakarta.persistence.EntityNotFoundException;
@@ -58,6 +60,9 @@ class HttpJobQueryServiceTest {
 		HttpJob job = new WideHttpJob();
 		job.setId(1L);
 		job.setGenericDetails(HttpJobGenericDetails.builder().currentState(state).build());
+		Routine routine = new Routine();
+		routine.setResultContentType(ResultContentType.JSON);
+		job.setRoutine(routine);
 		when(jobRepo.findById(1L)).thenReturn(Optional.of(job));
 		return job;
 	}
@@ -141,7 +146,10 @@ class HttpJobQueryServiceTest {
 		when(resource.exists()).thenReturn(true);
 		when(s3.getJobResult(1L)).thenReturn(resource);
 
-		assertSame(resource, service.getJobResult(1L));
+		JobResultFile result = service.getJobResult(1L);
+
+		assertSame(resource, result.resource());
+		assertEquals(ResultContentType.JSON, result.contentType());
 	}
 
 	@Test
