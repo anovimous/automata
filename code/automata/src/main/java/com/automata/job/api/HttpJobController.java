@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.automata.common.dto.response.PageHolderResponse;
-import com.automata.job.api.dto.AiJobCreationRequest;
 import com.automata.job.api.dto.AiResultRequest;
 import com.automata.job.api.dto.HttpJobCreationRequest;
 import com.automata.job.api.dto.HttpJobFilter;
@@ -111,15 +110,6 @@ public class HttpJobController {
 		case HttpJobScope.WIDE -> creationService.createDraftWideJob(request.genericDetails(), request.wideJobDetails());
 
 		};
-
-		return ResponseEntity.created(URI.create(String.format("/api/jobs/http/%d", newlyCreatedJob.getId()))).build();
-
-	}
-
-	@PostMapping("/ai")
-	public ResponseEntity<Void> createAiJob(@RequestBody AiJobCreationRequest request) {
-
-		HttpJob newlyCreatedJob = creationService.createDraftAiNarrowJob(request);
 
 		return ResponseEntity.created(URI.create(String.format("/api/jobs/http/%d", newlyCreatedJob.getId()))).build();
 

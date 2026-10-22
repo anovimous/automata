@@ -165,4 +165,52 @@ class HttpJobQueryServiceTest {
 		verify(s3).getJobResult(1L);
 	}
 
+	// ---- getJobOfContext
+
+	private static final java.util.UUID CONTEXT_UUID = java.util.UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+	private HttpJob aiJobOf(java.util.UUID contextUuid) {
+		HttpJob job = job(JobState.DRAFT);
+		job.setCreatedBy(JobCreator.AI);
+		job.setAgentContext(com.automata.agentcontext.AgentContext.builder().uuid(contextUuid).build());
+		return job;
+	}
+
+	@Test
+	void aiJobOfTheContextIsReturned() {
+		HttpJob job = aiJobOf(CONTEXT_UUID);
+
+		assertSame(job, service.getJobOfContext(CONTEXT_UUID, 1L));
+	}
+
+	@Test
+	void aiJobOfAnotherContextIsNotFound() {
+		aiJobOf(java.util.UUID.randomUUID());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getJobOfContext(CONTEXT_UUID, 1L));
+	}
+
+	@Test
+	void jobCreatedByAUserIsNotFound() {
+		HttpJob job = aiJobOf(CONTEXT_UUID);
+		job.setCreatedBy(JobCreator.USER);
+
+		assertThrows(EntityNotFoundException.class, () -> service.getJobOfContext(CONTEXT_UUID, 1L));
+	}
+
+	@Test
+	void aiJobWithoutAContextIsNotFound() {
+		HttpJob job = aiJobOf(CONTEXT_UUID);
+		job.setAgentContext(null);
+
+		assertThrows(EntityNotFoundException.class, () -> service.getJobOfContext(CONTEXT_UUID, 1L));
+	}
+
+	@Test
+	void unknownJobOfTheContextIsNotFound() {
+		when(jobRepo.findById(1L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getJobOfContext(CONTEXT_UUID, 1L));
+	}
+
 }

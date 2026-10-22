@@ -3,6 +3,7 @@ package com.automata.job.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -175,14 +176,16 @@ public class HttpJobCreationService {
 	};
 
 	@Transactional
-	public NarrowHttpJob createDraftAiNarrowJob(AiJobCreationRequest aiRequest) {
+	public NarrowHttpJob createDraftAiNarrowJob(UUID agentContextUuid, AiJobCreationRequest aiRequest) {
 
 		requireAiJobFields(aiRequest);
 
-		AgentContext context = agentContextService.getContextByUuid(aiRequest.agentContextUuid());
+		AgentContext context = agentContextService.getContextByUuid(agentContextUuid);
 
 		Request request = requestRepo.findById(aiRequest.requestId())
 				.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+
+		ResolvedTarget target = resolvedTargetOfContext(context, request.getId());
 
 		HttpJobUtils.requireJobEligible(request);
 
@@ -227,7 +230,7 @@ public class HttpJobCreationService {
 		builder.tenant(request.getTenant());
 		builder.createdBy(JobCreator.AI);
 		builder.agentContext(context);
-		builder.approved(isAutoApproved(context, request.getId()));
+		builder.approved(target.autoApproval());
 		builder.aiDescription(aiRequest.aiDescription());
 		builder.wordlists(wordlistRepo.findAllById(aiRequest.wordlistsIds()));
 
@@ -250,8 +253,6 @@ public class HttpJobCreationService {
 	}
 
 	void requireAiJobFields(AiJobCreationRequest aiRequest) {
-		if (aiRequest.agentContextUuid() == null)
-			throw new IllegalArgumentException("agentContextUuid is required");
 		if (aiRequest.requestId() == null)
 			throw new IllegalArgumentException("requestId is required");
 		if (aiRequest.routineId() == null)
@@ -268,12 +269,12 @@ public class HttpJobCreationService {
 			throw new IllegalArgumentException("Routine '" + routine.getKey() + "' is not allowed in this agent context");
 	}
 
-	// A request that is not a resolved target of the context was not approved by
-	// any of its items, so it needs a human approval.
-	boolean isAutoApproved(AgentContext context, Long requestId) {
+	// A job can only target a request that the context gives access to (a resolved
+	// target); its auto-approval is the one of the item that gave the access.
+	ResolvedTarget resolvedTargetOfContext(AgentContext context, Long requestId) {
 		return agentContextService.resolveContextTargets(context.getId()).stream()
-				.filter(target -> target.requestId().equals(requestId)).findFirst().map(ResolvedTarget::autoApproval)
-				.orElse(false);
+				.filter(target -> target.requestId().equals(requestId)).findFirst()
+				.orElseThrow(() -> new EntityNotFoundException("Request not found in the agent context"));
 	}
 
 	// the rate is capped by the host rate limit and the context max rate, whichever
