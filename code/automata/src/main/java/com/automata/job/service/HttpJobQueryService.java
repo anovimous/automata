@@ -11,6 +11,7 @@ import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
+import com.automata.job.domain.valueobject.JobResultFile;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.infra.S3Service;
 import com.automata.job.repository.HttpJobRepository;
@@ -45,7 +46,7 @@ public class HttpJobQueryService {
 	}
 
 	@Transactional(readOnly = true)
-	public S3Resource getJobResult(Long jobId) {
+	public JobResultFile getJobResult(Long jobId) {
 
 		HttpJob job = jobRepo.findById(jobId).orElseThrow(() -> new EntityNotFoundException("Job not found"));
 
@@ -58,7 +59,7 @@ public class HttpJobQueryService {
 		if (!result.exists())
 			throw new EntityNotFoundException("Result not found");
 
-		return result;
+		return new JobResultFile(result, job.getRoutine().getResultContentType());
 
 	}
 
