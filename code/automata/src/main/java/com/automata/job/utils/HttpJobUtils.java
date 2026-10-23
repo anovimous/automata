@@ -7,6 +7,7 @@ import org.springframework.data.jpa.domain.Specification;
 import com.automata.job.api.dto.HttpJobFilter;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
+import com.automata.job.domain.model.NarrowJobTargetRequest;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
@@ -15,6 +16,7 @@ import com.automata.request.Request;
 import com.automata.request.common.enums.RequestContentType;
 
 import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 public abstract class HttpJobUtils {
 
@@ -43,14 +45,14 @@ public abstract class HttpJobUtils {
 		return Specification.<HttpJob>unrestricted().and(hasProgramId(filter.programId()))
 				.and(hasRoutineId(filter.routineId())).and(hasScope(filter.scope()))
 				.and(hasCurrentStates(filter.currentStates())).and(hasCreatedBy(filter.createdBy()))
-				.and(hasAgentContextId(filter.agentContextId()));
+				.and(hasAgentContextId(filter.agentContextId())).and(hasTargetRequestId(filter.targetRequestId()));
 	}
 
 	private static Specification<HttpJob> buildNarrowSpecification(HttpJobFilter filter) {
 		return Specification.<HttpJob>unrestricted().and(hasProgramId(filter.programId()))
 				.and(hasRoutineId(filter.routineId())).and(hasScope(filter.scope()))
 				.and(hasCurrentStates(filter.currentStates())).and(hasHostId(filter.hostId()))
-				.and(hasCreatedBy(filter.createdBy())).and(hasAgentContextId(filter.agentContextId()));
+				.and(hasCreatedBy(filter.createdBy())).and(hasAgentContextId(filter.agentContextId())).and(hasTargetRequestId(filter.targetRequestId()));
 	}
 
 	private static Specification<HttpJob> hasHostId(Long hostId) {
@@ -83,6 +85,19 @@ public abstract class HttpJobUtils {
 	private static Specification<HttpJob> hasAgentContextId(Long agentContextId) {
 		return (root, query, cb) -> agentContextId == null ? null
 				: cb.equal(root.get("agentContext").get("id"), agentContextId);
+	}
+
+	// Only narrow jobs point at requests; a wide job has no target request, so it never matches
+	private static Specification<HttpJob> hasTargetRequestId(Long targetRequestId) {
+		return (root, query, cb) -> {
+			if (targetRequestId == null)
+				return null;
+			Subquery<Long> targets = query.subquery(Long.class);
+			Root<NarrowJobTargetRequest> target = targets.from(NarrowJobTargetRequest.class);
+			targets.select(target.get("id")).where(cb.equal(target.get("job"), root),
+					cb.equal(target.get("targetRequest").get("id"), targetRequestId));
+			return cb.exists(targets);
+		};
 	}
 
 	private static Specification<HttpJob> hasCreatedBy(JobCreator createdBy) {

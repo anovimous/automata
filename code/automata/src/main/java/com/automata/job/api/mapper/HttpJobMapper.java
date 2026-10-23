@@ -1,11 +1,17 @@
 package com.automata.job.api.mapper;
 
+import java.util.UUID;
+
 import org.springframework.data.domain.Page;
 
 import com.automata.job.api.dto.HttpJobResponseDto;
 import com.automata.job.api.dto.HttpJobSummaryResponseDto;
+import com.automata.job.api.dto.RequestJobResponseDto;
+import com.automata.job.api.dto.RequestJobSummaryResponseDto;
+import com.automata.job.domain.model.enums.JobOrigin;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
+import com.automata.job.domain.valueobject.RequestJobSummaryInternalDto;
 import com.automata.program.common.dto.ProgramSummaryDetailsResponseDto;
 import com.automata.routine.common.dto.RoutineSummaryDetailsResponseDto;
 
@@ -33,6 +39,23 @@ public abstract class HttpJobMapper {
 		return HttpJobSummaryResponseDto.builder().id(dto.id()).creationDate(dto.creationDate()).scope(dto.scope())
 				.currentState(dto.currentState()).priority(dto.priority()).rate(dto.rate()).routineId(dto.routineId())
 				.routineKey(dto.routineKey()).createdBy(dto.createdBy()).approved(dto.approved()).build();
+	}
+
+	public static RequestJobSummaryResponseDto toResponseDto(RequestJobSummaryInternalDto dto) {
+		return RequestJobSummaryResponseDto.builder().id(dto.id()).creationDate(dto.creationDate())
+				.scope(dto.scope()).currentState(dto.currentState()).priority(dto.priority()).rate(dto.rate())
+				.routineKey(dto.routineKey()).approved(dto.approved()).origin(dto.origin()).build();
+	}
+
+	// The context of the job is reduced to its origin relative to the asking context
+	public static RequestJobResponseDto toRequestJobResponseDto(HttpJobFullDetailsInternalDto dto,
+			UUID contextUuid) {
+		return RequestJobResponseDto.builder().jobId(dto.jobId()).currentState(dto.currentState())
+				.requestedState(dto.requestedState()).verbosity(dto.verbosity()).priority(dto.priority())
+				.rate(dto.rate()).customConfig(dto.customConfig()).routineKey(dto.routineKey())
+				.failureMessage(dto.failureMessage()).aiDescription(dto.aiDescription()).aiResult(dto.aiResult())
+				.approved(dto.approved())
+				.origin(JobOrigin.of(dto.createdBy(), dto.agentContextUuid(), contextUuid)).build();
 	}
 
 }

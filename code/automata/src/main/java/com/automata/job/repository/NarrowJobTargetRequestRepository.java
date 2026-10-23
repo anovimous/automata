@@ -34,4 +34,6 @@ public interface NarrowJobTargetRequestRepository extends JpaRepository<NarrowJo
 	
 	boolean existsByTargetRequestId(Long requestId);
 
+	boolean existsByJobIdAndTargetRequestId(Long jobId, Long requestId);
+
 }
