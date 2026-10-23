@@ -11,13 +11,51 @@ import org.junit.jupiter.api.Test;
 
 import com.automata.job.api.dto.HttpJobResponseDto;
 import com.automata.job.api.dto.HttpJobSummaryResponseDto;
+import com.automata.job.api.dto.RequestJobResponseDto;
+import com.automata.job.api.dto.RequestJobSummaryResponseDto;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobCreator;
+import com.automata.job.domain.model.enums.JobOrigin;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
+import com.automata.job.domain.valueobject.RequestJobSummaryInternalDto;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 class HttpJobMapperTest {
+
+	@Test
+	void requestJobSummaryKeepsTheOrigin() {
+		RequestJobSummaryResponseDto dto = HttpJobMapper.toResponseDto(new RequestJobSummaryInternalDto(4L,
+				Instant.EPOCH, HttpJobScope.NARROW, JobState.FINISHED, 2, 30, "fuzz", true, JobOrigin.OTHER_CONTEXT));
+
+		assertEquals(4L, dto.id());
+		assertEquals("fuzz", dto.routineKey());
+		assertEquals(JobOrigin.OTHER_CONTEXT, dto.origin());
+		assertTrue(dto.approved());
+	}
+
+	@Test
+	void requestJobReplacesTheContextUuidByItsOriginAndKeepsTheCustomConfig() {
+		java.util.UUID asking = java.util.UUID.randomUUID();
+		java.util.UUID owner = java.util.UUID.randomUUID();
+		var config = JsonNodeFactory.instance.objectNode().put("flags", "-x");
+		HttpJobFullDetailsInternalDto full = new HttpJobFullDetailsInternalDto(4L, HttpJobScope.NARROW,
+				JobState.FAILED, null, null, 2, 30, null, null, config, 1L, "program", 7L, "fuzz", "boom", null,
+				null, "desc", "result", JobCreator.AI, true, owner);
+
+		RequestJobResponseDto dto = HttpJobMapper.toRequestJobResponseDto(full, asking);
+
+		assertEquals(4L, dto.jobId());
+		assertEquals(JobOrigin.OTHER_CONTEXT, dto.origin());
+		assertEquals(config, dto.customConfig());
+		assertEquals("fuzz", dto.routineKey());
+		assertEquals("boom", dto.failureMessage());
+		assertEquals("desc", dto.aiDescription());
+		assertEquals("result", dto.aiResult());
+		assertFalse(dto.toString().contains(owner.toString()));
+		assertEquals(JobOrigin.THIS_CONTEXT, HttpJobMapper.toRequestJobResponseDto(full, owner).origin());
+	}
 
 	private static final java.util.UUID CONTEXT_UUID = java.util.UUID.randomUUID();
 

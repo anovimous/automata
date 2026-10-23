@@ -1,7 +1,13 @@
 package com.automata.agentcontext;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -31,7 +37,19 @@ import com.automata.agentcontext.common.enums.AgentContextItemType;
 import com.automata.common.dto.BodyMetadata;
 import com.automata.common.dto.BodyStorage;
 import com.automata.common.dto.RawHttpMessage;
+import com.automata.job.domain.model.enums.HttpJobScope;
+import com.automata.job.domain.model.enums.JobCreator;
+import com.automata.job.domain.model.enums.JobOrigin;
+import com.automata.job.domain.model.enums.JobState;
+import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
+import com.automata.job.domain.valueobject.JobResultFile;
+import com.automata.job.domain.valueobject.RequestJobSummaryInternalDto;
+import com.automata.job.service.HttpJobQueryService;
 import com.automata.request.RequestService;
+import com.automata.routine.common.enums.ResultContentType;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+
+import io.awspring.cloud.s3.S3Resource;
 import com.automata.request.common.dto.RequestMetadataResponse;
 import com.automata.response.Response;
 import com.automata.response.ResponseMetadataDto;
@@ -53,6 +71,8 @@ class AgentContextReadControllerTest {
 	private RequestService requestService;
 	@Mock
 	private ResponseService responseService;
+	@Mock
+	private HttpJobQueryService jobQueryService;
 
 	@InjectMocks
 	private AgentContextReadController controller;
@@ -61,7 +81,8 @@ class AgentContextReadControllerTest {
 
 	@BeforeEach
 	void setUp() {
-		mvc = MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new GlobalExceptionHandler()).build();
+		mvc = MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(new GlobalExceptionHandler())
+				.setCustomArgumentResolvers(new org.springframework.data.web.PageableHandlerMethodArgumentResolver()).build();
 	}
 
 	private void requestNotInContext(Long requestId) {
@@ -285,6 +306,82 @@ class AgentContextReadControllerTest {
 				.andExpect(jsonPath("$.programId").value(2)).andExpect(jsonPath("$.description").value("main api"))
 				.andExpect(jsonPath("$.technologies[1]").value("spring"))
 				.andExpect(jsonPath("$.notes").value("rate limited"));
+	}
+
+	// request jobs
+
+	@Test
+	void requestJobs_listsTheJobsWithTheirOriginOnly() throws Exception {
+		when(jobQueryService.getJobsOfRequest(eq(UUID_OF_CONTEXT), eq(7L), any(), any()))
+				.thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(new RequestJobSummaryInternalDto(4L,
+						java.time.Instant.EPOCH, HttpJobScope.NARROW, JobState.FINISHED, 1, 10, "fuzz", true,
+						JobOrigin.OTHER_CONTEXT))));
+
+		mvc.perform(get(BASE + "/requests/7/jobs")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.content[0].id").value(4))
+				.andExpect(jsonPath("$.content[0].origin").value("OTHER_CONTEXT"))
+				.andExpect(content().string(not(containsString("agentContext"))));
+		verify(contextService).requireRequestInContext(UUID_OF_CONTEXT, 7L);
+	}
+
+	@Test
+	void requestJobs_requestNotInContext_is404() throws Exception {
+		requestNotInContext(7L);
+
+		mvc.perform(get(BASE + "/requests/7/jobs")).andExpect(status().isNotFound());
+		verifyNoInteractions(jobQueryService);
+	}
+
+	@Test
+	void requestJob_isReadWithItsCustomConfigAndOriginButNotTheContext() throws Exception {
+		UUID owner = UUID.randomUUID();
+		when(jobQueryService.getJobFullDetails(4L)).thenReturn(new HttpJobFullDetailsInternalDto(4L,
+				HttpJobScope.NARROW, JobState.FINISHED, null, null, 1, 10, null, null,
+				JsonNodeFactory.instance.objectNode().put("flags", "-x"), 1L, "program", 7L, "fuzz", null, null,
+				null, null, null, JobCreator.AI, true, owner));
+
+		mvc.perform(get(BASE + "/requests/7/jobs/4")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.jobId").value(4)).andExpect(jsonPath("$.origin").value("OTHER_CONTEXT"))
+				.andExpect(jsonPath("$.customConfig.flags").value("-x"))
+				.andExpect(content().string(not(containsString(owner.toString()))));
+		verify(jobQueryService).getJobOfRequest(7L, 4L);
+	}
+
+	@Test
+	void requestJob_jobThatDidNotTargetTheRequest_is404() throws Exception {
+		when(jobQueryService.getJobOfRequest(7L, 4L)).thenThrow(new EntityNotFoundException("Job not found"));
+
+		mvc.perform(get(BASE + "/requests/7/jobs/4")).andExpect(status().isNotFound());
+		verify(jobQueryService, never()).getJobFullDetails(any());
+	}
+
+	@Test
+	void requestJob_requestNotInContext_is404() throws Exception {
+		requestNotInContext(7L);
+
+		mvc.perform(get(BASE + "/requests/7/jobs/4")).andExpect(status().isNotFound());
+		verifyNoInteractions(jobQueryService);
+	}
+
+	@Test
+	void requestJobResult_streamsTheResult() throws Exception {
+		S3Resource resource = mock(S3Resource.class);
+		when(resource.getInputStream()).thenReturn(new ByteArrayInputStream("{}".getBytes()));
+		when(resource.contentLength()).thenReturn(2L);
+		when(jobQueryService.getJobResult(4L)).thenReturn(new JobResultFile(resource, ResultContentType.JSON));
+
+		var result = mvc.perform(get(BASE + "/requests/7/jobs/4/result")).andExpect(request().asyncStarted())
+				.andReturn();
+		mvc.perform(asyncDispatch(result)).andExpect(status().isOk()).andExpect(content().string("{}"));
+		verify(jobQueryService).getJobOfRequest(7L, 4L);
+	}
+
+	@Test
+	void requestJobResult_jobThatDidNotTargetTheRequest_is404() throws Exception {
+		when(jobQueryService.getJobOfRequest(7L, 4L)).thenThrow(new EntityNotFoundException("Job not found"));
+
+		mvc.perform(get(BASE + "/requests/7/jobs/4/result")).andExpect(status().isNotFound());
+		verify(jobQueryService, never()).getJobResult(any());
 	}
 
 	@Test
