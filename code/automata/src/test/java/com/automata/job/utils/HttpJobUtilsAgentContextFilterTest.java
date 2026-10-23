@@ -34,7 +34,7 @@ class HttpJobUtilsAgentContextFilterTest {
 		when(contextPath.get("id")).thenReturn(contextIdPath);
 
 		Specification<HttpJob> spec = HttpJobUtils
-				.buildSpecification(new HttpJobFilter(null, null, null, null, Set.of(), null, 3L));
+				.buildSpecification(new HttpJobFilter(null, null, null, null, Set.of(), null, 3L, null));
 		spec.toPredicate(root, query, cb);
 
 		verify(cb).equal(contextIdPath, 3L);
@@ -43,7 +43,7 @@ class HttpJobUtilsAgentContextFilterTest {
 	@Test
 	void withoutAnAgentContextNothingIsFilteredOnIt() {
 		Specification<HttpJob> spec = HttpJobUtils
-				.buildSpecification(new HttpJobFilter(null, null, null, null, Set.of(), null, null));
+				.buildSpecification(new HttpJobFilter(null, null, null, null, Set.of(), null, null, null));
 		spec.toPredicate(root, query, cb);
 
 		verify(root, never()).get("agentContext");

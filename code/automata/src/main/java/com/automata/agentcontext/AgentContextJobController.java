@@ -60,7 +60,7 @@ public class AgentContextJobController {
 
 		Long contextId = contextService.getContextByUuid(uuid).getId();
 
-		HttpJobFilter filter = new HttpJobFilter(null, null, null, null, states, JobCreator.AI, contextId);
+		HttpJobFilter filter = new HttpJobFilter(null, null, null, null, states, JobCreator.AI, contextId, null);
 
 		Page<HttpJobSummaryInternalDto> internalDtos = queryService.getAllJobs(filter, pageable);
 

@@ -52,6 +52,8 @@ class HttpJobQueryServiceTest {
 	HttpJobRepository jobRepo;
 	@Mock
 	S3Service s3;
+	@Mock
+	com.automata.job.repository.NarrowJobTargetRequestRepository targetRequestRepo;
 
 	@InjectMocks
 	HttpJobQueryService service;
@@ -100,7 +102,7 @@ class HttpJobQueryServiceTest {
 		when(jobRepo.findAll(any(Specification.class), eq(pageable)))
 				.thenReturn(new PageImpl<>(List.of(job), pageable, 41));
 
-		Page<HttpJobSummaryInternalDto> page = service.getAllJobs(new HttpJobFilter(null, null, null, null, null, null, null),
+		Page<HttpJobSummaryInternalDto> page = service.getAllJobs(new HttpJobFilter(null, null, null, null, null, null, null, null),
 				pageable);
 
 		assertEquals(41, page.getTotalElements());
@@ -211,6 +213,63 @@ class HttpJobQueryServiceTest {
 		when(jobRepo.findById(1L)).thenReturn(Optional.empty());
 
 		assertThrows(EntityNotFoundException.class, () -> service.getJobOfContext(CONTEXT_UUID, 1L));
+	}
+
+	// ---- getJobsOfRequest
+
+	@Test
+	void jobsOfARequestKeepTheirOriginRelativeToTheContext() {
+		Pageable pageable = PageRequest.of(0, 20);
+		HttpJob own = new WideHttpJob();
+		own.setId(1L);
+		own.setCreatedBy(JobCreator.AI);
+		own.setAgentContext(com.automata.agentcontext.AgentContext.builder().uuid(CONTEXT_UUID).build());
+		own.setGenericDetails(HttpJobGenericDetails.builder().currentState(JobState.DRAFT).build());
+		own.setRoutine(new Routine());
+		HttpJob foreign = new WideHttpJob();
+		foreign.setId(2L);
+		foreign.setCreatedBy(JobCreator.AI);
+		foreign.setAgentContext(com.automata.agentcontext.AgentContext.builder().uuid(java.util.UUID.randomUUID()).build());
+		foreign.setGenericDetails(HttpJobGenericDetails.builder().currentState(JobState.DRAFT).build());
+		foreign.setRoutine(own.getRoutine());
+		own.setCreationDate(Instant.EPOCH);
+		foreign.setCreationDate(Instant.EPOCH);
+		own.getGenericDetails().setHttpJobScope(HttpJobScope.NARROW);
+		foreign.getGenericDetails().setHttpJobScope(HttpJobScope.NARROW);
+		when(jobRepo.findAll(any(Specification.class), eq(pageable))).thenReturn(new PageImpl<>(List.of(own, foreign)));
+
+		Page<com.automata.job.domain.valueobject.RequestJobSummaryInternalDto> page = service
+				.getJobsOfRequest(CONTEXT_UUID, 9L, null, pageable);
+
+		assertEquals(2, page.getTotalElements());
+		assertEquals(com.automata.job.domain.model.enums.JobOrigin.THIS_CONTEXT, page.getContent().get(0).origin());
+		assertEquals(com.automata.job.domain.model.enums.JobOrigin.OTHER_CONTEXT, page.getContent().get(1).origin());
+	}
+
+	// ---- getJobOfRequest
+
+	@Test
+	void jobThatTargetedTheRequestIsReturnedWhateverItsContext() {
+		HttpJob job = aiJobOf(java.util.UUID.randomUUID());
+		when(targetRequestRepo.existsByJobIdAndTargetRequestId(1L, 9L)).thenReturn(true);
+
+		assertSame(job, service.getJobOfRequest(9L, 1L));
+	}
+
+	@Test
+	void jobThatDidNotTargetTheRequestIsNotFound() {
+		aiJobOf(CONTEXT_UUID);
+		when(targetRequestRepo.existsByJobIdAndTargetRequestId(1L, 9L)).thenReturn(false);
+
+		assertThrows(EntityNotFoundException.class, () -> service.getJobOfRequest(9L, 1L));
+	}
+
+	@Test
+	void unknownJobOfARequestIsNotFound() {
+		when(jobRepo.findById(1L)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getJobOfRequest(9L, 1L));
+		verifyNoInteractions(targetRequestRepo);
 	}
 
 }

@@ -1,5 +1,6 @@
 package com.automata.job.service;
 
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -16,8 +17,10 @@ import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.JobResultFile;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
+import com.automata.job.domain.valueobject.RequestJobSummaryInternalDto;
 import com.automata.job.infra.S3Service;
 import com.automata.job.repository.HttpJobRepository;
+import com.automata.job.repository.NarrowJobTargetRequestRepository;
 import com.automata.job.utils.HttpJobUtils;
 
 import io.awspring.cloud.s3.S3Resource;
@@ -29,6 +32,8 @@ import lombok.RequiredArgsConstructor;
 public class HttpJobQueryService {
 
 	private final HttpJobRepository jobRepo;
+
+	private final NarrowJobTargetRequestRepository targetRequestRepo;
 
 	private final S3Service s3;
 
@@ -48,6 +53,32 @@ public class HttpJobQueryService {
 
 		if (job.getCreatedBy() != JobCreator.AI || job.getAgentContext() == null
 				|| !job.getAgentContext().getUuid().equals(contextUuid))
+			throw new EntityNotFoundException("Job not found");
+
+		return job;
+
+	}
+
+	// Every job that targeted the request, whoever created it and whatever context it belongs to.
+	// Each job only tells where it comes from relative to the given context.
+	@Transactional(readOnly = true)
+	public Page<RequestJobSummaryInternalDto> getJobsOfRequest(UUID contextUuid, Long requestId,
+			Set<JobState> states, Pageable pageable) {
+
+		HttpJobFilter filter = new HttpJobFilter(null, null, null, null, states, null, null, requestId);
+
+		return jobRepo.findAll(HttpJobUtils.buildSpecification(filter), pageable)
+				.map(job -> RequestJobSummaryInternalDto.of(job, contextUuid));
+
+	}
+
+	// The job when it targeted the request, otherwise it answers as if it did not exist.
+	@Transactional(readOnly = true)
+	public HttpJob getJobOfRequest(Long requestId, Long jobId) {
+
+		HttpJob job = this.getJob(jobId);
+
+		if (!targetRequestRepo.existsByJobIdAndTargetRequestId(jobId, requestId))
 			throw new EntityNotFoundException("Job not found");
 
 		return job;
