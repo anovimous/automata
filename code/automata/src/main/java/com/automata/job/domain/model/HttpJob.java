@@ -42,6 +42,12 @@ import lombok.experimental.SuperBuilder;
 @DiscriminatorColumn(name = "type")
 public abstract class HttpJob {
 
+	// the lengths of the ai_description and ai_result columns (see the Flyway migrations); longer
+	// values are rejected before they reach the database
+	public static final int MAX_AI_DESCRIPTION_LENGTH = 1000;
+
+	public static final int MAX_AI_RESULT_LENGTH = 5000;
+
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
@@ -70,8 +76,10 @@ public abstract class HttpJob {
 	@ManyToMany
 	private List<Wordlist> wordlists = new ArrayList<>();
 
+	@Column(length = MAX_AI_DESCRIPTION_LENGTH)
 	private String aiDescription;
 
+	@Column(length = MAX_AI_RESULT_LENGTH)
 	private String aiResult;
 
 	@Column(nullable = false)

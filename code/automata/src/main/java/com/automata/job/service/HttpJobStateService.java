@@ -224,6 +224,10 @@ public class HttpJobStateService {
 	@Transactional
 	public void setAiResult(Long jobId, String aiResult) {
 
+		if (aiResult != null && aiResult.length() > HttpJob.MAX_AI_RESULT_LENGTH)
+			throw new IllegalArgumentException(
+					"aiResult is too long, the limit is " + HttpJob.MAX_AI_RESULT_LENGTH + " characters");
+
 		HttpJob job = jobRepo.findById(jobId)
 				.orElseThrow(() -> new EntityNotFoundException("HttpJob with the given id has not been found"));
 
