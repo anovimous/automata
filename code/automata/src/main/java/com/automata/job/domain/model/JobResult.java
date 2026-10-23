@@ -13,8 +13,7 @@ import lombok.Setter;
 @AllArgsConstructor
 public class JobResult {
 
-	// the length Hibernate gives a String column, which is what the schema is
-	// generated with
+	// the length of the failure_msg column (see the Flyway migrations)
 	public static final int MAX_FAILURE_MSG_LENGTH = 255;
 
 	private String failureMsg;
