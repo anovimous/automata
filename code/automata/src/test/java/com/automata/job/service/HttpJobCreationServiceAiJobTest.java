@@ -294,6 +294,22 @@ class HttpJobCreationServiceAiJobTest {
 	}
 
 	@Test
+	void aDescriptionOverTheLimitIsRejected() {
+		AiJobCreationRequest tooLong = new AiJobCreationRequest(5L, "x".repeat(HttpJob.MAX_AI_DESCRIPTION_LENGTH + 1),
+				1L, null, Set.of(), null, null, null, null);
+
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> service.requireAiJobFields(tooLong));
+		assertTrue(e.getMessage().contains("1000"));
+	}
+
+	@Test
+	void aDescriptionAtTheLimitPasses() {
+		service.requireAiJobFields(new AiJobCreationRequest(5L, "x".repeat(HttpJob.MAX_AI_DESCRIPTION_LENGTH), 1L,
+				null, Set.of(), null, null, null, null));
+	}
+
+	@Test
 	void aCompleteRequestPassesTheFieldCheck() {
 		service.requireAiJobFields(aiRequest(null, null, null, null));
 	}

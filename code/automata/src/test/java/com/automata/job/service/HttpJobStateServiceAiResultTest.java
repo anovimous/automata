@@ -2,6 +2,8 @@ package com.automata.job.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -16,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.automata.job.domain.exception.InvalidJobStateException;
+import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.enums.JobCreator;
@@ -59,6 +62,25 @@ class HttpJobStateServiceAiResultTest {
 		aiJob(state);
 
 		assertThrows(InvalidJobStateException.class, () -> service.setAiResult(1L, "result"));
+	}
+
+	@Test
+	void aiResultOverTheLimitIsRejectedAndNotSaved() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> service.setAiResult(1L, "x".repeat(HttpJob.MAX_AI_RESULT_LENGTH + 1)));
+
+		assertTrue(e.getMessage().contains("5000"));
+		verifyNoInteractions(jobRepo);
+	}
+
+	@Test
+	void aiResultAtTheLimitIsSet() {
+		NarrowHttpJob job = aiJob(JobState.FINISHED);
+		String atLimit = "x".repeat(HttpJob.MAX_AI_RESULT_LENGTH);
+
+		service.setAiResult(1L, atLimit);
+
+		assertEquals(atLimit, job.getAiResult());
 	}
 
 	@Test

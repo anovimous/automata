@@ -259,6 +259,9 @@ public class HttpJobCreationService {
 			throw new IllegalArgumentException("routineId is required");
 		if (aiRequest.aiDescription() == null || aiRequest.aiDescription().isBlank())
 			throw new IllegalArgumentException("aiDescription is required");
+		if (aiRequest.aiDescription().length() > HttpJob.MAX_AI_DESCRIPTION_LENGTH)
+			throw new IllegalArgumentException("aiDescription is too long, the limit is "
+					+ HttpJob.MAX_AI_DESCRIPTION_LENGTH + " characters");
 		if (aiRequest.wordlistsIds() == null)
 			throw new IllegalArgumentException("wordlistsIds is required, send an empty set for none");
 	}
