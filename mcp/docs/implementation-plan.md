@@ -504,7 +504,7 @@ The core scopes the findings and enforces every rule (visible = the request of t
   - every job that is not `terminal` is `waitingForAction` (nothing will happen until someone acts);
   - the deadline passes (`timedOut: true`).
   Result: `{jobs: [{jobId, currentState, requestedState, approved, configFileStatus, terminal, waitingForAction, failureMessage?}], timedOut, terminalJobIds, waitingForActionJobIds, next_steps}`. The agent calls it again until it is satisfied. Poll errors: a transient 5xx/timeout on one poll is skipped; `AUTOMATA_WAIT_MAX_POLL_ERRORS` in a row fail the call.
-- **`get_job_result`** (and `get_request_job_result`, same logic against the history route): the server does not decide which states have a result; it always streams `.../result` from the core. The core answers 409 "The job has to end before downloading its result" while the job is not `FINISHED` or `FAILED`, and 404 "Result not found" when the file does not exist (the worker uploads one only for a `FINISHED` job, so a `FAILED`, `CANCELED`, `SELFTERMINATED` or `LOSTCONTACT` job has none). Both become tool errors with the hints given in the tool entry; the server does not read the message to tell the 404 cases apart. A result is read with the same byte-cap logic (`AUTOMATA_RESULT_MAX_BYTES`, `offset`), content type `application/json` or `text/plain`. For JSON results, if truncated, say so and suggest paging with `offset`. (Later, optional: a summarizer for ffuf's JSON — section 14, phase 11.)
+- **`get_job_result`** (and `get_request_job_result`, same logic against the history route): the server does not decide which states have a result; it always streams `.../result` from the core. The core answers 409 "The job has to end before downloading its result" while the job is not `FINISHED` or `FAILED`, and 404 "Result not found" when the file does not exist (the worker uploads one only for a `FINISHED` job, so a `FAILED`, `CANCELED`, `SELFTERMINATED` or `LOSTCONTACT` job has none). Both become tool errors with the hints given in the tool entry; the server does not read the message to tell the 404 cases apart. A result is read with the same byte-cap logic (`AUTOMATA_RESULT_MAX_BYTES`, `offset`), content type `application/json` or `text/plain`. For JSON results, if truncated, say so and suggest paging with `offset`. The server does not summarise or interpret results: the agent reads the raw output.
 - Core limits (it answers 400 above them): `ai_description` at most 1 000 characters, `ai_result` at most 5 000. The server does not check them and never truncates: the core's 400 names the limit, and the tool descriptions state both limits so the agent keeps its text short. The job result file itself (`get_job_result`) can be large and is read with `offset`/`max_bytes`, unrelated to these limits.
 
 ### 9.4 Raw HTTP messages (`services/raw_messages.py`)
@@ -591,7 +591,7 @@ None of these blocks the MVP; each would be a separate core branch (the core rep
 | C4 | Requests added with `add_request` are not in any context | the agent cannot read them back or create jobs on them (by decision) | none required; a human adds them to a context |
 | C5 | A `DRAFT` job cannot be canceled | a draft the agent no longer wants stays | none; the agent just does not queue it |
 | C6 | No finish notification | `wait_for_jobs` polls | SSE `GET /api/agent-contexts/uuid/{uuid}/events` (core enhancement plan §4) |
-| C7 | Job results are raw tool output (`ffuf` JSON, `masser` output) | the agent reads raw text | structured `{jobId}.summary.json` written by the worker (enhancement plan §3); preferred over the server-side summariser of phase 11 |
+| C7 | Job results are raw tool output (`ffuf` JSON, `masser` output) | the agent reads raw text | structured `{jobId}.summary.json` written by the worker (enhancement plan §3); a change in the worker and the core, nothing to do in this server |
 | C8 | ~~Failure classification is MCP-side~~ **Done** (core and worker: `failureCategory` on the job) | the tools return the category | — |
 | C9 | No budgets / test plans / audit log | no hard limit on jobs per context | enhancement plan §1, §2, §9 |
 | C11 | Nothing stops the same job from being created many times (the loop detector was dropped) | the approval gate, the rate caps and the job history bound the load | a per-context job budget (with C9) if a hard limit is wanted |
@@ -631,7 +631,6 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | 8 | `feat/add-workflow-prompt-and-resources` | section 10 | 6 |
 | 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions (the Host-header check of the SDK was already verified in phase 2, section 5: nothing to configure when bound to `0.0.0.0`) | 6 |
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
-| 11 | optional: `feat/add-ffuf-result-summary` | only if the worker-side summary of C7 is not done: summarise ffuf JSON results (counts by status/size/words, outliers) in `get_job_result(summary=true)` (a parameter that section 8.4 does not have until this phase; it is presentation of raw output, not a rule); do **not** guess masser's output format. If the worker writes `{jobId}.summary.json`, return that file instead and parse nothing | 5 |
 
 **Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phases 3 (`feat/add-context-tools`, `feat/add-reference-tools`), 4 (`feat/add-request-response-tools`) and 5 (`feat/add-job-tools`) are done and merged into `staging`. Later phases have not started.
 
@@ -660,8 +659,7 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | D7 | `list_targets` enrichment | on by default, capped at 50 |
 | D8 | Default transport | stdio; streamable HTTP in Docker |
 | D9 | Project tooling | `uv` + ruff + mypy + pytest |
-| D10 | ffuf result summariser | later phase (11), not MVP |
-| D11 | Image bodies returned as MCP images | not in MVP |
+| D10 | Image bodies returned as MCP images | not in MVP |
 
 ---
 
