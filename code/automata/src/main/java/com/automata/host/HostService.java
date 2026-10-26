@@ -116,13 +116,6 @@ public class HostService {
 
 		Host host = hostRepo.findById(hostId).orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
-		if (patchRequest.host() != null) {
-			HostUtils.validateHostFormat(host.getHost())
-					.ifNotValidThrow(() -> new IllegalArgumentException("Host is of invalid format"));
-			host.setHost(patchRequest.host());
-			host.setLevel(HostUtils.identifyLevel(host.getHost()));
-		}
-
 		int hostRateLimit = patchRequest.hostRateLimit() == null ? host.getHostRateLimit()
 				: patchRequest.hostRateLimit();
 
