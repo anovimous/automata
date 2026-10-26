@@ -1,0 +1,32 @@
+{
+  "requestId": 7,
+  "hostId": 2,
+  "programId": 1,
+  "tenantId": 4,
+  "responseId": 8,
+  "source": "BURP",
+  "insertionDate": "2026-10-20",
+  "line": {
+    "method": "POST",
+    "computatedPath": "/api/users/{id}",
+    "extension": null,
+    "version": "HTTP/1.1",
+    "target": "/api/users/42?expand=items"
+  },
+  "headers": [
+    {
+      "name": "Host",
+      "value": "api.example.com"
+    },
+    {
+      "name": "Content-Type",
+      "value": "application/json"
+    }
+  ],
+  "body": {
+    "storage": "INLINE",
+    "contentType": "application/json",
+    "mimeFamily": "JSON",
+    "sizeBytes": 183
+  }
+}

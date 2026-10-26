@@ -1,0 +1,36 @@
+{
+  "id": 3,
+  "uuid": "6f1c0a52-0000-4000-8000-000000000001",
+  "name": "Users API",
+  "description": "Account endpoints of api.example.com",
+  "hostId": 2,
+  "defaultAutoApproval": false,
+  "representativeStrategy": "LATEST",
+  "allowedRoutineIds": [
+    1,
+    2
+  ],
+  "tenantIds": [
+    4,
+    5
+  ],
+  "defaultDuration": "SHORT",
+  "defaultVerbosity": "SUMMARIZED",
+  "defaultPriority": 2,
+  "maxRate": 30,
+  "creationDate": "2026-10-20T09:15:30Z",
+  "items": [
+    {
+      "id": 10,
+      "itemType": "REQUEST",
+      "requestId": 7,
+      "equalitySetId": null
+    },
+    {
+      "id": 11,
+      "itemType": "EQUALITY_SET",
+      "requestId": null,
+      "equalitySetId": 55
+    }
+  ]
+}

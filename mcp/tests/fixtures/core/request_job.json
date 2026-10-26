@@ -1,0 +1,25 @@
+{
+  "jobId": 30,
+  "currentState": "FAILED",
+  "requestedState": null,
+  "verbosity": "SUMMARIZED",
+  "priority": 1,
+  "rate": 10,
+  "customConfig": {
+    "flags": [
+      {
+        "key": "-mc",
+        "value": "200"
+      }
+    ]
+  },
+  "routineKey": "fuzz",
+  "failureMessage": "ffuf exited with status 2",
+  "failureCategory": "TOOL_EXIT",
+  "aiDescription": "Check ids",
+  "aiResult": null,
+  "approved": true,
+  "terminal": true,
+  "waitingForAction": false,
+  "origin": "THIS_CONTEXT"
+}

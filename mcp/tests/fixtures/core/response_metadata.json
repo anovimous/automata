@@ -1,0 +1,19 @@
+{
+  "responseId": 8,
+  "requestId": 7,
+  "hostId": 2,
+  "statusCode": 200,
+  "insertionDate": "2026-10-20",
+  "headers": [
+    {
+      "name": "Content-Type",
+      "value": "application/json"
+    }
+  ],
+  "body": {
+    "storage": "FILE",
+    "contentType": "application/json",
+    "mimeFamily": "JSON",
+    "sizeBytes": 412
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "content": [
+    {
+      "id": 30,
+      "creationDate": "2026-10-21T10:00:00Z",
+      "scope": "NARROW",
+      "currentState": "FINISHED",
+      "priority": 1,
+      "rate": 10,
+      "routineKey": "fuzz",
+      "approved": true,
+      "terminal": true,
+      "waitingForAction": false,
+      "origin": "OTHER_CONTEXT"
+    },
+    {
+      "id": 12,
+      "creationDate": "2026-10-10T08:00:00Z",
+      "scope": "NARROW",
+      "currentState": "FAILED",
+      "priority": 3,
+      "rate": 5,
+      "routineKey": "fuzz",
+      "approved": true,
+      "terminal": true,
+      "waitingForAction": false,
+      "origin": "USER"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 2,
+  "totalPages": 1,
+  "last": true
+}
