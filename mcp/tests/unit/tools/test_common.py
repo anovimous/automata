@@ -3,7 +3,9 @@ from uuid import UUID
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
-from automata_mcp.tools.common import READ_ONLY, parse_context_uuid
+from automata_mcp.core.models.reference import VulnerabilitySummary
+from automata_mcp.core.paging import Page
+from automata_mcp.tools.common import READ_ONLY, page_output, parse_context_uuid
 
 
 def test_a_uuid_is_parsed() -> None:
@@ -38,3 +40,32 @@ def test_a_very_long_value_is_cut_in_the_message() -> None:
 def test_read_only_annotations() -> None:
     assert READ_ONLY.read_only_hint is True
     assert READ_ONLY.open_world_hint is False
+
+
+def _page(last: bool, number: int = 0) -> Page[VulnerabilitySummary]:
+    return Page[VulnerabilitySummary](
+        content=[VulnerabilitySummary(id=1, name="BOLA")],
+        page=number,
+        size=30,
+        total_elements=61,
+        total_pages=3,
+        last=last,
+    )
+
+
+def test_page_output_names_the_items_and_carries_the_paging_fields() -> None:
+    output = page_output(_page(last=True, number=2), "vulnerabilities")
+
+    assert output == {
+        "vulnerabilities": [{"id": 1, "name": "BOLA"}],
+        "page": 2,
+        "size": 30,
+        "totalElements": 61,
+        "totalPages": 3,
+        "last": True,
+    }
+
+
+def test_page_output_says_which_page_comes_next_only_when_there_is_one() -> None:
+    assert page_output(_page(last=False, number=1), "v")["nextPage"] == 2
+    assert "nextPage" not in page_output(_page(last=True), "v")
