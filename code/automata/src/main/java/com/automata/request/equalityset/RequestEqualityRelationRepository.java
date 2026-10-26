@@ -16,7 +16,7 @@ import com.automata.request.Request;
 public interface RequestEqualityRelationRepository extends JpaRepository<RequestEqualityRelation, Long> {
 
 	@Query("""
-					SELECT new com.automata.request.equalityset.RequestEqualityRelationSummaryInternalDto(r.request.id, r.set.id)
+					SELECT new com.automata.request.equalityset.RequestEqualityRelationSummaryInternalDto(r.set.id, r.request.id)
 					 FROM RequestEqualityRelation
 			r WHERE r.set.equalization.id = :equalizationId
 			""")
