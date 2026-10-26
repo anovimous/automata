@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.automata.agentcontext.AgentContext;
 import com.automata.finding.common.dto.FindingCreationRequest;
 import com.automata.finding.common.dto.FindingPatchRequest;
 import com.automata.finding.common.dto.FindingReviewRequest;
@@ -195,7 +196,61 @@ class FindingServiceTest {
 		assertEquals(h, finding.getHost());
 	}
 
+	@Test
+	void createFindingWithAContextLinksTheFindingToIt() {
+		Request req = request(10L);
+		when(requestRepo.findById(10L)).thenReturn(Optional.of(req));
+		when(vulnerabilityRepo.findById(5L)).thenReturn(Optional.of(vulnerability(5L)));
+		when(findingRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+		AgentContext context = AgentContext.builder().id(2L).build();
+
+		Finding finding = service.createFinding(new FindingCreationRequest(10L, null, 5L, 7.5,
+				FindingStatus.SUGGESTED, 8.0, "evidence", null, FindingCreator.AI, null), context);
+
+		assertEquals(context, finding.getAgentContext());
+	}
+
+	@Test
+	void createFindingWithoutAContextLeavesItNull() {
+		when(requestRepo.findById(10L)).thenReturn(Optional.of(request(10L)));
+		when(vulnerabilityRepo.findById(5L)).thenReturn(Optional.of(vulnerability(5L)));
+		when(findingRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		Finding finding = service.createFinding(new FindingCreationRequest(10L, null, 5L, 7.5,
+				FindingStatus.SUGGESTED, 8.0, "evidence", null, FindingCreator.USER, null));
+
+		assertNull(finding.getAgentContext());
+	}
+
+	// ---- getFindings by specification
+
+	@Test
+	void getFindingsBySpecificationQueriesTheRepository() {
+		org.springframework.data.jpa.domain.Specification<Finding> spec = (root, query, cb) -> null;
+		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 5);
+		org.springframework.data.domain.Page<Finding> page = new org.springframework.data.domain.PageImpl<>(
+				java.util.List.of());
+		when(findingRepo.findAll(spec, pageable)).thenReturn(page);
+
+		assertEquals(page, service.getFindings(spec, pageable));
+	}
+
 	// ---- patchFinding
+
+	@Test
+	void patchFindingOfAnEntityAppliesThePatchWithoutLoadingIt() {
+		Finding finding = Finding.builder().id(1L).severity(3.0).status(FindingStatus.SUGGESTED).confidence(5.0)
+				.evidence("old").build();
+		FindingPatchRequest patch = new FindingPatchRequest(Optional.of(6.0), Optional.empty(), Optional.empty(),
+				Optional.of("new"), Optional.empty(), false, Optional.empty(), false);
+
+		service.patchFinding(finding, patch);
+
+		assertEquals(6.0, finding.getSeverity());
+		assertEquals("new", finding.getEvidence());
+		verify(findingRepo).save(finding);
+		verify(findingRepo, org.mockito.Mockito.never()).findById(any());
+	}
 
 	@Test
 	void patchFindingUpdatesSeverity() {

@@ -18,6 +18,7 @@ CREATE INDEX idx_comparator_modifier_comparator_id ON comparator_modifier (compa
 CREATE INDEX idx_comparator_modifier_modifier_id ON comparator_modifier (modifier_id);
 CREATE INDEX idx_equalization_comparator_id ON equalization (comparator_id);
 CREATE INDEX idx_equalization_host_id ON equalization (host_id);
+CREATE INDEX idx_finding_agent_context_id ON finding (agent_context_id);
 CREATE INDEX idx_finding_host_id ON finding (host_id);
 CREATE INDEX idx_finding_job_id ON finding (job_id);
 CREATE INDEX idx_finding_request_id ON finding (request_id);

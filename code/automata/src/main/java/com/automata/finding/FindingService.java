@@ -8,6 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.automata.agentcontext.AgentContext;
 import com.automata.finding.common.dto.FindingCreationRequest;
 import com.automata.finding.common.dto.FindingFilter;
 import com.automata.finding.common.dto.FindingPatchRequest;
@@ -48,8 +49,19 @@ public class FindingService {
 		return findingRepo.findAll(spec, pageable);
 	}
 
+	@Transactional(readOnly = true)
+	public Page<Finding> getFindings(Specification<Finding> spec, Pageable pageable) {
+		return findingRepo.findAll(spec, pageable);
+	}
+
 	@Transactional
 	public Finding createFinding(FindingCreationRequest request) {
+		return this.createFinding(request, null);
+	}
+
+	// The context is the one of the agent that creates the finding, null for the findings of users
+	@Transactional
+	public Finding createFinding(FindingCreationRequest request, AgentContext agentContext) {
 
 		validateSeverity(request.severity());
 		validateConfidence(request.confidence());
@@ -71,7 +83,8 @@ public class FindingService {
 		Finding finding = Finding.builder().request(req).host(host).job(job).vulnerability(vulnerability)
 				.severity(request.severity()).status(request.status()).confidence(request.confidence())
 				.evidence(request.evidence()).pocReproductionSteps(request.pocReproductionSteps())
-				.createdBy(request.createdBy()).aiDescription(request.aiDescription()).build();
+				.createdBy(request.createdBy()).aiDescription(request.aiDescription()).agentContext(agentContext)
+				.build();
 
 		return findingRepo.save(finding);
 
@@ -82,6 +95,13 @@ public class FindingService {
 
 		Finding finding = findingRepo.findById(findingId)
 				.orElseThrow(() -> new EntityNotFoundException("Finding not found"));
+
+		this.patchFinding(finding, patch);
+
+	}
+
+	@Transactional
+	public void patchFinding(Finding finding, FindingPatchRequest patch) {
 
 		patch.severity().ifPresent(s -> {
 			validateSeverity(s);
