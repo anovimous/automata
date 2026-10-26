@@ -51,7 +51,16 @@ ALL_TOOLS = frozenset(
 )
 
 # The tools that exist so far: each phase that adds tools adds their names here.
-IMPLEMENTED: frozenset[str] = frozenset()
+IMPLEMENTED: frozenset[str] = frozenset(
+    {
+        # phase 3: context tools
+        "get_context_briefing",
+        "get_context",
+        "get_host",
+        "list_targets",
+        "list_tenants",
+    }
+)
 
 
 def test_the_plan_has_37_tools() -> None:
