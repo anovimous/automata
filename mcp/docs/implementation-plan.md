@@ -126,6 +126,7 @@ automata-mcp/
       raw_messages.py                  normalize/encode raw HTTP text <-> base64, compose message
       waiting.py                       wait_for_jobs polling logic
       jobs.py                          what the job tools do around one core call: read the job back, next_step texts, results
+      findings.py                      create_finding / update_finding around one core call
       config_validation.py             rawRequestText conversion (no validation: the core validates)
       briefing.py                      builds get_context_briefing
       targets.py                       list_targets: the resolved targets, enriched with their request, and the notes about them
@@ -469,6 +470,15 @@ The core scopes the findings and enforces every rule (visible = the request of t
 
 **`update_finding(context_uuid, finding_id, severity=None, confidence=None, status=None, evidence=None, poc_reproduction_steps=None, ai_description=None)`** — row 122. Send only the provided fields. 409 → "only a finding you created in this context, and not yet reviewed by a human, can be edited". Returns the finding fetched again.
 
+*As implemented in phase 6 (`tools/findings.py`, `services/findings.py`):*
+
+- **Annotations:** `create_finding` is `CREATES`, `update_finding` is `IDEMPOTENT_WRITE`, the two reads are `READ_ONLY`.
+- **Arguments:** `status` is a `Literal["SUGGESTED", "CONFIRMED"]` and the `list_findings` filters `human_verdict` (`TRUE_POSITIVE`/`FALSE_POSITIVE`) and `created_by` (`AI`/`USER`) are literals too, so a value the core does not have never leaves the server. `severity` and `confidence` are floats; their 0 to 10 range, the need for `poc_reproduction_steps` when `CONFIRMED`, and every other rule stay with the core, whose message is shown.
+- **`create_finding`** returns `{findingId, next_step}` where `next_step` is the review note ("A human will review this finding; their verdict (TRUE_POSITIVE or FALSE_POSITIVE) and comment will appear in get_finding."). It does not read the finding back. 404 hint: the request is not readable in this context, or the job is not one of your jobs that targeted it.
+- **`update_finding`** sends only the fields that were given (a value of `0.0` counts as given) and returns the finding as `get_finding` would after the change; if the read fails it returns `{findingId, updated: true, note}`. Calling it with no field is an error (`ToolError`, nothing is sent): it is a shape problem of the call, not a rule of the core. The clearing flags of the core's patch (`setPocReproductionStepsNull`, `setAiDescriptionNull`) are in the model but not offered by the tool, because the plan's signature has no way to ask for them. 409 hint: only a finding you created in this context and not yet reviewed can be edited; 404 gets the same hint as `get_finding`.
+- **`get_finding`** returns the model as is (`humanVerdict`, `humanComment`, `reviewedAt`, `origin`); **`list_findings`** returns `page_output(page, "findings")`.
+- **Briefing:** `recentFindings` is `{total, items}` with the five newest findings of the readable requests (`list_findings` page 0, size 5); it is an optional slot like `recentJobs` (`{error}` when it cannot be read) and adds a note when some of those have a human verdict ("N of the M latest findings have a human verdict (a true positive, b false positive): read them with get_finding before recording a similar one.").
+
 ### 8.7 Ingestion and export (`tools/ingestion.py`, `tools/export.py`)
 
 **`add_request(host, raw_request=None, raw_request_base64=None, raw_response=None, raw_response_base64=None, tenant_id=None, context_uuid=None)`** — row 114.
@@ -632,7 +642,7 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions (the Host-header check of the SDK was already verified in phase 2, section 5: nothing to configure when bound to `0.0.0.0`) | 6 |
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
 
-**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phases 3 (`feat/add-context-tools`, `feat/add-reference-tools`), 4 (`feat/add-request-response-tools`) and 5 (`feat/add-job-tools`) are done and merged into `staging`. Later phases have not started.
+**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phases 3 (`feat/add-context-tools`, `feat/add-reference-tools`), 4 (`feat/add-request-response-tools`) and 5 (`feat/add-job-tools`) are done and merged into `staging`. Phase 6 is in progress: the finding tools and the briefing's findings part (`feat/add-finding-tools`) are done; the ingestion and export tools and the wordlist creation tool are not started. Later phases have not started.
 
 **Definition of done per phase:** gates pass; every new/changed function has tests; `docs/` updated; the tool-name set test matches section 17.A for the tools that exist so far; the user confirmed before any commit/merge.
 
