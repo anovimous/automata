@@ -86,12 +86,12 @@ class HttpJobCreationServiceAiJobTest {
 		host = Host.of(4L);
 		host.setProgram(new Program());
 		host.setHostRateLimit(50);
-		routine = new Routine();
+		routine = RoutineFixtures.usableRoutine();
 		routine.setId(1L);
 		routine.setKey("fuzz");
 		request = Request.of(5L);
 		request.setHost(host);
-		context = AgentContext.builder().host(host).allowedRoutines(List.of(routine)).build();
+		context = AgentContext.builder().host(host).allowedRoutines(List.of(routine)).maxRate(100).build();
 		context.setId(9L);
 	}
 
@@ -314,6 +314,118 @@ class HttpJobCreationServiceAiJobTest {
 		service.requireAiJobFields(aiRequest(null, null, null, null));
 	}
 
+	// ---- rate, priority, wordlists and routine rules
+
+	@Test
+	void aRateBelowOneIsRejectedByTheFieldCheck() {
+		assertThrows(IllegalArgumentException.class, () -> service.requireAiJobFields(aiRequest(null, 0, null, null)));
+		assertThrows(IllegalArgumentException.class,
+				() -> service.requireAiJobFields(aiRequest(null, -3, null, null)));
+	}
+
+	@Test
+	void aPriorityOutsideTheRangeIsRejectedByTheFieldCheck() {
+		assertThrows(IllegalArgumentException.class, () -> service.requireAiJobFields(aiRequest(null, null, null, 0)));
+		assertThrows(IllegalArgumentException.class, () -> service.requireAiJobFields(aiRequest(null, null, null, 6)));
+	}
+
+	@Test
+	void aRateOfOneAndTheBoundsOfThePriorityPassTheFieldCheck() {
+		service.requireAiJobFields(aiRequest(null, 1, null, HttpJob.MIN_PRIORITY));
+		service.requireAiJobFields(aiRequest(null, 1, null, HttpJob.MAX_PRIORITY));
+	}
+
+	@Test
+	void aContextDefaultPriorityOutsideTheRangeIsRejected() {
+		context.setDefaultPriority(9);
+		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, null, null, null)));
+
+		verify(jobRepo, never()).save(any());
+	}
+
+	@Test
+	void aJobOnAHostWithARateLimitOfZeroIsRefusedBeforeAnythingIsSaved() {
+		host.setHostRateLimit(0);
+		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
+
+		com.automata.job.domain.exception.IneligibleJobTargetException e = assertThrows(
+				com.automata.job.domain.exception.IneligibleJobTargetException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, 5, null, null)));
+
+		assertTrue(e.getMessage().contains("rate limit of 0"));
+		verify(jobRepo, never()).save(any());
+	}
+
+	@Test
+	void withoutARequestedRateTheHostRateLimitCappedByTheContextIsTheRate() {
+		host.setHostRateLimit(50);
+		context.setMaxRate(20);
+		givenJobCanBeCreated(List.of(target(true)));
+
+		assertEquals(20, createAndCapture(aiRequest(Duration.SHORT, null, null, null)).getGenericDetails().getRate());
+	}
+
+	@Test
+	void aRateOfZeroIsRefusedEvenWhenTheHostHasALimit() {
+		assertThrows(IllegalArgumentException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, 0, null, null)));
+
+		verify(jobRepo, never()).save(any());
+	}
+
+	@Test
+	void aRoutineNotAvailableAtTheWorkerIsRejectedBeforeAnythingIsSaved() {
+		routine.setAvailableAtConsumer(false);
+		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, null, null, null)));
+
+		verify(jobRepo, never()).save(any());
+	}
+
+	@Test
+	void aRoutineThatDoesNotAllowASingleRequestIsRejectedBeforeAnythingIsSaved() {
+		routine.setAllowedTargets(java.util.EnumSet.of(com.automata.routine.common.enums.TargetCardinalityPair.SINGLE_HOST));
+		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, null, null, null)));
+
+		verify(jobRepo, never()).save(any());
+	}
+
+	@Test
+	void anUnknownWordlistIsNotFoundAndNothingIsConfigured() {
+		when(agentContextService.getContextByUuid(CONTEXT_UUID)).thenReturn(context);
+		when(requestRepo.findById(5L)).thenReturn(Optional.of(request));
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
+		when(agentContextService.resolveContextTargets(9L)).thenReturn(List.of(target(true)));
+		when(wordlistRepo.findAllById(Set.of(3L))).thenReturn(List.of());
+		AiJobCreationRequest withWordlist = new AiJobCreationRequest(5L, "checks the id parameter", 1L,
+				Duration.SHORT, Set.of(3L), null, null, null, null);
+
+		assertThrows(jakarta.persistence.EntityNotFoundException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, withWordlist));
+
+		verify(jobRepo, never()).save(any());
+		verifyNoInteractions(targetConfigService);
+	}
+
 	// ---- requireRoutineAllowedInContext
 
 	@Test
@@ -323,7 +435,7 @@ class HttpJobCreationServiceAiJobTest {
 
 	@Test
 	void routineNotInTheContextFailsTheContextCheck() {
-		Routine other = new Routine();
+		Routine other = RoutineFixtures.usableRoutine();
 		other.setId(2L);
 		other.setKey("masser");
 
@@ -358,7 +470,7 @@ class HttpJobCreationServiceAiJobTest {
 
 	@Test
 	void requestedRateIsCappedByTheHostRateLimit() {
-		assertEquals(50, service.cappedRate(80, 50, null));
+		assertEquals(50, service.cappedRate(80, 50, 100));
 	}
 
 	@Test
@@ -367,13 +479,8 @@ class HttpJobCreationServiceAiJobTest {
 	}
 
 	@Test
-	void hostRateLimitOfZeroMeansNoLimit() {
-		assertEquals(80, service.cappedRate(80, 0, null));
-	}
-
-	@Test
 	void withoutARequestedRateTheHostRateLimitIsUsed() {
-		assertEquals(50, service.cappedRate(null, 50, null));
+		assertEquals(50, service.cappedRate(null, 50, 100));
 	}
 
 	@Test
@@ -381,9 +488,21 @@ class HttpJobCreationServiceAiJobTest {
 		assertEquals(20, service.cappedRate(null, 50, 20));
 	}
 
+	// ---- requireHostAcceptsJobs
+
 	@Test
-	void withoutARequestedRateAndAHostLimitTheContextMaxRateIsUsed() {
-		assertEquals(20, service.cappedRate(null, 0, 20));
+	void aHostWithARateLimitAcceptsJobs() {
+		host.setHostRateLimit(1);
+
+		service.requireHostAcceptsJobs(host);
+	}
+
+	@Test
+	void aHostWithARateLimitOfZeroDoesNotAcceptJobs() {
+		host.setHostRateLimit(0);
+
+		assertThrows(com.automata.job.domain.exception.IneligibleJobTargetException.class,
+				() -> service.requireHostAcceptsJobs(host));
 	}
 
 }

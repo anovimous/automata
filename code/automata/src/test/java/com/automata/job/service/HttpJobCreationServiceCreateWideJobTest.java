@@ -93,7 +93,7 @@ class HttpJobCreationServiceCreateWideJobTest {
 	}
 
 	private void givenWideJobCanBeCreated() {
-		when(routineRepo.findById(1L)).thenReturn(Optional.of(new Routine()));
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
 		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any()))
@@ -148,7 +148,7 @@ class HttpJobCreationServiceCreateWideJobTest {
 
 	@Test
 	void selectorWhichCanNotTargetAWideJobIsRejectedWithoutCreatingFiles() {
-		when(routineRepo.findById(1L)).thenReturn(Optional.of(new Routine()));
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
 		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any())).thenReturn(new TargetSelectionResult.SingleHost(5L));

@@ -88,8 +88,9 @@ class HttpJobCreationServiceCreateNarrowJobTest {
 	}
 
 	private void givenNarrowJobCanBeCreated(TargetSelectionResult selectionResult) {
-		when(routineRepo.findById(1L)).thenReturn(Optional.of(new Routine()));
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
 		Host host = Host.of(JOB_HOST_ID);
+		host.setHostRateLimit(10);
 		when(hostRepo.findById(JOB_HOST_ID)).thenReturn(Optional.of(host));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any())).thenReturn(selectionResult);

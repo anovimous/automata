@@ -3,6 +3,7 @@ package com.automata.job.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import com.automata.job.utils.HttpJobUtils;
 import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.WideHttpJob;
+import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.model.NarrowHttpJob.NarrowHttpJobBuilder;
 import com.automata.job.domain.model.WideHttpJob.WideHttpJobBuilder;
 import com.automata.job.domain.model.embedded.GenericConfig;
@@ -42,6 +44,7 @@ import com.automata.request.RequestRepository;
 import com.automata.routine.Routine;
 import com.automata.routine.RoutineRepository;
 import com.automata.routine.common.enums.Duration;
+import com.automata.routine.common.enums.TargetCardinalityPair;
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
 import com.automata.wordlist.Wordlist;
@@ -85,12 +88,16 @@ public class HttpJobCreationService {
 
 		builder.routine(findRoutineAndValidateCustomConfig(genericDto));
 
+		requireUserRateAndPriority(genericDto.rate(), genericDto.priority());
+
 		builder.genericDetails(draftDetails(genericDto, HttpJobScope.NARROW));
 
 		builder.duration(narrowDto.duration());
 
 		Host host = hostRepo.findById(narrowDto.hostId())
 				.orElseThrow(() -> new EntityNotFoundException("Host not found"));
+
+		requireHostAcceptsJobs(host);
 
 		builder.host(host);
 
@@ -144,6 +151,8 @@ public class HttpJobCreationService {
 
 		builder.routine(findRoutineAndValidateCustomConfig(genericDto));
 
+		requireUserRateAndPriority(genericDto.rate(), genericDto.priority());
+
 		builder.genericDetails(draftDetails(genericDto, HttpJobScope.WIDE));
 
 		Program program = programRepo.findById(wideDto.programId())
@@ -161,8 +170,10 @@ public class HttpJobCreationService {
 
 		WideHttpJob fullyConfiguredJob = switch (selectionResult) {
 
-		case TargetSelectionResult.MultipleHosts selected ->
-			targetConfigService.configureHostsAsTarget(newlyPersistedJob, selected.hostsIds());
+		case TargetSelectionResult.MultipleHosts selected -> {
+			requireHostsAcceptJobs(selected.hostsIds());
+			yield targetConfigService.configureHostsAsTarget(newlyPersistedJob, selected.hostsIds());
+		}
 
 		default -> throw new IllegalArgumentException(
 				"Target of this cardinality and type is not allowed to be a target of wide jobs");
@@ -193,8 +204,12 @@ public class HttpJobCreationService {
 
 		requireTargetOfJobHost(host.getId(), context.getHost().getId());
 
+		requireHostAcceptsJobs(host);
+
 		Routine routine = routineRepo.findById(aiRequest.routineId())
 				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
+
+		requireRoutineUsable(routine, SelectorType.SINGLE_REQUEST);
 
 		requireRoutineAllowedInContext(routine, context);
 
@@ -208,6 +223,7 @@ public class HttpJobCreationService {
 		ResultsVerbosity verbosity = firstNonNull(aiRequest.verbosity(), context.getDefaultVerbosity(),
 				ResultsVerbosity.SUMMARIZED);
 		int priority = firstNonNull(aiRequest.priority(), context.getDefaultPriority(), 1);
+		requirePriority(priority);
 		int rate = cappedRate(aiRequest.rate(), host.getHostRateLimit(), context.getMaxRate());
 
 		TargetSelector targetSelector = new TargetSelector();
@@ -232,7 +248,7 @@ public class HttpJobCreationService {
 		builder.agentContext(context);
 		builder.approved(target.autoApproval());
 		builder.aiDescription(aiRequest.aiDescription());
-		builder.wordlists(wordlistRepo.findAllById(aiRequest.wordlistsIds()));
+		builder.wordlists(findWordlists(aiRequest.wordlistsIds()));
 
 		NarrowHttpJob newlyPersistedJob = jobRepo.save(builder.build());
 
@@ -264,6 +280,7 @@ public class HttpJobCreationService {
 					+ HttpJob.MAX_AI_DESCRIPTION_LENGTH + " characters");
 		if (aiRequest.wordlistsIds() == null)
 			throw new IllegalArgumentException("wordlistsIds is required, send an empty set for none");
+		requireRateAndPriority(aiRequest.rate(), aiRequest.priority());
 	}
 
 	void requireRoutineAllowedInContext(Routine routine, AgentContext context) {
@@ -280,15 +297,11 @@ public class HttpJobCreationService {
 				.orElseThrow(() -> new EntityNotFoundException("Request not found in the agent context"));
 	}
 
-	// the rate is capped by the host rate limit and the context max rate, whichever
-	// of them is set (a host limit of 0 means no limit)
-	int cappedRate(Integer requested, int hostRateLimit, Integer contextMaxRate) {
+	// the rate is the requested one, or the host rate limit when none is requested, and it is
+	// capped by the host rate limit and the context max rate (both are at least 1 here)
+	int cappedRate(Integer requested, int hostRateLimit, int contextMaxRate) {
 		int rate = requested != null ? requested : hostRateLimit;
-		if (hostRateLimit > 0 && rate > hostRateLimit)
-			rate = hostRateLimit;
-		if (contextMaxRate != null && (rate > contextMaxRate || requested == null && rate <= 0))
-			rate = contextMaxRate;
-		return rate;
+		return Math.min(rate, Math.min(hostRateLimit, contextMaxRate));
 	}
 
 	private static <T> T firstNonNull(T first, T second, T fallback) {
@@ -297,8 +310,44 @@ public class HttpJobCreationService {
 
 	Routine findRoutineAndValidateCustomConfig(GenericHttpJobDetailsDto genericDto) {
 		Routine routine = findRoutine(genericDto);
+		if (genericDto.targetSelector() != null)
+			requireRoutineUsable(routine, genericDto.targetSelector().getSelectorType());
 		customConfigValidator.validate(routine, genericDto.customConfig());
 		return routine;
+	}
+
+	// The routine must be one the worker can run and it must allow the kind of target of the job
+	void requireRoutineUsable(Routine routine, SelectorType selectorType) {
+		if (!routine.isAvailableAtConsumer())
+			throw new IllegalArgumentException("Routine '" + routine.getKey() + "' is not available at the worker");
+		if (selectorType == null)
+			return;
+		TargetCardinalityPair target = switch (selectorType) {
+		case SINGLE_HOST -> TargetCardinalityPair.SINGLE_HOST;
+		case MULTIPLE_HOSTS -> TargetCardinalityPair.MULTILPLE_HOSTS;
+		case SINGLE_REQUEST -> TargetCardinalityPair.SINGLE_REQUEST;
+		case MULTIPLE_REQUESTS -> TargetCardinalityPair.MULTIPLE_REQUESTS;
+		};
+		if (routine.getAllowedTargets() == null || !routine.getAllowedTargets().contains(target))
+			throw new IllegalArgumentException(
+					"Routine '" + routine.getKey() + "' does not allow " + selectorType + " targets");
+	}
+
+	// The rate and the priority a user gives: a job always has a rate, so it is required
+	void requireUserRateAndPriority(Integer rate, Integer priority) {
+		if (rate == null)
+			throw new IllegalArgumentException("rate is required");
+		requireRateAndPriority(rate, priority);
+	}
+
+	// Only a value that is given is checked: a missing one takes its default
+	void requireRateAndPriority(Integer rate, Integer priority) {
+		HttpJobUtils.requireValidRate(rate, "rate");
+		HttpJobUtils.requireValidPriority(priority, "priority");
+	}
+
+	void requirePriority(int priority) {
+		HttpJobUtils.requireValidPriority(priority, "priority");
 	}
 
 	Routine findRoutine(GenericHttpJobDetailsDto genericDto) {
@@ -314,9 +363,20 @@ public class HttpJobCreationService {
 	}
 
 	List<Wordlist> findWordlists(GenericHttpJobDetailsDto genericDto) {
-		if (genericDto.wordlistsIds() == null)
+		return findWordlists(genericDto.wordlistsIds());
+	}
+
+	// Every given id must be a wordlist, an unknown one is not dropped silently
+	List<Wordlist> findWordlists(Set<Long> wordlistIds) {
+		if (wordlistIds == null || wordlistIds.isEmpty())
 			return new ArrayList<>();
-		return wordlistRepo.findAllById(genericDto.wordlistsIds());
+		List<Wordlist> wordlists = wordlistRepo.findAllById(wordlistIds);
+		if (wordlists.size() != wordlistIds.size()) {
+			Set<Long> missing = new TreeSet<>(wordlistIds);
+			wordlists.forEach(wordlist -> missing.remove(wordlist.getId()));
+			throw new EntityNotFoundException("Wordlist not found: " + missing);
+		}
+		return wordlists;
 	}
 
 	void prepareConfigFilesAfterCommit(Long jobId) {
@@ -325,6 +385,18 @@ public class HttpJobCreationService {
 			public void afterCommit() {
 				configFileService.prepareConfigFiles(jobId);
 			}
+		});
+	}
+
+	// A host with a rate limit of 0 is closed to jobs: the scheduler could never run one
+	void requireHostAcceptsJobs(Host host) {
+		if (host.getHostRateLimit() < 1)
+			throw IneligibleJobTargetException.forHostWithoutRateLimit(host.getId());
+	}
+
+	void requireHostsAcceptJobs(Set<Long> hostIds) {
+		hostRepo.findDtosByIds(hostIds).stream().filter(dto -> dto.rateLimit() < 1).findFirst().ifPresent(dto -> {
+			throw IneligibleJobTargetException.forHostWithoutRateLimit(dto.hostId());
 		});
 	}
 

@@ -65,7 +65,7 @@ class HttpJobCreationServiceCustomConfigValidationTest {
 	@InjectMocks
 	HttpJobCreationService service;
 
-	private final Routine routine = new Routine();
+	private final Routine routine = RoutineFixtures.usableRoutine();
 
 	private final InvalidCustomConfigException invalid = new InvalidCustomConfigException("fuzz", List.of("bad"));
 
@@ -101,6 +101,7 @@ class HttpJobCreationServiceCustomConfigValidationTest {
 	@Test
 	void invalidCustomConfigOfAnAiJobIsRejectedBeforeAnythingIsSaved() {
 		Host host = Host.of(4L);
+		host.setHostRateLimit(10);
 		Request request = Request.of(5L);
 		request.setHost(host);
 		routine.setId(1L);

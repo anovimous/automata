@@ -21,6 +21,11 @@ public class IneligibleJobTargetException extends RuntimeException {
 				requestId, bodyDescription));
 	}
 
+	public static IneligibleJobTargetException forHostWithoutRateLimit(Long hostId) {
+		return new IneligibleJobTargetException(String.format(
+				"Host %d has a rate limit of 0, so no job can run on it.", hostId));
+	}
+
 	public static IneligibleJobTargetException forOtherHost(Long targetHostId, Long jobHostId) {
 		return new IneligibleJobTargetException(String.format(
 				"The target belongs to host %d, but the job is for host %d, so it can't be used as its target.",
