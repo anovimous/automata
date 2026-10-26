@@ -33,6 +33,10 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# pydantic copies mutable defaults for every instance, so `= []` is safe in the models
+"src/automata_mcp/core/models/*" = ["RUF012"]
+
 [tool.mypy]
 strict = true
 python_version = "3.12"

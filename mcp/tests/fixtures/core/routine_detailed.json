@@ -1,0 +1,24 @@
+{
+  "id": 1,
+  "creationDate": "2026-09-01",
+  "key": "fuzz",
+  "description": "ffuf based fuzzer",
+  "updatedAt": "2026-10-01T00:00:00Z",
+  "isAvailableAtConsumer": true,
+  "wordlistRequired": true,
+  "overhead": "HIGH",
+  "protocol": "HTTP",
+  "allowedTargets": [
+    "SINGLE_REQUEST"
+  ],
+  "vulnerabilityId": null,
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "rawRequestBase64": {
+        "type": "string"
+      }
+    }
+  },
+  "resultContentType": "JSON"
+}

@@ -98,6 +98,8 @@ One server process serves one agent connection (stdio) or several (HTTP); it is 
 
 **Tooling:** `uv` + `pyproject.toml` (committed `uv.lock`), `ruff` (lint+format), `mypy --strict` on `src/`, entry point script `automata-mcp`.
 
+*As set up in phase 0:* build backend `uv_build`; `uv` was not installed and was put in place with `pipx install uv`. ruff selects `E, F, I, B, UP, SIM, ASYNC, RUF` with line length 100, and ignores `RUF012` under `core/models/` (pydantic copies mutable defaults for every instance, so `= []` is safe there). mypy runs `strict` on `src` with the pydantic plugin. pytest runs with `asyncio_mode = "auto"`, the marker `integration` and branch coverage configured (`uv run pytest --cov`). The `Makefile` has `sync`, `lint`, `format`, `format-check`, `typecheck`, `test` and `check` (`make check` runs the four gates). `.claude/` is not tracked in git (the user's decision). The console script is added to `pyproject.toml` in phase 2.
+
 **Layout**
 ```
 automata-mcp/
@@ -139,6 +141,8 @@ Tool modules only declare tools (`@mcp.tool`) and delegate to `services/` and `c
 
 `config.py` — `Settings(BaseSettings)`, env prefix `AUTOMATA_`, `.env` optional.
 
+*Validation as implemented:* `core_url` must start with `http://` or `https://` and loses its trailing slashes; `transport` is `stdio` or `streamable-http`; `log_level` is one of the standard level names; `http_port` is 1–65535; sizes, durations and limits are greater than 0 (`get_retries` and `target_enrich_limit` may be 0); `wait_default_seconds` must not exceed `wait_max_seconds`; `body_max_bytes` must not exceed `body_max_fetch_bytes`. Tests build it with `Settings(_env_file=None)` so a local `.env` never leaks in.
+
 | Variable | Default | Meaning |
 |---|---|---|
 | `AUTOMATA_CORE_URL` | `http://localhost:8080` | base URL of the core (compose publishes it on 8080) |
@@ -166,7 +170,7 @@ Tool modules only declare tools (`@mcp.tool`) and delegate to `services/` and `c
 ### 6.1 Conventions
 
 - Base URL = `AUTOMATA_CORE_URL`. JSON in/out unless noted. No authentication, no versioning.
-- **Error bodies are plain text** (the exception message), not JSON. Status mapping (core `GlobalExceptionHandler`): `404` entity not found; `400` illegal argument / unreadable body (bad JSON, unknown enum name); `409` invalid job state, job not approved, a finding that cannot be edited (not created by this context's agent, or reviewed by a human), optimistic-lock conflict; `422` ineligible job target (a body that is not empty/JSON/FORM, another host, or a host with a rate limit of 0); `501` unsupported operation; `413` a wordlist file over 512 MB (`create_wordlist` only); `500` anything else.
+- **Error bodies are plain text** (the exception message), not JSON. Status mapping (core `GlobalExceptionHandler`): `404` entity not found; `400` illegal argument / unreadable body (bad JSON, unknown enum name); `409` invalid job state, job not approved, a finding that cannot be edited (not created by this context's agent, or reviewed by a human), optimistic-lock conflict; `422` ineligible job target (a body that is not empty/JSON/FORM, another host, or a host with a rate limit of 0); `501` unsupported operation; `413` a wordlist file over 512 MB (`create_wordlist` only); `415` unsupported media type (shown as a generic refusal); `500` anything else.
 - **Paged lists** return `{"content": [...], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0, "last": true}`. Query params `page` (0-based), `size`, `sort=prop,asc|desc`. The tools expose `page` and `size` (clamp `size` to ≤ 100) and no `sort`.
 - Creation routes answer `201` with a `Location` header and usually an empty body.
 - Dates: `LocalDate` as `YYYY-MM-DD`; instants as ISO-8601 strings.
@@ -250,7 +254,19 @@ Notes
 
 Models must tolerate unknown enum values and extra fields (the core evolves): use `extra="ignore"` and `str`-backed enums with an `UNKNOWN` fallback, or plain `str` for fields the server never branches on.
 
+*As implemented (`core/models/enums.py`):* every enum derives from `CoreEnum` (a `StrEnum`). A value the enum does not know does not fail: it gives a member that keeps the raw value, whose `name` is `UNKNOWN`, that compares equal to the raw string and is sent back unchanged (so nothing is lost when a payload is shown or re-sent). A value that is not a string is still rejected. `JobOrigin` and `FindingOrigin` are one enum, `Origin`. Dates and instants are kept as `str`. Fields the server never branches on stay plain `str` (`BodyMetadata.mime_family`, the fields of `MatchAndReplace`).
+
 ---
+
+### 6.4 The client as implemented (phase 1, `core/client.py`)
+
+- `CoreClient(base_url, *, timeout_seconds, get_retries, transport=None, sleep=asyncio.sleep)`; `CoreClient.from_settings(settings)`; an async context manager (`aclose()` on exit). `transport` and `sleep` exist so tests can inject a mock transport and a fake clock. The context uuid is a `uuid.UUID` (the tools parse the string first, section 9.1).
+- One method per route of 6.2, named as in `docs/core-contract.md`. Lists return `list[Model]`, pages `Page[Model]`, creations the new id (read from the last segment of `Location`), actions `None`.
+- **Retries:** only GETs, only on connect errors, timeouts and 5xx, `get_retries` times, with a backoff of 0.5 s, 1 s, ... Any other transport error (for example a dropped connection) is not retried and becomes "core unreachable". A write that could not connect says in its message that it may or may not have been applied.
+- **Streams:** `stream_request_body`, `stream_response_body`, `stream_job_result` and `stream_request_job_result` are async context managers yielding the `httpx.Response`: `async with client.stream_job_result(uuid, jid) as response:`. The status is checked before the body is reachable (a 4xx/5xx raises the mapped error), and the response is always closed. The caller (phase 4's `services/bodies.py`) reads at most what it needs.
+- **Unreadable answers** (a body that is not JSON, a payload of the wrong shape, a list route answering an object, a page route answering a list, a creation without `Location`) raise `CoreResponseError`; the server never passes through half-parsed data.
+- **Bodies sent** are the `CoreRequest` models; `to_payload()` gives camelCase keys, enums as strings and **leaves out every field that was not given** (never a `null`); `wordlistsIds` is always sent, also when empty. `states` is sent as one comma-separated value; unset filters are not sent. `create_wordlist(content, *, file_name, metadata=None)` sends the multipart parts `file` (any text) and, when given, `metadata` as JSON without a file name. `export_body_property_names(host_id)` sends only `hostId` and returns the non-blank lines.
+- **Paging:** `page_params(page, size)` clamps `page >= 0` and `1 <= size <= 100`; unset query values are dropped (`drop_none`) but an empty `query=""` is sent.
 
 ## 7. Data models (pydantic, camelCase aliases)
 
@@ -264,7 +280,7 @@ Base config: `ConfigDict(extra="ignore", populate_by_name=True, alias_generator=
   - `automataJobEligible=false` means the request cannot be a job target (its body is neither empty nor JSON/FORM, e.g. multipart): test it by other means.
   - `autoApproval=true` means a job on it needs no human approval; `false` means a human must approve the draft.
 - `HostDetailedResponse{id, insertionDate, host, level, scope, outOfScope, hostRateLimit, shortRateLimit, longRateLimit, programId, description?, technologies?: list[str], notes?}` (a rate limit of 0 means no job can run on the host: the core refuses to create one, 422).
-- `AgentContextTenantResponse{tenantId, name, email, authData?: StaticAuthData, requestIds: list[int]}`; `StaticAuthData{data: {headers, cookies, queryParameters: list[{key, value}]}, lifeTimeInSeconds?, populatedAt?}` (`authData` is null when the tenant has no authentication).
+- `AgentContextTenantResponse{tenantId, name, email, authData?: StaticAuthData, requestIds: list[int]}`; `StaticAuthData{data: {headers, cookies, queryParameters: list[{key, value}]}, lifeTimeInSeconds?, populatedAt?}` (both are instants, ISO timestamps, despite the first name) (`authData` is null when the tenant has no authentication).
 
 **Requests / responses**
 - `ContextRequestSummary{requestId, method, computatedPath, equalitySetId?, tenantId?, resolvedTarget: bool, automataJobEligible: bool, insertionDate}` (`equalitySetId` is the context's set item that holds the request, null for a plain request item; `resolvedTarget` says whether the request is also in `list_targets`, i.e. a job can target it).
@@ -279,7 +295,7 @@ Base config: `ConfigDict(extra="ignore", populate_by_name=True, alias_generator=
 - **`terminal` and `waitingForAction`** (on all four job DTOs below, computed by the core): `terminal` is true when the job ended and will not change (`FINISHED`, `FAILED`, `SELFTERMINATED`, `CANCELED`, `LOSTCONTACT`). `waitingForAction` is true for a `DRAFT` job that does not move on by itself: an AI job nobody approved yet (a human must approve it) or a job whose config files failed (`configFileStatus=FAILED`, call `retry_job_preparation`). A draft that is approved with READY files is not waiting: the agent still has to `queue_job` it.
 - `HttpJobSummaryResponseDto{id, creationDate, scope, currentState, priority, rate, routineId, routineKey, createdBy, approved, terminal, waitingForAction}`
 - `RequestJobSummaryResponseDto{id, creationDate, scope, currentState, priority, rate, routineKey, approved, terminal, waitingForAction, origin}` and `RequestJobResponseDto{jobId, currentState, requestedState?, verbosity, priority, rate, customConfig(json)?, routineKey, failureMessage?, failureCategory?, aiDescription?, aiResult?, approved, terminal, waitingForAction, origin}` (job history of a request). `origin` is `THIS_CONTEXT | OTHER_CONTEXT | USER`; these DTOs carry no context id/uuid, no program, no target selector and no `genericConfig`/`configFileStatus`. Wide jobs are never listed (no per-request link).
-- `HttpJobResponseDto{jobId, httpJobScope, currentState, requestedState?, verbosity, priority, rate, targetSelector{selectorType, selector(json)}, genericConfig{matchAndReplace: list}, customConfig(json)?, program{id, name}, routine{id, key}, failureMessage?, failureCategory?, configFileStatus, configFileFailure?, aiDescription?, aiResult?, createdBy, approved, terminal, waitingForAction, agentContextUuid?}`
+- `HttpJobResponseDto{jobId, httpJobScope, currentState, requestedState?, verbosity, priority, rate, targetSelector{selectorType, selector(json)}, genericConfig{matchAndReplace: list[{targetType (HEADER), rule (ADD|REPLACE|DELETE), targetKey, value}]}, customConfig(json)?, program{id, name}, routine{id, key}, failureMessage?, failureCategory?, configFileStatus, configFileFailure?, aiDescription?, aiResult?, createdBy, approved, terminal, waitingForAction, agentContextUuid?}`
 - `AiJobCreationRequest` (body of `create_job`): `{requestId, aiDescription, routineId, duration?, wordlistsIds: list[int] (required, may be empty), rate?, verbosity?, priority?, customConfig?}` — note the field is `wordlistsIds`. The context uuid is in the path.
 
 **Reference data**
@@ -460,14 +476,17 @@ Core errors become exceptions with agent-facing messages. The core's text is inc
 |---|---|---|
 | 404 | missing, or not in the context | "Not found, or not part of this context: <core message>. Use list_targets / list_jobs to see what you can access." |
 | 400 | invalid argument | "The core rejected the arguments: <message>. Fix the arguments and retry." |
-| 409 | job state / not approved / finding not editable / conflict | tool-specific hint (see each tool; for `update_finding`: only a finding you created in this context and no human has reviewed can be edited); generic: "The job is not in a state that allows this: <message>." / "changed at the same time, re-read and retry" |
+| 409 | job state / not approved / finding not editable / conflict | tool-specific hint (see each tool; for `update_finding`: only a finding you created in this context and no human has reviewed can be edited); generic (implemented, the message is not parsed): "The core refused because of the current state (job state, approval, finding editable, or a change made at the same time): <message>. Re-read the item before deciding what to do." |
 | 422 | ineligible target | "That cannot be a job target: <message>." (a request that is not job-eligible, another host, or a host with a rate limit of 0 that the agent cannot change: tell the user) |
 | 413 | wordlist file too large | "The wordlist is over the core's limit (512 MB): <message>. Send a smaller file." |
 | 501 | not implemented | "Not supported by the core: <message>." |
 | 5xx | core failure | "The core failed (HTTP N). It may be temporary; retry once. Do not retry in a loop." |
+| 415 and any other 4xx | refused request | "The core refused the request (HTTP N): <message>." (`CoreRejected`) |
 | connect error / timeout | core unreachable | "Cannot reach the core at <url> (timeout). Tell the user." (GETs are retried per config first) |
 
 Never expose stack traces or the core URL credentials (none exist). Truncate core messages to 1 000 characters.
+
+*As implemented (`core/errors.py`):* `CoreError(message, status, core_message)` is the base; `CoreNotFound` (404), `CoreBadRequest` (400), `CoreConflict` (409), `CoreUnprocessable` (422), `CorePayloadTooLarge` (413), `CoreNotImplemented` (501), `CoreServerError` (other 5xx), `CoreRejected` (other 4xx), `CoreUnreachable` (no answer; the text names the core URL, and for writes says the request may or may not have been applied) and `CoreResponseError` (an answer that cannot be read, section 6.4). `str(error)` is the guidance followed by the core's message; tools that need a specific hint (sections 8.4–8.7) catch the class and use `status` and `core_message`. An empty core body becomes "(no message)".
 
 ---
 
@@ -534,6 +553,7 @@ None of these blocks the MVP; each would be a separate core branch (the core rep
 
 - **Unit tests** for every function (project rule): `services/*` (pure logic), `core/errors.py`, `core/paging.py`, models parsing, each tool with the core mocked by `respx`.
 - **Fixtures:** `tests/fixtures/core/*.json` — one real-shaped sample per payload in section 7 (copy the shapes from the core DTOs; refresh them when the core changes). Tests parse every fixture with the pydantic models and assert round-trips of the request bodies.
+- **As done in phase 1:** `tests/conftest.py` has a `load_fixture(name)` fixture; the 28 fixtures in `tests/fixtures/core/` cover every payload of section 7, including the bodies the server sends (these are asserted to round-trip through `to_payload()`); client tests use `respx` with an injected fake `sleep` (so retry back-offs are asserted without waiting). Parametrised tables cover every GET route (path, query, result type).
 - **Tool-level tests through the MCP protocol** with an in-memory client/server pair (in `mcp` 2.x the old helper `mcp.shared.memory.create_connected_server_and_client_session` is gone; `mcp.Client` is exported and is the likely replacement — **verify** in phase 2 that it can be connected to an `MCPServer` in memory, and fix this line with what works): list tools (assert the exact tool name set = section 17.A), call a tool, assert the structured result and that errors come back as `isError`.
 - **Must-have cases:** each core status (404/400/409/422/5xx/timeout) for at least one tool of each group; `wait_for_jobs` early exits (any, all, waitingForAction, timeout) with a fake clock/sleep; byte-cap truncation and offset; binary detection; `normalize_raw_message` (LF→CRLF, missing blank line, body untouched); `rawRequestText` conversion (and that `create_job` makes no call other than the POST and the job fetch); finding tools only call the scoped routes (and show 404/409 messages); `export_body_property_names` never sends `programId`.
 - **Integration tests** (`tests/integration`, opt-in via `AUTOMATA_IT=1`, real core on `AUTOMATA_CORE_URL` with a prepared context): one happy path per tool group. Not required for CI.
@@ -560,6 +580,8 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions; check that the SDK's Host-header check accepts the compose service name (section 5) | 6 |
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
 | 11 | optional: `feat/add-ffuf-result-summary` | only if the worker-side summary of C7 is not done: summarise ffuf JSON results (counts by status/size/words, outliers) in `get_job_result(summary=true)` (a parameter that section 8.4 does not have until this phase; it is presentation of raw output, not a rule); do **not** guess masser's output format. If the worker writes `{jobId}.summary.json`, return that file instead and parse nothing | 5 |
+
+**Status:** phase 0 (`chore/set-up-project-skeleton`) and phase 1 (`feat/add-core-client`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phase 2 and later have not started.
 
 **Definition of done per phase:** gates pass; every new/changed function has tests; `docs/` updated; the tool-name set test matches section 17.A for the tools that exist so far; the user confirmed before any commit/merge.
 

@@ -1,0 +1,7 @@
+{
+  "name": "ids",
+  "description": "Sequential ids",
+  "vulnIds": [
+    12
+  ]
+}

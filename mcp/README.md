@@ -15,4 +15,5 @@ make sync     # install dependencies
 make check    # ruff check, ruff format --check, mypy --strict, pytest
 ```
 
-Configuration is documented in [`.env.example`](.env.example).
+Configuration is documented in [`.env.example`](.env.example). The routes and payloads of the core that the
+server uses are in [`docs/core-contract.md`](docs/core-contract.md).

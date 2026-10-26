@@ -1,0 +1,48 @@
+{
+  "jobId": 31,
+  "httpJobScope": "NARROW",
+  "currentState": "DRAFT",
+  "requestedState": null,
+  "verbosity": "SUMMARIZED",
+  "priority": 1,
+  "rate": 20,
+  "targetSelector": {
+    "selectorType": "SINGLE_REQUEST",
+    "selector": {
+      "requestId": 7
+    }
+  },
+  "genericConfig": {
+    "matchAndReplace": [
+      {
+        "targetType": "HEADER",
+        "rule": "REPLACE",
+        "targetKey": "Authorization",
+        "value": "Bearer x"
+      }
+    ]
+  },
+  "customConfig": {
+    "rawRequestBase64": "R0VU",
+    "flags": []
+  },
+  "program": {
+    "id": 1,
+    "name": "Example"
+  },
+  "routine": {
+    "id": 1,
+    "key": "fuzz"
+  },
+  "failureMessage": null,
+  "failureCategory": null,
+  "configFileStatus": "READY",
+  "configFileFailure": null,
+  "aiDescription": "Fuzz the id path parameter",
+  "aiResult": null,
+  "createdBy": "AI",
+  "approved": false,
+  "terminal": false,
+  "waitingForAction": true,
+  "agentContextUuid": "6f1c0a52-0000-4000-8000-000000000001"
+}
