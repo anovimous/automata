@@ -284,3 +284,33 @@ def test_default_lists_of_a_model_are_not_shared() -> None:
     first.headers.append(AuthNameValuePair(key="k", value="v"))
 
     assert second.headers == []
+
+
+def test_to_output_drops_null_fields_but_keeps_null_inside_free_form_json() -> None:
+    routine = RoutineDetailed.model_validate(
+        {
+            "id": 1,
+            "key": "fuzz",
+            "description": None,
+            "configSchema": {"properties": {"a": {"default": None}}},
+        }
+    )
+
+    output = routine.to_output()
+
+    assert "description" not in output
+    assert output["isAvailableAtConsumer"] is False
+    assert output["configSchema"] == {"properties": {"a": {"default": None}}}
+
+
+def test_to_output_gives_plain_strings_for_enums() -> None:
+    target = ResolvedTarget.model_validate(
+        {
+            "requestId": 1,
+            "automataJobEligible": True,
+            "autoApproval": False,
+            "sourceItemType": "REQUEST",
+        }
+    )
+
+    assert type(target.to_output()["sourceItemType"]) is str
