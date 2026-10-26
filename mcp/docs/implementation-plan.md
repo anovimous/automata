@@ -129,7 +129,7 @@ automata-mcp/
       briefing.py                      builds get_context_briefing
       targets.py                       list_targets: the resolved targets, enriched with their request, and the notes about them
     tools/
-      common.py                        shared by the tool modules: ContextUuid, parse_context_uuid, READ_ONLY, PageNumber/PageSize, page_output
+      common.py                        shared by the tool modules: ContextUuid, RequestId, BodyOffset, BodyMaxBytes, parse_context_uuid, READ_ONLY, PageNumber/PageSize, page_output, with_hint
       context.py  requests.py  responses.py  jobs.py  reference.py  wordlists.py  findings.py  ingestion.py  export.py
     prompts.py  resources.py
   tests/
@@ -380,6 +380,17 @@ All require the request to be in the context (404 otherwise: say "not found or n
 
 **`get_response_body(context_uuid, request_id, offset=0, max_bytes=None)`** — row 97. Reading a JS/HTML/XML response body (stored as a file) goes through this tool; JSON bodies are also readable here.
 
+*As implemented in phase 4 (`tools/requests.py`, `tools/responses.py`, `services/bodies.py`, `services/raw_messages.py`):*
+
+- **Classification of a body** (`bodies.classify`, answers text / binary / "only the bytes can tell"): the family the core gives wins (`JSON, FORM, XML, HTML, JS, CSS, TEXT` are text; `IMAGE, AUDIO, VIDEO, PDF, ARCHIVE` are binary); otherwise the Content-Type (`text/*`, `application/json|xml|javascript|ecmascript|x-www-form-urlencoded` and `*+json|xml` are text; `image/*`, `audio/*`, `video/*`, `application/pdf|zip|gzip|x-tar` are binary). **Deviation from 9.2:** `OCTET_STREAM`, `multipart/*`, a missing Content-Type and anything unknown are decided by a NUL byte in the first KiB. Reason: the core sends `application/octet-stream` whenever a body has no usable Content-Type (`BodyDownloads`), so treating it as binary would hide text bodies.
+- **Reading** (`bodies.read_slice`): at most `AUTOMATA_BODY_MAX_FETCH_BYTES` are read, counting the skipped offset; it stops as soon as it has seen one byte past the slice (so `truncated` is exact without reading the rest); `totalBytes` is the number of bytes seen when the stream ended, else the `Content-Length` (ignored when the body has a `Content-Encoding`), else absent. An `offset` at or beyond the fetch cap raises a `ToolError`; an offset past the end of the body gives an empty text and a note. Text is decoded with the charset of the Content-Type (codec name in `encoding`, UTF-8 when absent or unknown). **A truncated slice never ends inside a character:** the undecoded trailing bytes are not counted in `returnedBytes`, so `nextOffset` (= offset + returnedBytes) is a character boundary. `note` says how to go on, or that the cap makes the rest unreachable.
+- **Metadata first:** `read_described_body` opens no stream when the metadata already says `storage = NONE` (`{"hasBody": false}`) or that the body is binary (`{"binary": true, contentType, sizeBytes}`); otherwise `get_request` / `get_response` return `metadata.to_output()` with `body` = the metadata's body merged with the section (`text`, `encoding`, `offset`, `returnedBytes`, `totalBytes`, `truncated`, `nextOffset`, `note`). The body tools (`get_request_body`, `get_response_body`) return the section alone and decide from the stream's own headers.
+- **Raw views** (`raw_messages.raw_view`): `headText` is the head decoded as ISO-8859-1. A request without a body has an empty body, so its `rawRequestBase64` is the head and its `rawRequestText` the head text (the usual `GET .../FUZZ` case). The body is included when it is at most `AUTOMATA_BODY_MAX_BYTES`: `bodyText` for text; `rawRequestBase64` (exact bytes) always for a request; `rawRequestText` only for a text or empty body. A bigger body is cut (`bodyTruncated: true`, `bodyText` is the start, no raw forms) with a note pointing to the body tool. A body stored as a file is read through the body stream (at most the fetch cap); a larger file is left out with a note. A response view never has the request forms. Messages are in `notes: [...]`.
+- **Errors with hints** (`tools/common.with_hint`, same class and status, hint appended): an unknown `equality_set_id` in `list_context_requests`; a request without a body in `get_request_body`; a request without a response in `get_response`, `get_response_raw` and `get_response_body`. Body arguments are checked by the schema: `offset >= 0`, `max_bytes >= 1`.
+- **`list_context_requests`** returns `page_output(page, "requests")`; its `size` is cut to 100 by the client.
+- **9.4 helpers** (`services/raw_messages.py`, used from phase 5/6): `normalize_raw_message(text) -> bytes` finds the first blank line with `\r?\n\r?\n` (so `\n\n`, `\r\n\r\n` and the mixed forms all count), gives the head CRLF endings and ends it with a blank line, leaves the body byte for byte, and treats a text without a blank line as all head (trailing newlines are dropped before the closing blank line); `to_base64`, `from_base64` (invalid base64 from the core is a `CoreResponseError`), `compose_message(head_b64, body)` (a `str` body is base64), `header_value(head_text, name)` and `decode_head`.
+- Tests use `tests/helpers.py` `chunked_response(chunks, headers)` (a streamed response with chosen chunk boundaries) and `stream_of(response)`; the slice logic is checked against plain slicing for every offset and length and several chunkings.
+
 ### 8.4 Job tools (`tools/jobs.py`)
 
 **`create_job(context_uuid, request_id, routine_id, ai_description, wordlist_ids, duration=None, rate=None, verbosity=None, priority=None, custom_config=None)`** — row 98.
@@ -469,7 +480,7 @@ The core scopes the findings and enforces every rule (visible = the request of t
 1. Stream with `client.stream("GET", ...)`; read at most `AUTOMATA_BODY_MAX_FETCH_BYTES`; skip `offset` bytes; keep up to `max_bytes` (default `AUTOMATA_BODY_MAX_BYTES`, clamp to the fetch cap). Always close the stream.
 2. Decide "textual" from the response `Content-Type` family: `JSON, FORM, XML, HTML, JS, CSS, TEXT` and `application/*+json|xml`, `text/*`. Multipart is treated as text only if the bytes contain no NUL in the first 1 KiB; otherwise binary.
 3. Textual → decode with the charset from `Content-Type` if present, else UTF-8, `errors="replace"`. Return `{text, encoding, offset, returnedBytes, totalBytes (from Content-Length if present else null), truncated}`.
-4. Binary (`IMAGE, AUDIO, VIDEO, PDF, ARCHIVE, OCTET_STREAM`, NUL heuristic) → `{binary: true, contentType, sizeBytes}` and **no content** (optional later: return `IMAGE` through the SDK's image helper — **verify**, not in the MVP).
+4. Binary (`IMAGE, AUDIO, VIDEO, PDF, ARCHIVE`; `OCTET_STREAM` is **not** binary by itself, see the implementation note below) → `{binary: true, contentType, sizeBytes}` and **no content** (optional later: return `IMAGE` through the SDK's image helper — **verify**, not in the MVP).
 5. `body.storage == NONE` → no fetch, `{hasBody: false}`.
 6. The head of a message (`/raw`) is decoded as ISO-8859-1.
 
@@ -609,7 +620,7 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
 | 11 | optional: `feat/add-ffuf-result-summary` | only if the worker-side summary of C7 is not done: summarise ffuf JSON results (counts by status/size/words, outliers) in `get_job_result(summary=true)` (a parameter that section 8.4 does not have until this phase; it is presentation of raw output, not a rule); do **not** guess masser's output format. If the worker writes `{jobId}.summary.json`, return that file instead and parse nothing | 5 |
 
-**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phase 3 (`feat/add-context-tools` and `feat/add-reference-tools`) is done and merged into `staging`. Later phases have not started.
+**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phases 3 (`feat/add-context-tools`, `feat/add-reference-tools`) and 4 (`feat/add-request-response-tools`) are done and merged into `staging`. Later phases have not started.
 
 **Definition of done per phase:** gates pass; every new/changed function has tests; `docs/` updated; the tool-name set test matches section 17.A for the tools that exist so far; the user confirmed before any commit/merge.
 
