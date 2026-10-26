@@ -275,7 +275,7 @@ CREATE TABLE agent_context (
     default_priority integer,
     default_verbosity varchar(255),
     description varchar(255),
-    max_rate integer,
+    max_rate integer NOT NULL,
     name varchar(255) NOT NULL,
     representative_strategy varchar(255) NOT NULL,
     uuid uuid NOT NULL,

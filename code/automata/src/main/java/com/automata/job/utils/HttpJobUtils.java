@@ -104,4 +104,17 @@ public abstract class HttpJobUtils {
 		return (root, query, cb) -> createdBy == null ? null : cb.equal(root.get("createdBy"), createdBy);
 	}
 
+	// A rate of 0 or less does not exist: it is refused wherever it comes from. Null means "not given".
+	public static void requireValidRate(Integer rate, String name) {
+		if (rate != null && rate < HttpJob.MIN_RATE)
+			throw new IllegalArgumentException(name + " must be at least " + HttpJob.MIN_RATE);
+	}
+
+	// Null means "not given"
+	public static void requireValidPriority(Integer priority, String name) {
+		if (priority != null && (priority < HttpJob.MIN_PRIORITY || priority > HttpJob.MAX_PRIORITY))
+			throw new IllegalArgumentException(name + " must be between " + HttpJob.MIN_PRIORITY + " and "
+					+ HttpJob.MAX_PRIORITY);
+	}
+
 }
