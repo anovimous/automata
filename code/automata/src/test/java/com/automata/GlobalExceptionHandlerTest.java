@@ -50,6 +50,17 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void hostInUseMapsTo409() {
+		com.automata.host.common.exception.HostInUseException ex = new com.automata.host.common.exception.HostInUseException(
+				"in use");
+
+		ResponseEntity<String> response = new GlobalExceptionHandler().handleHostInUse(ex);
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("in use", response.getBody());
+	}
+
+	@Test
 	void unreadableRequestBodyMapsTo400() {
 		HttpMessageNotReadableException ex = new HttpMessageNotReadableException("JSON parse error", (HttpInputMessage) null);
 

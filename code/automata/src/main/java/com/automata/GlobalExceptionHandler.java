@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.automata.finding.common.exception.InvalidFindingStateException;
+import com.automata.host.common.exception.HostInUseException;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.exception.JobNotApprovedException;
@@ -38,6 +39,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(InvalidFindingStateException.class)
 	public ResponseEntity<String> handleInvalidFindingState(InvalidFindingStateException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(HostInUseException.class)
+	public ResponseEntity<String> handleHostInUse(HostInUseException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
 	}
 

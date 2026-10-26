@@ -70,9 +70,7 @@ public class HostController {
 
 		Host toBeCreatedHost = mapper.convertValue(request, Host.class);
 
-		Long programId = request.programId();
-
-		Host host = hostService.createHost(toBeCreatedHost, programId);
+		Host host = hostService.createHost(request, toBeCreatedHost);
 
 		return ResponseEntity.status(201).location(URI.create(String.format("/api/hosts/%d", host.getId()))).build();
 

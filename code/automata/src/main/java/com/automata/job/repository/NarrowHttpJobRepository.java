@@ -1,6 +1,7 @@
 package com.automata.job.repository;
 
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -41,5 +42,9 @@ public interface NarrowHttpJobRepository extends JpaRepository<NarrowHttpJob, Lo
 
 	@Query("SELECT j.tenant.authentication FROM NarrowHttpJob j WHERE j.id = :jobId")
 	Authentication findAuthenticationOfJob(@Param("jobId") Long jobId);
+
+	@Query("SELECT COUNT(j) > 0 FROM NarrowHttpJob j WHERE j.host.id = :hostId AND j.genericDetails.currentState IN :states")
+	boolean existsByHostIdAndCurrentStateIn(@Param(value = "hostId") Long hostId,
+			@Param(value = "states") Set<JobState> states);
 
 }
