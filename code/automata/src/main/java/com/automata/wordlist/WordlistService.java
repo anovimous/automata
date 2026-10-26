@@ -23,6 +23,8 @@ public class WordlistService {
 
 	private final VulnerabilityRepository vulnRepo;
 
+	private final WordlistPathPolicy pathPolicy;
+
 	public Wordlist getWordlistById(Long wordlistId) {
 		return wordlistRepo.findById(wordlistId).orElseThrow(() -> new EntityNotFoundException("Wordlist not found"));
 	}
@@ -45,6 +47,8 @@ public class WordlistService {
 
 	@Transactional
 	public Wordlist createWordlist(Wordlist toBeCreatedWordlist, Set<Long> vulnIds) {
+
+		toBeCreatedWordlist.setPath(pathPolicy.requireInsideBaseDirectory(toBeCreatedWordlist.getPath()));
 
 		if (vulnIds != null && !vulnIds.isEmpty()) {
 
@@ -72,7 +76,7 @@ public class WordlistService {
 		else
 			patchRequest.numberOfLines().ifPresent(wordlist::setNumberOfLines);
 
-		patchRequest.path().ifPresent(wordlist::setPath);
+		patchRequest.path().ifPresent(path -> wordlist.setPath(pathPolicy.requireInsideBaseDirectory(path)));
 
 		patchRequest.vulnIds().ifPresent((vulnsIds) -> {
 
