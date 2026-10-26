@@ -127,6 +127,7 @@ automata-mcp/
       waiting.py                       wait_for_jobs polling logic
       jobs.py                          what the job tools do around one core call: read the job back, next_step texts, results
       findings.py                      create_finding / update_finding around one core call
+      ingestion.py                     add_request (encode the messages, one call) and the body property names of the host
       config_validation.py             rawRequestText conversion (no validation: the core validates)
       briefing.py                      builds get_context_briefing
       targets.py                       list_targets: the resolved targets, enriched with their request, and the notes about them
@@ -490,6 +491,12 @@ The core scopes the findings and enforces every rule (visible = the request of t
 
 **`export_body_property_names(context_uuid, max_names=2000)`** — row 112. Resolve the context's host id (`get_host`) and call the export with `hostId` only (never `programId`, never another host). Returns `{names: [...], truncated, total}` (the response is one name per line). Guidance: "All JSON/form field names seen in the host's requests and responses; useful as a parameter wordlist."
 
+*As implemented in phase 6 (`tools/ingestion.py`, `tools/export.py`, `services/ingestion.py`):*
+
+- **`add_request`** is `CREATES` (it adds a request every time it is called) and is the only tool whose `context_uuid` is optional (it is only used to check `tenant_id`; when given it is parsed like everywhere else). `host` is required. The call is checked for shape before anything is sent: exactly one of `raw_request` / `raw_request_base64` ("Give the message: raw_request (text) or raw_request_base64."), at most one of the response pair ("Give raw_response or raw_response_base64, not both."), each a `ToolError`. Text goes through `normalize_raw_message` and is encoded; base64 is passed on untouched (the core decodes and parses it). Nothing else is checked: a `tenant_id` without a `context_uuid` is sent as it is and the core's 400 is shown.
+- **Result:** the core's `RequestSummaryResponse` (`requestId`, `responseId`, `hostId`, `method`, `computatedPath`, `source` AI, ...) plus `note`: "This request is not part of any context: you cannot read it back or create jobs on it until a human adds it to a context." **404 hint:** one hint for both causes ("no host has that name - hosts are managed by humans, you cannot create one - or, if you gave context_uuid, that context does not exist"), because the server does not read the core's message to tell them apart; 400 shows the parser's message. The text of the messages is never logged (the logging middleware records only the tool name and the context uuid).
+- **`export_body_property_names`** (`READ_ONLY`; `max_names` is at least 1, default 2000) reads the context's host (`get_host`), exports with `hostId` only (a test asserts that `programId` is never sent) and returns `{names, truncated, total}`, `names` being the first `max_names`. A context that does not exist fails at the `get_host` call, before the export.
+
 ---
 
 ## 9. Cross-cutting behaviour
@@ -642,7 +649,7 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions (the Host-header check of the SDK was already verified in phase 2, section 5: nothing to configure when bound to `0.0.0.0`) | 6 |
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
 
-**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phases 3 (`feat/add-context-tools`, `feat/add-reference-tools`), 4 (`feat/add-request-response-tools`) and 5 (`feat/add-job-tools`) are done and merged into `staging`. Phase 6 is in progress: the finding tools and the briefing's findings part (`feat/add-finding-tools`) are done; the ingestion and export tools and the wordlist creation tool are not started. Later phases have not started.
+**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phases 3 (`feat/add-context-tools`, `feat/add-reference-tools`), 4 (`feat/add-request-response-tools`) and 5 (`feat/add-job-tools`) are done and merged into `staging`. Phase 6 is in progress: the finding tools and the briefing's findings part (`feat/add-finding-tools`) and the ingestion and export tools (`feat/add-ingestion-and-export-tools`) are done; the wordlist creation tool is not started. Later phases have not started.
 
 **Definition of done per phase:** gates pass; every new/changed function has tests; `docs/` updated; the tool-name set test matches section 17.A for the tools that exist so far; the user confirmed before any commit/merge.
 
