@@ -1,5 +1,6 @@
 package com.automata.request.equalityset;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -31,5 +32,17 @@ public interface RequestEqualityRelationRepository extends JpaRepository<Request
 
 	@Query("SELECT rel.request FROM RequestEqualityRelation rel WHERE rel.set = :set ORDER BY rel.request.insertionDate DESC, rel.request.id DESC LIMIT 1")
 	Request findTopBySetOrderByRequestInsertionDateDesc(RequestEqualitySet set);
+
+	@Query("SELECT rel.request FROM RequestEqualityRelation rel WHERE rel.set.id = :setId ORDER BY rel.request.insertionDate DESC, rel.request.id DESC")
+	Page<Request> findRequestsInSet(@Param("setId") Long setId, Pageable pageable);
+
+	// The pairs (set, request) of the given requests inside the given sets, smallest set id first
+	@Query("""
+			SELECT new com.automata.request.equalityset.RequestEqualityRelationSummaryInternalDto(rel.set.id, rel.request.id)
+			 FROM RequestEqualityRelation rel WHERE rel.request.id IN :requestIds AND rel.set.id IN :setIds
+			ORDER BY rel.set.id
+			""")
+	List<RequestEqualityRelationSummaryInternalDto> findSetIdsOfRequests(@Param("requestIds") Collection<Long> requestIds,
+			@Param("setIds") Collection<Long> setIds);
 
 }

@@ -1,12 +1,15 @@
 package com.automata.agentcontext;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +18,7 @@ import com.automata.agentcontext.common.dto.AgentContextCreationRequest;
 import com.automata.agentcontext.common.dto.AgentContextItemAddRequest;
 import com.automata.agentcontext.common.dto.AgentContextPatchRequest;
 import com.automata.agentcontext.common.dto.AgentContextTenantResponse;
+import com.automata.agentcontext.common.dto.ContextRequestSummary;
 import com.automata.agentcontext.common.dto.ResolvedTarget;
 import com.automata.agentcontext.common.enums.AgentContextItemType;
 import com.automata.agentcontext.common.enums.RepresentativeStrategy;
@@ -26,6 +30,7 @@ import com.automata.request.RequestRepository;
 import com.automata.request.RequestTenantPair;
 import com.automata.request.equalityset.RequestEqualityRelation;
 import com.automata.request.equalityset.RequestEqualityRelationRepository;
+import com.automata.request.equalityset.RequestEqualityRelationSummaryInternalDto;
 import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.automata.routine.Routine;
@@ -268,8 +273,8 @@ public class AgentContextService {
 	}
 
 	// A request is in the context when a REQUEST item is it, or when it is in an
-	// EQUALITY_SET item: only the latest request of the set under LATEST, any request
-	// of the set under AI_JUDGEMENT
+	// EQUALITY_SET item, whatever the strategy. The strategy only decides the resolved
+	// targets (the requests a job can target), not what the agent can read.
 	@Transactional(readOnly = true)
 	public boolean isRequestInContext(AgentContext context, Long requestId) {
 
@@ -278,13 +283,6 @@ public class AgentContextService {
 			if (item.getItemType() == AgentContextItemType.REQUEST) {
 
 				if (item.getRequest().getId().equals(requestId))
-					return true;
-
-			} else if (context.getRepresentativeStrategy() == RepresentativeStrategy.LATEST) {
-
-				Request latest = equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(item.getEqualitySet());
-
-				if (latest != null && latest.getId().equals(requestId))
 					return true;
 
 			} else if (equalityRelationRepo.existsBySetAndRequestId(item.getEqualitySet(), requestId))
@@ -331,6 +329,59 @@ public class AgentContextService {
 
 		if (!this.isRequestInContext(context, requestId))
 			throw new EntityNotFoundException("Request not found");
+
+	}
+
+	// The requests the agent can read: the REQUEST items and every request of the
+	// EQUALITY_SET items, newest first. With equalitySetId only the members of that
+	// set, which must be an item of the context (404 otherwise).
+	@Transactional(readOnly = true)
+	public Page<ContextRequestSummary> getContextRequests(UUID contextUuid, Long equalitySetId, Pageable pageable) {
+
+		AgentContext context = this.getContextByUuid(contextUuid);
+
+		List<Long> requestIds = new ArrayList<>();
+		List<Long> setIds = new ArrayList<>();
+		for (AgentContextItem item : context.getItems()) {
+			if (item.getItemType() == AgentContextItemType.REQUEST)
+				requestIds.add(item.getRequest().getId());
+			else
+				setIds.add(item.getEqualitySet().getId());
+		}
+
+		// The order is fixed by the queries, a sort of the caller is ignored
+		Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+		Page<Request> page;
+		if (equalitySetId != null) {
+			if (!setIds.contains(equalitySetId))
+				throw new EntityNotFoundException("Equality set not found");
+			page = equalityRelationRepo.findRequestsInSet(equalitySetId, unsorted);
+		} else if (requestIds.isEmpty() && setIds.isEmpty())
+			page = Page.empty(unsorted);
+		else
+			// -1 stands for "none": an empty IN list is not portable
+			page = requestRepo.findInContext(requestIds.isEmpty() ? List.of(-1L) : requestIds,
+					setIds.isEmpty() ? List.of(-1L) : setIds, unsorted);
+
+		List<Long> pageIds = page.getContent().stream().map(Request::getId).toList();
+
+		Map<Long, Long> setIdByRequestId = new LinkedHashMap<>();
+		if (!pageIds.isEmpty() && !setIds.isEmpty())
+			for (RequestEqualityRelationSummaryInternalDto pair : equalityRelationRepo
+					.findSetIdsOfRequests(pageIds, setIds))
+				setIdByRequestId.putIfAbsent(pair.requestId(), pair.equalitySetId());
+
+		Set<Long> resolvedIds = new HashSet<>();
+		for (ResolvedTarget target : this.resolveContextTargets(context.getId()))
+			resolvedIds.add(target.requestId());
+
+		return page.map(req -> ContextRequestSummary.builder().requestId(req.getId()).method(req.getMethod())
+				.computatedPath(req.getComputatedPath())
+				.equalitySetId(equalitySetId != null ? equalitySetId : setIdByRequestId.get(req.getId()))
+				.tenantId(req.getTenant() != null ? req.getTenant().getId() : null)
+				.resolvedTarget(resolvedIds.contains(req.getId()))
+				.automataJobEligible(HttpJobUtils.isJobEligible(req)).insertionDate(req.getInsertionDate()).build());
 
 	}
 

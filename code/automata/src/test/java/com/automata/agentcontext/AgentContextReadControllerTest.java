@@ -116,6 +116,55 @@ class AgentContextReadControllerTest {
 		mvc.perform(get(BASE + "/resolved-requests")).andExpect(status().isNotFound());
 	}
 
+	// requests listing
+
+	@Test
+	void requests_listsTheReadableRequestsOfTheContext() throws Exception {
+		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+		when(contextService.getContextRequests(UUID_OF_CONTEXT, null, pageable))
+				.thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(
+						com.automata.agentcontext.common.dto.ContextRequestSummary.builder().requestId(7L)
+								.method(com.automata.request.common.enums.Method.GET).computatedPath("/a")
+								.equalitySetId(30L).resolvedTarget(false).automataJobEligible(true).build()),
+						pageable, 1));
+
+		mvc.perform(get(BASE + "/requests")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.content[0].requestId").value(7))
+				.andExpect(jsonPath("$.content[0].equalitySetId").value(30))
+				.andExpect(jsonPath("$.content[0].resolvedTarget").value(false))
+				.andExpect(jsonPath("$.totalElements").value(1));
+	}
+
+	@Test
+	void requests_passesTheEqualitySetFilter() throws Exception {
+		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+		when(contextService.getContextRequests(UUID_OF_CONTEXT, 30L, pageable))
+				.thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(), pageable, 0));
+
+		mvc.perform(get(BASE + "/requests").param("equalitySetId", "30")).andExpect(status().isOk());
+
+		verify(contextService).getContextRequests(UUID_OF_CONTEXT, 30L, pageable);
+	}
+
+	@Test
+	void requests_capsThePageSizeAt100() throws Exception {
+		org.springframework.data.domain.Pageable capped = org.springframework.data.domain.PageRequest.of(2, 100);
+		when(contextService.getContextRequests(UUID_OF_CONTEXT, null, capped))
+				.thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(), capped, 0));
+
+		mvc.perform(get(BASE + "/requests").param("page", "2").param("size", "500")).andExpect(status().isOk());
+
+		verify(contextService).getContextRequests(UUID_OF_CONTEXT, null, capped);
+	}
+
+	@Test
+	void requests_setOutsideTheContext_is404() throws Exception {
+		when(contextService.getContextRequests(any(), eq(31L), any()))
+				.thenThrow(new EntityNotFoundException("Equality set not found"));
+
+		mvc.perform(get(BASE + "/requests").param("equalitySetId", "31")).andExpect(status().isNotFound());
+	}
+
 	// request routes
 
 	@Test

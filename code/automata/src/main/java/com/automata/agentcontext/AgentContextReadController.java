@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.automata.agentcontext.common.dto.AgentContextTenantResponse;
+import com.automata.agentcontext.common.dto.ContextRequestSummary;
 import com.automata.agentcontext.common.dto.ResolvedTarget;
 import com.automata.common.dto.RawHttpMessage;
 import com.automata.host.HostMapper;
@@ -55,6 +57,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AgentContextReadController {
 
+	private static final int MAX_PAGE_SIZE = 100;
+
 	private final AgentContextService contextService;
 
 	private final RequestService requestService;
@@ -83,6 +87,17 @@ public class AgentContextReadController {
 	public ResponseEntity<List<AgentContextTenantResponse>> getTenants(@PathVariable UUID uuid) {
 
 		return ResponseEntity.ok(contextService.getContextTenants(uuid));
+
+	}
+
+	// Every request the agent can read, so it can find the older members of an equality set
+	@GetMapping("/requests")
+	public ResponseEntity<PageHolderResponse<ContextRequestSummary>> getRequests(@PathVariable UUID uuid,
+			@RequestParam(required = false) Long equalitySetId, @PageableDefault(size = 20) Pageable pageable) {
+
+		return ResponseEntity.ok(new PageHolderResponse<>(contextService.getContextRequests(uuid, equalitySetId,
+				pageable.getPageSize() > MAX_PAGE_SIZE ? PageRequest.of(pageable.getPageNumber(), MAX_PAGE_SIZE)
+						: pageable)));
 
 	}
 
