@@ -1,5 +1,9 @@
 """Helpers shared by the tests (importable as ``helpers``: ``tests/`` is on the path)."""
 
+from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+
+import httpx
 from mcp import Client
 from mcp.types import CallToolResult, ListToolsResult
 
@@ -24,3 +28,31 @@ class Agent:
     async def call_tool(self, name: str, arguments: dict[str, object]) -> CallToolResult:
         async with Client(create_server(self._settings)) as client:
             return await client.call_tool(name, arguments)
+
+
+class ChunkStream(httpx.AsyncByteStream):
+    """A response body that arrives in the given chunks."""
+
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = chunks
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        for chunk in self._chunks:
+            yield chunk
+
+
+def chunked_response(
+    chunks: list[bytes], headers: dict[str, str] | None = None, status: int = 200
+) -> httpx.Response:
+    """A streamed response whose body arrives in ``chunks`` (so chunk boundaries can be tested)."""
+    return httpx.Response(status, headers=headers, stream=ChunkStream(chunks))
+
+
+def stream_of(response: httpx.Response) -> AbstractAsyncContextManager[httpx.Response]:
+    """What ``CoreClient.stream_*`` returns, around a prepared response."""
+
+    @asynccontextmanager
+    async def opened() -> AsyncIterator[httpx.Response]:
+        yield response
+
+    return opened()
