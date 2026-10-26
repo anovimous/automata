@@ -87,6 +87,11 @@ IMPLEMENTED: frozenset[str] = frozenset(
         "retry_job_preparation",
         "set_job_ai_result",
         "cancel_job",
+        # phase 6: finding tools
+        "create_finding",
+        "get_finding",
+        "list_findings",
+        "update_finding",
     }
 )
 
