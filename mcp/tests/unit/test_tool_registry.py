@@ -92,6 +92,9 @@ IMPLEMENTED: frozenset[str] = frozenset(
         "get_finding",
         "list_findings",
         "update_finding",
+        # phase 6: ingestion and export tools
+        "add_request",
+        "export_body_property_names",
     }
 )
 
