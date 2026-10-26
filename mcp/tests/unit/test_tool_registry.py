@@ -74,6 +74,19 @@ IMPLEMENTED: frozenset[str] = frozenset(
         "get_response",
         "get_response_raw",
         "get_response_body",
+        # phase 5: job tools
+        "create_job",
+        "list_jobs",
+        "get_job",
+        "list_request_jobs",
+        "get_request_job",
+        "get_request_job_result",
+        "get_job_result",
+        "wait_for_jobs",
+        "queue_job",
+        "retry_job_preparation",
+        "set_job_ai_result",
+        "cancel_job",
     }
 )
 

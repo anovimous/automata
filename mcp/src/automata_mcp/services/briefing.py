@@ -13,6 +13,8 @@ from automata_mcp.core.models.reference import RoutineDetailed
 from automata_mcp.core.models.tenants import AgentContextTenant
 from automata_mcp.services.targets import list_targets
 
+RECENT_JOBS = 10
+
 
 def unwrap[T](result: T | BaseException) -> T:
     """The value of a ``gather(..., return_exceptions=True)`` slot, or its exception raised."""
@@ -140,10 +142,10 @@ def briefing_notes(
 async def build_briefing(
     core: CoreClient, settings: Settings, context_uuid: UUID
 ) -> dict[str, Any]:
-    """The context, host, targets, tenants and allowed routines, with notes.
+    """The context, host, targets, tenants, allowed routines and recent jobs, with notes.
 
-    The context, host, targets and tenants are required: their error is raised. A routine that
-    cannot be read is reported in its own slot.
+    The context, host, targets and tenants are required: their error is raised. A routine or the
+    recent jobs that cannot be read are reported in their own slot.
     """
     results = await asyncio.gather(
         core.get_context(context_uuid),
@@ -152,23 +154,38 @@ async def build_briefing(
             core, context_uuid, with_summary=True, enrich_limit=settings.target_enrich_limit
         ),
         core.list_tenants(context_uuid),
+        core.list_jobs(context_uuid, page=0, size=RECENT_JOBS),
         return_exceptions=True,
     )
     context = unwrap(results[0])
     host = unwrap(results[1])
     targets = unwrap(results[2])
     tenants = unwrap(results[3])
+    recent_jobs = results[4]
     routines = list(
         await asyncio.gather(*(fetch_routine(core, rid) for rid in context.allowed_routine_ids))
     )
 
     notes = list(targets["notes"])
     notes += briefing_notes(context, host, tenants, routines)
-    return {
+    briefing: dict[str, Any] = {
         "context": context_section(context),
         "host": host.to_output(),
         "targets": targets["targets"],
         "tenants": [tenant.to_output() for tenant in tenants],
         "allowedRoutines": routines,
-        "notes": notes,
     }
+    if isinstance(recent_jobs, CoreError):
+        briefing["recentJobs"] = {"error": str(recent_jobs)}
+    elif isinstance(recent_jobs, BaseException):
+        raise recent_jobs
+    else:
+        briefing["recentJobs"] = [job.to_output() for job in recent_jobs.content]
+        waiting = [job.id for job in recent_jobs.content if job.waiting_for_action]
+        if waiting:
+            notes.append(
+                f"Jobs waiting for someone: {waiting}. A human must approve them, or their "
+                "config files failed (retry_job_preparation); see get_job."
+            )
+    briefing["notes"] = notes
+    return briefing
