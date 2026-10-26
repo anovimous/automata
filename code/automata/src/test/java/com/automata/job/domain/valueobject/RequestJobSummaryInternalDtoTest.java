@@ -38,6 +38,26 @@ class RequestJobSummaryInternalDtoTest {
 	}
 
 	@Test
+	void aFinishedJobIsTerminalAndNotWaiting() {
+		RequestJobSummaryInternalDto dto = RequestJobSummaryInternalDto.of(job(JobCreator.AI, CONTEXT), CONTEXT);
+
+		org.junit.jupiter.api.Assertions.assertTrue(dto.terminal());
+		org.junit.jupiter.api.Assertions.assertFalse(dto.waitingForAction());
+	}
+
+	@Test
+	void anUnapprovedAiDraftIsWaitingForAction() {
+		HttpJob draft = job(JobCreator.AI, CONTEXT);
+		draft.setApproved(false);
+		draft.getGenericDetails().setCurrentState(JobState.DRAFT);
+
+		RequestJobSummaryInternalDto dto = RequestJobSummaryInternalDto.of(draft, CONTEXT);
+
+		org.junit.jupiter.api.Assertions.assertFalse(dto.terminal());
+		org.junit.jupiter.api.Assertions.assertTrue(dto.waitingForAction());
+	}
+
+	@Test
 	void fieldsAreCopiedFromTheJob() {
 		RequestJobSummaryInternalDto dto = RequestJobSummaryInternalDto.of(job(JobCreator.AI, CONTEXT), CONTEXT);
 

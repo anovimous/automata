@@ -13,6 +13,6 @@ import lombok.Builder;
 public record RequestJobResponseDto(Long jobId, JobState currentState, @Nullable JobState requestedState,
 		ResultsVerbosity verbosity, Integer priority, Integer rate, JsonNode customConfig, String routineKey,
 		@Nullable String failureMessage, @Nullable String aiDescription, @Nullable String aiResult,
-		boolean approved, JobOrigin origin) {
+		boolean approved, boolean terminal, boolean waitingForAction, JobOrigin origin) {
 
 }

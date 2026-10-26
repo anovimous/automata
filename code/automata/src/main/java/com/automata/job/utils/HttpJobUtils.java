@@ -9,6 +9,7 @@ import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.NarrowHttpJob;
 import com.automata.job.domain.model.NarrowJobTargetRequest;
 import com.automata.job.domain.model.enums.HttpJobScope;
+import com.automata.job.domain.model.enums.ConfigFileStatus;
 import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
@@ -35,6 +36,14 @@ public abstract class HttpJobUtils {
 	public static void requireJobEligible(Request request) {
 		if (!isJobEligible(request))
 			throw IneligibleJobTargetException.forRequest(request.getId(), request.getContentType());
+	}
+
+	// A draft that does not move on by itself and needs someone to act: an AI job nobody approved yet
+	// (a human must approve it), or a job whose config files failed (retry the preparation)
+	public static boolean isWaitingForAction(JobState state, JobCreator createdBy, boolean approved,
+			ConfigFileStatus configFileStatus) {
+		return state == JobState.DRAFT
+				&& (createdBy == JobCreator.AI && !approved || configFileStatus == ConfigFileStatus.FAILED);
 	}
 
 	public static Specification<HttpJob> buildSpecification(HttpJobFilter filter) {

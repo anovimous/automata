@@ -10,6 +10,6 @@ import lombok.Builder;
 
 @Builder
 public record RequestJobSummaryResponseDto(Long id, Instant creationDate, HttpJobScope scope, JobState currentState,
-		Integer priority, Integer rate, String routineKey, boolean approved, JobOrigin origin) {
+		Integer priority, Integer rate, String routineKey, boolean approved, boolean terminal, boolean waitingForAction, JobOrigin origin) {
 
 }

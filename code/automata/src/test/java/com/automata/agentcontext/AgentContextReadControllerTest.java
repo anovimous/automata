@@ -364,7 +364,7 @@ class AgentContextReadControllerTest {
 		when(jobQueryService.getJobsOfRequest(eq(UUID_OF_CONTEXT), eq(7L), any(), any()))
 				.thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(new RequestJobSummaryInternalDto(4L,
 						java.time.Instant.EPOCH, HttpJobScope.NARROW, JobState.FINISHED, 1, 10, "fuzz", true,
-						JobOrigin.OTHER_CONTEXT))));
+						true, false, JobOrigin.OTHER_CONTEXT))));
 
 		mvc.perform(get(BASE + "/requests/7/jobs")).andExpect(status().isOk())
 				.andExpect(jsonPath("$.content[0].id").value(4))

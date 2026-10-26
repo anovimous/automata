@@ -24,6 +24,6 @@ public record HttpJobResponseDto(Long jobId, HttpJobScope httpJobScope, JobState
 		ProgramSummaryDetailsResponseDto program, RoutineSummaryDetailsResponseDto routine,
 		@Nullable String failureMessage, ConfigFileStatus configFileStatus, @Nullable String configFileFailure,
 		@Nullable String aiDescription, @Nullable String aiResult, JobCreator createdBy, boolean approved,
-		@Nullable UUID agentContextUuid) {
+		boolean terminal, boolean waitingForAction, @Nullable UUID agentContextUuid) {
 
 }

@@ -35,6 +35,8 @@ class HttpJobSummaryInternalDtoTest {
 
 		assertEquals(JobCreator.AI, dto.createdBy());
 		assertFalse(dto.approved());
+		assertFalse(dto.terminal());
+		assertTrue(dto.waitingForAction());
 	}
 
 	@Test
@@ -55,6 +57,46 @@ class HttpJobSummaryInternalDtoTest {
 
 		assertEquals(JobCreator.USER, dto.createdBy());
 		assertTrue(dto.approved());
+		assertFalse(dto.terminal());
+		assertFalse(dto.waitingForAction());
+	}
+
+	@Test
+	void aDraftWithFailedConfigFilesIsWaitingForAction() {
+		WideHttpJob job = new WideHttpJob();
+		job.setId(3L);
+		job.setCreationDate(Instant.EPOCH);
+		job.setGenericDetails(HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.WIDE)
+				.currentState(JobState.DRAFT).priority(1).rate(10)
+				.configFileStatus(com.automata.job.domain.model.enums.ConfigFileStatus.FAILED).build());
+		Routine routine = new Routine();
+		routine.setId(3L);
+		routine.setKey("masser");
+		job.setRoutine(routine);
+		job.setCreatedBy(JobCreator.USER);
+		job.setApproved(true);
+
+		assertTrue(HttpJobSummaryInternalDto.of(job).waitingForAction());
+	}
+
+	@Test
+	void aFinishedJobIsTerminal() {
+		WideHttpJob job = new WideHttpJob();
+		job.setId(4L);
+		job.setCreationDate(Instant.EPOCH);
+		job.setGenericDetails(HttpJobGenericDetails.builder().httpJobScope(HttpJobScope.WIDE)
+				.currentState(JobState.FINISHED).priority(1).rate(10).build());
+		Routine routine = new Routine();
+		routine.setId(3L);
+		routine.setKey("masser");
+		job.setRoutine(routine);
+		job.setCreatedBy(JobCreator.USER);
+		job.setApproved(true);
+
+		HttpJobSummaryInternalDto dto = HttpJobSummaryInternalDto.of(job);
+
+		assertTrue(dto.terminal());
+		assertFalse(dto.waitingForAction());
 	}
 
 }

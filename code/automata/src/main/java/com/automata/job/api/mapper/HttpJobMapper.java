@@ -10,6 +10,7 @@ import com.automata.job.api.dto.RequestJobResponseDto;
 import com.automata.job.api.dto.RequestJobSummaryResponseDto;
 import com.automata.job.domain.model.enums.JobOrigin;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
+import com.automata.job.utils.HttpJobUtils;
 import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.domain.valueobject.RequestJobSummaryInternalDto;
 import com.automata.program.common.dto.ProgramSummaryDetailsResponseDto;
@@ -28,6 +29,7 @@ public abstract class HttpJobMapper {
 				.failureMessage(dto.failureMessage()).configFileStatus(dto.configFileStatus())
 				.configFileFailure(dto.configFileFailure()).aiDescription(dto.aiDescription())
 				.aiResult(dto.aiResult()).createdBy(dto.createdBy()).approved(dto.approved())
+				.terminal(dto.currentState().isTerminal()).waitingForAction(waitingForAction(dto))
 				.agentContextUuid(dto.agentContextUuid()).build();
 	}
 
@@ -38,13 +40,15 @@ public abstract class HttpJobMapper {
 	public static HttpJobSummaryResponseDto toResponseDto(HttpJobSummaryInternalDto dto) {
 		return HttpJobSummaryResponseDto.builder().id(dto.id()).creationDate(dto.creationDate()).scope(dto.scope())
 				.currentState(dto.currentState()).priority(dto.priority()).rate(dto.rate()).routineId(dto.routineId())
-				.routineKey(dto.routineKey()).createdBy(dto.createdBy()).approved(dto.approved()).build();
+				.routineKey(dto.routineKey()).createdBy(dto.createdBy()).approved(dto.approved())
+				.terminal(dto.terminal()).waitingForAction(dto.waitingForAction()).build();
 	}
 
 	public static RequestJobSummaryResponseDto toResponseDto(RequestJobSummaryInternalDto dto) {
 		return RequestJobSummaryResponseDto.builder().id(dto.id()).creationDate(dto.creationDate())
 				.scope(dto.scope()).currentState(dto.currentState()).priority(dto.priority()).rate(dto.rate())
-				.routineKey(dto.routineKey()).approved(dto.approved()).origin(dto.origin()).build();
+				.routineKey(dto.routineKey()).approved(dto.approved()).terminal(dto.terminal())
+				.waitingForAction(dto.waitingForAction()).origin(dto.origin()).build();
 	}
 
 	// The context of the job is reduced to its origin relative to the asking context
@@ -54,8 +58,14 @@ public abstract class HttpJobMapper {
 				.requestedState(dto.requestedState()).verbosity(dto.verbosity()).priority(dto.priority())
 				.rate(dto.rate()).customConfig(dto.customConfig()).routineKey(dto.routineKey())
 				.failureMessage(dto.failureMessage()).aiDescription(dto.aiDescription()).aiResult(dto.aiResult())
-				.approved(dto.approved())
+				.approved(dto.approved()).terminal(dto.currentState().isTerminal())
+				.waitingForAction(waitingForAction(dto))
 				.origin(JobOrigin.of(dto.createdBy(), dto.agentContextUuid(), contextUuid)).build();
+	}
+
+	private static boolean waitingForAction(HttpJobFullDetailsInternalDto dto) {
+		return HttpJobUtils.isWaitingForAction(dto.currentState(), dto.createdBy(), dto.approved(),
+				dto.configFileStatus());
 	}
 
 }
