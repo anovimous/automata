@@ -46,4 +46,8 @@ public interface WideHttpJobRepository extends JpaRepository<WideHttpJob, Long> 
 	List<ProgramCurrentWideRateDto> getProgramsWideRateDtos(@Param(value = "programsIds") Set<Long> programsIds,
 			@Param(value = "states") Set<JobState> states);
 
+	@Query("SELECT COUNT(j) > 0 FROM WideHttpJob j WHERE j.program.id = :programId AND j.genericDetails.currentState IN :states")
+	boolean existsByProgramIdAndCurrentStateIn(@Param(value = "programId") Long programId,
+			@Param(value = "states") Set<JobState> states);
+
 }
