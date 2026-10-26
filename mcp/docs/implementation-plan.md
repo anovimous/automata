@@ -98,7 +98,7 @@ One server process serves one agent connection (stdio) or several (HTTP); it is 
 
 **Tooling:** `uv` + `pyproject.toml` (committed `uv.lock`), `ruff` (lint+format), `mypy --strict` on `src/`, entry point script `automata-mcp`.
 
-*As set up in phase 0:* build backend `uv_build`; `uv` was not installed and was put in place with `pipx install uv`. ruff selects `E, F, I, B, UP, SIM, ASYNC, RUF` with line length 100, and ignores `RUF012` under `core/models/` (pydantic copies mutable defaults for every instance, so `= []` is safe there). mypy runs `strict` on `src` with the pydantic plugin. pytest runs with `asyncio_mode = "auto"`, the marker `integration` and branch coverage configured (`uv run pytest --cov`). The `Makefile` has `sync`, `lint`, `format`, `format-check`, `typecheck`, `test` and `check` (`make check` runs the four gates). `.claude/` is not tracked in git (the user's decision). The console script is added to `pyproject.toml` in phase 2.
+*As set up in phase 0:* build backend `uv_build`; `uv` was not installed and was put in place with `pipx install uv`. ruff selects `E, F, I, B, UP, SIM, ASYNC, RUF` with line length 100, and ignores `RUF012` under `core/models/` (pydantic copies mutable defaults for every instance, so `= []` is safe there). mypy runs `strict` on `src` with the pydantic plugin. pytest runs with `asyncio_mode = "auto"`, the marker `integration` and branch coverage configured (`uv run pytest --cov`). The `Makefile` has `sync`, `lint`, `format`, `format-check`, `typecheck`, `test` and `check` (`make check` runs the four gates). `.claude/` is not tracked in git (the user's decision). The console script `automata-mcp` was added to `pyproject.toml` in phase 2.
 
 **Layout**
 ```
@@ -109,10 +109,11 @@ automata-mcp/
   pyproject.toml  uv.lock  README.md  .env.example  Dockerfile  .dockerignore  .gitignore
   scripts/check_core_contract.py       (phase 9: compares used routes with the core's OpenAPI)
   src/automata_mcp/
-    __init__.py  __main__.py           (main(): load settings, run server)
+    __init__.py  __main__.py           (main(): load settings, configure logging, build and run the server; `python -m automata_mcp`)
     config.py                          Settings (pydantic-settings, env prefix AUTOMATA_)
-    server.py                          builds the MCPServer instance, registers tools/prompts/resources, lifespan
-    state.py                           AppState: CoreClient, settings (created in the lifespan)
+    server.py                          builds the MCPServer (create_server), lifespan, startup check of the core, run_server (transports)
+    state.py                           AppState: CoreClient, settings (created in the lifespan); get_state(ctx) for tools
+    logging_setup.py                   configure_logging (stderr) and the log_tool_calls middleware
     core/
       client.py                        CoreClient: one async method per route used (section 6.2)
       errors.py                        CoreError hierarchy + status→message mapping
@@ -147,7 +148,7 @@ Tool modules only declare tools (`@mcp.tool`) and delegate to `services/` and `c
 |---|---|---|
 | `AUTOMATA_CORE_URL` | `http://localhost:8080` | base URL of the core (compose publishes it on 8080) |
 | `AUTOMATA_TRANSPORT` | `stdio` | `stdio` or `streamable-http` |
-| `AUTOMATA_HTTP_HOST` / `AUTOMATA_HTTP_PORT` | `0.0.0.0` / `8000` | for `streamable-http`; passed to `run_streamable_http_async(host=, port=)` (the SDK's own default host is `127.0.0.1`). The SDK has `TransportSecuritySettings` (Host-header check): **verify** in phase 2/9 that a request addressed to the compose service name (`automata-mcp:8000`) is accepted and configure the allowed hosts if not |
+| `AUTOMATA_HTTP_HOST` / `AUTOMATA_HTTP_PORT` | `0.0.0.0` / `8000` | for `streamable-http`; passed to `run_streamable_http_async(host=, port=)` (the SDK's own default host is `127.0.0.1`). The SDK has `TransportSecuritySettings` (Host-header check), **verified in phase 2** (`tests/unit/test_http_transport.py`): when the server is bound to `0.0.0.0` the check is off and a request addressed to the compose service name (`automata-mcp:8000`) is accepted (200); only a bind to `127.0.0.1`/`localhost` turns it on, and then a foreign Host answers 421. So nothing needs configuring for compose |
 | `AUTOMATA_HTTP_MAX_REQUEST_BYTES` | `4194304` | for `streamable-http`; the SDK's `max_request_body_size` (4 MB default) caps one tool call, so it caps `create_wordlist` content; raise it here if bigger wordlists are needed (stdio has no such limit) |
 | `AUTOMATA_REQUEST_TIMEOUT_SECONDS` | `30` | httpx read timeout (connect timeout fixed at 5) |
 | `AUTOMATA_GET_RETRIES` | `2` | retries of GETs on connect errors/5xx/timeouts (backoff 0.5 s, 1 s). Never retry POST/PATCH |
@@ -323,8 +324,9 @@ Base config: `ConfigDict(extra="ignore", populate_by_name=True, alias_generator=
 - Return structured data (dicts/pydantic) — **not** pre-formatted prose — plus, where useful, a short `next_steps: list[str]` of hints. Keep outputs compact: drop null fields, never return base64 blobs the agent cannot read (decode text; summarise binary).
 - **The docstring of each tool is the prompt.** For every tool write: what it returns, *when to use it*, what to do with the result, and the limits (what it will refuse). Use the description guidance given below as the minimum.
 - Annotations (**verify** the SDK API `ToolAnnotations`): `readOnlyHint=True` for every GET tool; `destructiveHint=True` + `idempotentHint=False` for `cancel_job`; `idempotentHint=False` for creating tools and for `queue_job` (a second call after the job moved on answers 409); `idempotentHint=True` for `retry_job_preparation`, `set_job_ai_result` and `update_finding` (repeating them leaves the same state), all non-destructive; `openWorldHint=False` for all. These hints only advise the client: the core enforces the real rules.
-- Errors: raise an exception whose message is guidance text (the SDK turns it into an `isError` result — **verify**); never return a stack trace. Mapping in section 9.5.
-- Every tool call is logged at INFO: tool name, context uuid, duration, outcome. No payloads.
+- Errors: raise an exception whose message is guidance text; never return a stack trace. **Verified against `mcp` 2.x (phase 2):** only a `ToolError` (`mcp.server.mcpserver.exceptions`) reaches the agent with its message (as an `isError` result reading `Error executing tool <name>: <message>`, logged at INFO). Any other exception is a crash: the agent sees only `Error executing tool <name>` and the SDK logs the traceback at ERROR. So `CoreError` is a `ToolError` (every core failure carries its guidance without a try/except in the tools), and the other failures a tool anticipates (a `context_uuid` that is not a UUID, the one-of rules of `add_request`) must raise `ToolError` too. Mapping in section 9.5.
+- Every tool call is logged at INFO: tool name, context uuid, duration, outcome. No payloads. *Implemented (`logging_setup.log_tool_calls`) as server middleware*, so no tool does it: one line `tool=<name> context=<uuid|None> outcome=ok|error duration_ms=<n>` on the logger `automata_mcp.tools`; the arguments and results are never logged. Logs go to stderr (stdout is the MCP channel under stdio): `configure_logging(level)` sets the level of the `automata_mcp` loggers and WARNING for the libraries, and can be called twice.
+- Tools live in `tools/<group>.py` and each exposes `register(mcp)`, which declares its tools with `@mcp.tool`; `tools/__init__.py:register_all` is the one list of the modules, so adding a group adds one line there. A tool reaches the core through `get_state(ctx).core` (`ctx: Context[AppState, Any]` as a parameter; the SDK does not put it in the schema).
 
 ### 8.2 Context tools (`tools/context.py`)
 
@@ -490,6 +492,13 @@ Never expose stack traces or the core URL credentials (none exist). Truncate cor
 
 ---
 
+### 9.6 Server assembly as implemented (phase 2, `server.py`)
+
+- `create_server(settings) -> MCPServer[AppState]` builds the server named `automata` with short `instructions` (what the tools are for, that the user gives the `context_uuid`, that the core's messages explain refusals; it names no tool, so it stays true while tools are added), the logging middleware and `register_all`. The **lifespan** opens one `CoreClient` (`from_settings`), runs `check_core`, yields `AppState(core, settings)` and closes the client on shutdown. It runs once when the server starts (stdio) or when the HTTP app starts, not per request.
+- `check_core(core)` calls `GET /api/routines?size=1` (a read-only route the agent may use anyway) and logs: INFO when the core answers, WARNING when it is unreachable ("The server starts anyway; tools fail until the core is up") or answers an error. It never raises, so a core that starts later does not need a server restart.
+- `run_server(mcp, settings)`: `stdio` runs `mcp.run("stdio")`; `streamable-http` runs `mcp.run("streamable-http", host, port, max_request_body_size)` from `http_run_options(settings)`. A server instance can serve over HTTP once (the SDK's session manager runs only once per instance); the process creates one, so this only matters in tests.
+- Entry points: the `automata-mcp` console script (`[project.scripts]` → `automata_mcp.__main__:main`) and `python -m automata_mcp`.
+
 ## 10. Prompts and resources
 
 ### 10.1 Prompt `test_context(context_uuid)`
@@ -554,7 +563,8 @@ None of these blocks the MVP; each would be a separate core branch (the core rep
 - **Unit tests** for every function (project rule): `services/*` (pure logic), `core/errors.py`, `core/paging.py`, models parsing, each tool with the core mocked by `respx`.
 - **Fixtures:** `tests/fixtures/core/*.json` — one real-shaped sample per payload in section 7 (copy the shapes from the core DTOs; refresh them when the core changes). Tests parse every fixture with the pydantic models and assert round-trips of the request bodies.
 - **As done in phase 1:** `tests/conftest.py` has a `load_fixture(name)` fixture; the 28 fixtures in `tests/fixtures/core/` cover every payload of section 7, including the bodies the server sends (these are asserted to round-trip through `to_payload()`); client tests use `respx` with an injected fake `sleep` (so retry back-offs are asserted without waiting). Parametrised tables cover every GET route (path, query, result type).
-- **Tool-level tests through the MCP protocol** with an in-memory client/server pair (in `mcp` 2.x the old helper `mcp.shared.memory.create_connected_server_and_client_session` is gone; `mcp.Client` is exported and is the likely replacement — **verify** in phase 2 that it can be connected to an `MCPServer` in memory, and fix this line with what works): list tools (assert the exact tool name set = section 17.A), call a tool, assert the structured result and that errors come back as `isError`.
+- **As done in phase 2:** an autouse fixture `clean_automata_env` (in `tests/conftest.py`) removes every `AUTOMATA_*` variable from each test; `tests/unit/test_tool_registry.py` keeps the 37 names of 17.A and a set `IMPLEMENTED` that each phase extends, asserting the server registers exactly that set; the HTTP app is tested with Starlette's `TestClient` (a new server per app, because a session manager can run only once); `python -m automata_mcp` and the console script entry are tested. The real commands were also run once by hand (stdio client against `uv run automata-mcp`; `curl` initialize against the HTTP server) with no core running: both start, serve and log to stderr.
+- **Tool-level tests through the MCP protocol** with an in-memory client/server pair (in `mcp` 2.x the old helper `mcp.shared.memory.create_connected_server_and_client_session` is gone; **verified in phase 2:** `async with mcp.Client(server) as client:` connects to an `MCPServer` in memory, runs its lifespan and offers `list_tools()` and `call_tool(name, args)`; a result has `is_error` and `content[0].text`): list tools (assert the exact tool name set = section 17.A), call a tool, assert the structured result and that errors come back as `isError`.
 - **Must-have cases:** each core status (404/400/409/422/5xx/timeout) for at least one tool of each group; `wait_for_jobs` early exits (any, all, waitingForAction, timeout) with a fake clock/sleep; byte-cap truncation and offset; binary detection; `normalize_raw_message` (LF→CRLF, missing blank line, body untouched); `rawRequestText` conversion (and that `create_job` makes no call other than the POST and the job fetch); finding tools only call the scoped routes (and show 404/409 messages); `export_body_property_names` never sends `programId`.
 - **Integration tests** (`tests/integration`, opt-in via `AUTOMATA_IT=1`, real core on `AUTOMATA_CORE_URL` with a prepared context): one happy path per tool group. Not required for CI.
 - **Contract check** (`scripts/check_core_contract.py`): fetch the core's OpenAPI (`{core}/v3/api-docs`, springdoc is enabled — **verify** the path) and assert every method+path in `core/client.py` exists. Run manually and in phase 9.
@@ -570,18 +580,18 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 |---|---|---|---|
 | 0 | `chore/set-up-project-skeleton` | `git init`, `main` + `staging`; `pyproject.toml` (uv), `.gitignore`, `.env.example`, ruff/mypy/pytest config, empty package, CI-less Makefile or `justfile` for the gates | — |
 | 1 | `feat/add-core-client` | `config.py`, `core/` (models for all payloads and `models/enums.py` for the enums of 6.3, `CoreClient` with one method per route in 6.2, retries for GETs, error mapping, paging), `docs/core-contract.md`, fixtures | 0 |
-| 2 | `feat/add-server-skeleton` | `server.py` (MCPServer, lifespan creating `AppState`), `__main__`, the `automata-mcp` console script (`[project.scripts]` in `pyproject.toml`, needed by `uv run automata-mcp`, section 15), transports (stdio + streamable HTTP; in `mcp` 2.x host and port are arguments of `run_streamable_http_async`, default host `127.0.0.1`, so pass the settings explicitly), logging, startup log of core reachability, tool-name registry test through the in-memory `mcp.Client` (**verify**, section 13) | 1 |
+| 2 | `feat/add-server-skeleton` | `server.py` (MCPServer, lifespan creating `AppState`), `__main__`, the `automata-mcp` console script (`[project.scripts]` in `pyproject.toml`, needed by `uv run automata-mcp`, section 15), transports (stdio + streamable HTTP; in `mcp` 2.x host and port are arguments of `run_streamable_http_async`, default host `127.0.0.1`, so pass the settings explicitly), logging, startup log of core reachability, tool-name registry test through the in-memory `mcp.Client` (section 13), the server `instructions`, the middleware that logs tool calls (8.1) | 1 |
 | 3 | `feat/add-context-tools`, `feat/add-reference-tools` | section 8.2 (without the briefing's jobs/findings parts), 8.5 (without `create_wordlist`) | 2 |
 | 4 | `feat/add-request-response-tools` | `services/bodies.py`, `raw_messages.py`, section 8.3 (including `list_context_requests`) | 2 |
 | 5 | `feat/add-job-tools` | `config_validation.py` (only the `rawRequestText` conversion), `waiting.py`, section 8.4 (all twelve tools), briefing's jobs part | 3, 4 |
 | 6 | `feat/add-finding-tools`, `feat/add-ingestion-and-export-tools`, `feat/add-wordlist-creation-tool` | section 8.6, 8.7, `create_wordlist`; briefing's findings part; `tests/integration` (opt-in with `AUTOMATA_IT=1`, one happy path per tool group, section 13), as its own branch `feat/add-integration-tests` once every group exists | 5 |
 | 7 | (dropped) | the loop detector was dropped (section 11.1); the number is kept because the phases are referenced | — |
 | 8 | `feat/add-workflow-prompt-and-resources` | section 10 | 6 |
-| 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions; check that the SDK's Host-header check accepts the compose service name (section 5) | 6 |
+| 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions (the Host-header check of the SDK was already verified in phase 2, section 5: nothing to configure when bound to `0.0.0.0`) | 6 |
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
 | 11 | optional: `feat/add-ffuf-result-summary` | only if the worker-side summary of C7 is not done: summarise ffuf JSON results (counts by status/size/words, outliers) in `get_job_result(summary=true)` (a parameter that section 8.4 does not have until this phase; it is presentation of raw output, not a rule); do **not** guess masser's output format. If the worker writes `{jobId}.summary.json`, return that file instead and parse nothing | 5 |
 
-**Status:** phase 0 (`chore/set-up-project-skeleton`) and phase 1 (`feat/add-core-client`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phase 2 and later have not started.
+**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phase 3 and later have not started.
 
 **Definition of done per phase:** gates pass; every new/changed function has tests; `docs/` updated; the tool-name set test matches section 17.A for the tools that exist so far; the user confirmed before any commit/merge.
 

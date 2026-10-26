@@ -1,15 +1,7 @@
-import os
-
 import pytest
 from pydantic import ValidationError
 
 from automata_mcp.config import Settings
-
-
-@pytest.fixture(autouse=True)
-def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in [name for name in os.environ if name.startswith("AUTOMATA_")]:
-        monkeypatch.delenv(name)
 
 
 def make(**overrides: object) -> Settings:

@@ -97,3 +97,12 @@ def test_unreachable_warns_when_a_write_may_have_been_applied() -> None:
     error = unreachable("http://core", "ReadTimeout", may_have_been_applied=True)
 
     assert "may or may not have been applied" in str(error)
+
+
+def test_core_errors_are_tool_errors_so_the_agent_sees_their_message() -> None:
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    assert isinstance(error_from_response(409, "x"), ToolError)
+    assert isinstance(
+        unreachable("http://core", "ConnectError", may_have_been_applied=False), ToolError
+    )
