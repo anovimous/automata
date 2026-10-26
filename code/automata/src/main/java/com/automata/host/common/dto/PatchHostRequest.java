@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.automata.host.common.enums.Scope;
 
-public record PatchHostRequest(String host, Scope scope, Integer hostRateLimit, Integer shortRateLimit,
+public record PatchHostRequest(Scope scope, Integer hostRateLimit, Integer shortRateLimit,
 		Integer longRateLimit, String description, List<String> technologies, String notes) {
 
 }

@@ -55,7 +55,7 @@ class HostServicePatchTest {
 	void patchDescriptionSetsTheField() {
 		Host host = hostWithDefaults();
 
-		service.patchHost(1L, new PatchHostRequest(null, null, null, null, null,
+		service.patchHost(1L, new PatchHostRequest(null, null, null, null,
 				"Main API backend", null, null));
 
 		assertEquals("Main API backend", host.getDescription());
@@ -67,7 +67,7 @@ class HostServicePatchTest {
 
 		List<String> technologies = List.of("nginx", "spring-boot", "postgresql");
 
-		service.patchHost(1L, new PatchHostRequest(null, null, null, null, null,
+		service.patchHost(1L, new PatchHostRequest(null, null, null, null,
 				null, technologies, null));
 
 		assertEquals(technologies, host.getTechnologies());
@@ -77,7 +77,7 @@ class HostServicePatchTest {
 	void patchNotesSetsTheField() {
 		Host host = hostWithDefaults();
 
-		service.patchHost(1L, new PatchHostRequest(null, null, null, null, null,
+		service.patchHost(1L, new PatchHostRequest(null, null, null, null,
 				null, null, "Requires bearer token auth"));
 
 		assertEquals("Requires bearer token auth", host.getNotes());
@@ -89,7 +89,7 @@ class HostServicePatchTest {
 
 		List<String> technologies = List.of("react", "node");
 
-		service.patchHost(1L, new PatchHostRequest(null, null, null, null, null,
+		service.patchHost(1L, new PatchHostRequest(null, null, null, null,
 				"Frontend app", technologies, "SPA with API calls"));
 
 		assertEquals("Frontend app", host.getDescription());
@@ -104,7 +104,7 @@ class HostServicePatchTest {
 		host.setTechnologies(List.of("nginx"));
 		host.setNotes("Existing notes");
 
-		service.patchHost(1L, new PatchHostRequest(null, null, null, null, null,
+		service.patchHost(1L, new PatchHostRequest(null, null, null, null,
 				null, null, null));
 
 		assertEquals("Existing description", host.getDescription());
@@ -117,7 +117,7 @@ class HostServicePatchTest {
 		Host host = hostWithDefaults();
 		host.setScope(Scope.WILDCARD);
 
-		service.patchHost(1L, new PatchHostRequest(null, null, null, null, null,
+		service.patchHost(1L, new PatchHostRequest(null, null, null, null,
 				"A description", null, null));
 
 		assertEquals(Scope.WILDCARD, host.getScope());
@@ -152,7 +152,7 @@ class HostServicePatchTest {
 	}
 
 	private PatchHostRequest limits(Integer host, Integer shortLimit, Integer longLimit) {
-		return new PatchHostRequest(null, null, host, shortLimit, longLimit, null, null, null);
+		return new PatchHostRequest(null, host, shortLimit, longLimit, null, null, null);
 	}
 
 	@Test
@@ -226,7 +226,7 @@ class HostServicePatchTest {
 	void patchingOtherFieldsDoesNotLookAtTheJobs() {
 		Host host = hostWithLimits(10, 4, 4);
 
-		service.patchHost(1L, new PatchHostRequest(null, null, null, null, null, "new description", null, null));
+		service.patchHost(1L, new PatchHostRequest(null, null, null, null, "new description", null, null));
 
 		assertEquals("new description", host.getDescription());
 		verifyNoInteractions(narrowJobRepo, wideJobRepo);
@@ -247,6 +247,26 @@ class HostServicePatchTest {
 
 		assertThrows(IllegalArgumentException.class, () -> service.patchHost(1L, limits(null, -1, null)));
 		assertThrows(IllegalArgumentException.class, () -> service.patchHost(1L, limits(-5, null, null)));
+	}
+
+	// ---- the host name
+
+	@Test
+	void patchLeavesTheHostNameAndTheLevelAsTheyAre() {
+		Host host = hostWithLimits(10, 4, 4);
+
+		service.patchHost(1L, new PatchHostRequest(Scope.WILDCARD, null, null, null, "new description", null, null));
+
+		assertEquals("api.example.com", host.getHost());
+		assertEquals(1, host.getLevel());
+	}
+
+	@Test
+	void aPatchRequestCannotCarryAHostName() {
+		boolean hasHostComponent = java.util.Arrays.stream(PatchHostRequest.class.getRecordComponents())
+				.anyMatch(component -> component.getName().equals("host"));
+
+		assertEquals(false, hasHostComponent);
 	}
 
 }
