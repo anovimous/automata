@@ -34,6 +34,7 @@ import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.equalityset.Equalization;
 import com.automata.request.equalityset.RequestEqualityRelation;
 import com.automata.request.equalityset.RequestEqualityRelationRepository;
+import com.automata.request.equalityset.RequestEqualityRelationSummaryInternalDto;
 import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
 import com.automata.routine.RoutineRepository;
@@ -643,20 +644,23 @@ class AgentContextServiceTest {
 	}
 
 	@Test
-	void latestStrategyPutsOnlyTheLatestRequestOfASetInTheContext() {
+	void latestStrategyAlsoPutsEveryRequestOfASetInTheContext() {
 		RequestEqualitySet set = setOf(30L, host(1L));
-		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set)).thenReturn(Request.of(20L));
+		when(equalityRelationRepo.existsBySetAndRequestId(set, 20L)).thenReturn(true);
+		when(equalityRelationRepo.existsBySetAndRequestId(set, 21L)).thenReturn(true);
+		when(equalityRelationRepo.existsBySetAndRequestId(set, 22L)).thenReturn(false);
 		AgentContext ctx = contextOf(RepresentativeStrategy.LATEST, setItem(set));
 
 		assertTrue(service.isRequestInContext(ctx, 20L));
-		assertFalse(service.isRequestInContext(ctx, 21L));
-		verify(equalityRelationRepo, never()).existsBySetAndRequestId(any(), any());
+		assertTrue(service.isRequestInContext(ctx, 21L));
+		assertFalse(service.isRequestInContext(ctx, 22L));
+		verify(equalityRelationRepo, never()).findTopBySetOrderByRequestInsertionDateDesc(any());
 	}
 
 	@Test
 	void latestStrategyWithAnEmptySetHasNoRequest() {
 		RequestEqualitySet set = setOf(30L, host(1L));
-		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set)).thenReturn(null);
+		when(equalityRelationRepo.existsBySetAndRequestId(set, 20L)).thenReturn(false);
 
 		assertFalse(service.isRequestInContext(contextOf(RepresentativeStrategy.LATEST, setItem(set)), 20L));
 	}
@@ -710,6 +714,129 @@ class AgentContextServiceTest {
 		when(contextRepo.findByUuid(uuid)).thenReturn(Optional.empty());
 
 		assertThrows(EntityNotFoundException.class, () -> service.requireRequestInContext(uuid, 10L));
+	}
+
+	// ---- getContextRequests
+
+	private com.automata.request.Request requestOf(Long id, String path) {
+		com.automata.request.Request req = com.automata.request.Request.of(id);
+		req.setMethod(com.automata.request.common.enums.Method.GET);
+		req.setComputatedPath(path);
+		req.setInsertionDate(java.time.LocalDate.of(2026, 10, 20));
+		return req;
+	}
+
+	private AgentContext contextWithUuid(RepresentativeStrategy strategy, AgentContextItem... items) {
+		AgentContext ctx = AgentContext.builder().id(1L).uuid(java.util.UUID.randomUUID()).host(host(1L))
+				.representativeStrategy(strategy).items(List.of(items)).build();
+		when(contextRepo.findByUuid(ctx.getUuid())).thenReturn(Optional.of(ctx));
+		return ctx;
+	}
+
+	@Test
+	void contextRequestsListTheRequestItemsAndEverySetMemberWithTheResolvedFlag() {
+		RequestEqualitySet set = setOf(30L, host(1L));
+		AgentContext ctx = contextWithUuid(RepresentativeStrategy.LATEST, requestItem(10L), setItem(set));
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set)).thenReturn(Request.of(21L));
+		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+		when(requestRepo.findInContext(List.of(10L), List.of(30L), pageable)).thenReturn(
+				new org.springframework.data.domain.PageImpl<>(
+						List.of(requestOf(21L, "/a"), requestOf(20L, "/a"), requestOf(10L, "/b")), pageable, 3));
+		when(equalityRelationRepo.findSetIdsOfRequests(List.of(21L, 20L, 10L), List.of(30L)))
+				.thenReturn(List.of(new RequestEqualityRelationSummaryInternalDto(30L, 21L),
+						new RequestEqualityRelationSummaryInternalDto(30L, 20L)));
+
+		var page = service.getContextRequests(ctx.getUuid(), null, pageable);
+
+		assertEquals(3, page.getTotalElements());
+		assertEquals(21L, page.getContent().get(0).requestId());
+		assertEquals(30L, page.getContent().get(0).equalitySetId());
+		assertTrue(page.getContent().get(0).resolvedTarget());
+		assertEquals(20L, page.getContent().get(1).requestId());
+		assertFalse(page.getContent().get(1).resolvedTarget());
+		assertEquals(30L, page.getContent().get(1).equalitySetId());
+		assertEquals(10L, page.getContent().get(2).requestId());
+		assertTrue(page.getContent().get(2).resolvedTarget());
+		assertEquals(null, page.getContent().get(2).equalitySetId());
+		assertEquals("/b", page.getContent().get(2).computatedPath());
+	}
+
+	@Test
+	void contextRequestsFilteredByASetListOnlyItsMembers() {
+		RequestEqualitySet set = setOf(30L, host(1L));
+		AgentContext ctx = contextWithUuid(RepresentativeStrategy.AI_JUDGEMENT, requestItem(10L), setItem(set));
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+		when(equalityRelationRepo.findRequestsInSet(30L, pageable)).thenReturn(
+				new org.springframework.data.domain.PageImpl<>(List.of(requestOf(20L, "/a")), pageable, 1));
+		when(equalityRelationRepo.findSetIdsOfRequests(List.of(20L), List.of(30L)))
+				.thenReturn(List.of(new RequestEqualityRelationSummaryInternalDto(30L, 20L)));
+		when(equalityRelationRepo.findAllBySet(set)).thenReturn(List.of());
+
+		var page = service.getContextRequests(ctx.getUuid(), 30L, pageable);
+
+		assertEquals(1, page.getContent().size());
+		assertEquals(30L, page.getContent().get(0).equalitySetId());
+		verify(requestRepo, never()).findInContext(any(), any(), any());
+	}
+
+	@Test
+	void contextRequestsFilteredByASetOutsideTheContextAreNotFound() {
+		AgentContext ctx = contextWithUuid(RepresentativeStrategy.LATEST, setItem(setOf(30L, host(1L))));
+
+		assertThrows(EntityNotFoundException.class, () -> service.getContextRequests(ctx.getUuid(), 31L,
+				org.springframework.data.domain.PageRequest.of(0, 20)));
+		verify(equalityRelationRepo, never()).findRequestsInSet(any(), any());
+	}
+
+	@Test
+	void contextRequestsOfAnEmptyContextAreEmptyWithoutQueries() {
+		AgentContext ctx = contextWithUuid(RepresentativeStrategy.LATEST);
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+
+		var page = service.getContextRequests(ctx.getUuid(), null,
+				org.springframework.data.domain.PageRequest.of(0, 20));
+
+		assertTrue(page.isEmpty());
+		verify(requestRepo, never()).findInContext(any(), any(), any());
+	}
+
+	@Test
+	void contextRequestsWithOnlyRequestItemsSendAPlaceholderForTheMissingSets() {
+		AgentContext ctx = contextWithUuid(RepresentativeStrategy.LATEST, requestItem(10L));
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+		when(requestRepo.findInContext(List.of(10L), List.of(-1L), pageable)).thenReturn(
+				new org.springframework.data.domain.PageImpl<>(List.of(requestOf(10L, "/b")), pageable, 1));
+
+		var page = service.getContextRequests(ctx.getUuid(), null, pageable);
+
+		assertEquals(10L, page.getContent().get(0).requestId());
+		verify(equalityRelationRepo, never()).findSetIdsOfRequests(any(), any());
+	}
+
+	@Test
+	void contextRequestsIgnoreTheSortOfTheCaller() {
+		AgentContext ctx = contextWithUuid(RepresentativeStrategy.LATEST, requestItem(10L));
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		org.springframework.data.domain.Pageable unsorted = org.springframework.data.domain.PageRequest.of(1, 5);
+		when(requestRepo.findInContext(List.of(10L), List.of(-1L), unsorted))
+				.thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(), unsorted, 0));
+
+		service.getContextRequests(ctx.getUuid(), null, org.springframework.data.domain.PageRequest.of(1, 5,
+				org.springframework.data.domain.Sort.by("method")));
+
+		verify(requestRepo).findInContext(List.of(10L), List.of(-1L), unsorted);
+	}
+
+	@Test
+	void contextRequestsOfAnUnknownContextAreNotFound() {
+		java.util.UUID uuid = java.util.UUID.randomUUID();
+		when(contextRepo.findByUuid(uuid)).thenReturn(Optional.empty());
+
+		assertThrows(EntityNotFoundException.class, () -> service.getContextRequests(uuid, null,
+				org.springframework.data.domain.PageRequest.of(0, 20)));
 	}
 
 	// ---- getContextTenants

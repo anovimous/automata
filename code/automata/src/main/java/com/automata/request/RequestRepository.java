@@ -27,6 +27,16 @@ public interface RequestRepository extends JpaRepository<Request, Long>, JpaSpec
 
 	Page<Request> findByIdIn(List<Long> ids, Pageable ofSize);
 
+	// The requests of an agent context: the ones of its REQUEST items and every member of its
+	// EQUALITY_SET items, newest first
+	@Query("""
+			SELECT r FROM Request r WHERE r.id IN :requestIds
+			 OR r.id IN (SELECT rel.request.id FROM RequestEqualityRelation rel WHERE rel.set.id IN :setIds)
+			ORDER BY r.insertionDate DESC, r.id DESC
+			""")
+	Page<Request> findInContext(@Param("requestIds") Collection<Long> requestIds,
+			@Param("setIds") Collection<Long> setIds, Pageable pageable);
+
 	boolean existsByTenant(Tenant tenant);
 
 	@Query("SELECT new com.automata.request.RequestTenantPair(r.id, r.tenant.id) FROM Request r WHERE r.id IN :ids AND r.tenant IS NOT NULL")
