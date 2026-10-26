@@ -27,12 +27,14 @@ class HttpJobMapperTest {
 	@Test
 	void requestJobSummaryKeepsTheOrigin() {
 		RequestJobSummaryResponseDto dto = HttpJobMapper.toResponseDto(new RequestJobSummaryInternalDto(4L,
-				Instant.EPOCH, HttpJobScope.NARROW, JobState.FINISHED, 2, 30, "fuzz", true, JobOrigin.OTHER_CONTEXT));
+				Instant.EPOCH, HttpJobScope.NARROW, JobState.FINISHED, 2, 30, "fuzz", true, true, false, JobOrigin.OTHER_CONTEXT));
 
 		assertEquals(4L, dto.id());
 		assertEquals("fuzz", dto.routineKey());
 		assertEquals(JobOrigin.OTHER_CONTEXT, dto.origin());
 		assertTrue(dto.approved());
+		assertTrue(dto.terminal());
+		assertFalse(dto.waitingForAction());
 	}
 
 	@Test
@@ -86,6 +88,35 @@ class HttpJobMapperTest {
 		assertEquals(JobCreator.AI, response.createdBy());
 		assertEquals(false, response.approved());
 		assertEquals(CONTEXT_UUID, response.agentContextUuid());
+		assertFalse(response.terminal());
+		// PAUSED is not a draft, so nothing waits for an action even if the files failed
+		assertFalse(response.waitingForAction());
+	}
+
+	@Test
+	void anUnapprovedAiDraftIsWaitingForAnAction() {
+		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, HttpJobScope.NARROW, JobState.DRAFT,
+				null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", null,
+				com.automata.job.domain.model.enums.ConfigFileStatus.READY, null, null, null, JobCreator.AI, false,
+				null);
+
+		HttpJobResponseDto response = HttpJobMapper.toResponseDto(dto);
+
+		assertTrue(response.waitingForAction());
+		assertFalse(response.terminal());
+		assertTrue(HttpJobMapper.toRequestJobResponseDto(dto, java.util.UUID.randomUUID()).waitingForAction());
+	}
+
+	@Test
+	void aFinishedJobIsTerminal() {
+		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, HttpJobScope.NARROW,
+				JobState.FINISHED, null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", null,
+				com.automata.job.domain.model.enums.ConfigFileStatus.READY, null, null, null, JobCreator.AI, true,
+				null);
+
+		assertTrue(HttpJobMapper.toResponseDto(dto).terminal());
+		assertTrue(HttpJobMapper.toRequestJobResponseDto(dto, java.util.UUID.randomUUID()).terminal());
+		assertFalse(HttpJobMapper.toResponseDto(dto).waitingForAction());
 	}
 
 	@Test
@@ -106,23 +137,27 @@ class HttpJobMapperTest {
 	@Test
 	void summaryDtoMapsCreatedByAndApproved() {
 		HttpJobSummaryInternalDto dto = new HttpJobSummaryInternalDto(1L, Instant.EPOCH, HttpJobScope.NARROW,
-				JobState.RUNNING, 2, 30, 5L, "fuzz", JobCreator.AI, false);
+				JobState.RUNNING, 2, 30, 5L, "fuzz", JobCreator.AI, false, false, false);
 
 		HttpJobSummaryResponseDto response = HttpJobMapper.toResponseDto(dto);
 
 		assertEquals(JobCreator.AI, response.createdBy());
 		assertFalse(response.approved());
+		assertFalse(response.terminal());
+		assertFalse(response.waitingForAction());
 	}
 
 	@Test
 	void summaryDtoMapsUserCreatedApproved() {
 		HttpJobSummaryInternalDto dto = new HttpJobSummaryInternalDto(2L, Instant.EPOCH, HttpJobScope.WIDE,
-				JobState.DRAFT, 1, 10, 3L, "masser", JobCreator.USER, true);
+				JobState.DRAFT, 1, 10, 3L, "masser", JobCreator.USER, true, false, true);
 
 		HttpJobSummaryResponseDto response = HttpJobMapper.toResponseDto(dto);
 
 		assertEquals(JobCreator.USER, response.createdBy());
 		assertTrue(response.approved());
+		assertFalse(response.terminal());
+		assertTrue(response.waitingForAction());
 	}
 
 }

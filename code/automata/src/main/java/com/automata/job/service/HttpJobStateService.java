@@ -36,9 +36,6 @@ public class HttpJobStateService {
 	// the states in which a worker explains with a message why the job ended
 	private static final Set<JobState> FAILURE_STATES = EnumSet.of(JobState.FAILED, JobState.SELFTERMINATED);
 
-	private static final Set<JobState> TERMINAL_STATES = EnumSet.of(JobState.FINISHED, JobState.FAILED,
-			JobState.SELFTERMINATED, JobState.CANCELED, JobState.LOSTCONTACT);
-
 	// how long a job which a worker holds may go without any contact from it
 	public static final Duration LOST_CONTACT_AFTER = Duration.ofMinutes(30);
 
@@ -235,7 +232,7 @@ public class HttpJobStateService {
 			throw new InvalidJobStateException("Only AI-created jobs can have an AI result set");
 
 		JobState state = job.getGenericDetails().getCurrentState();
-		if (!TERMINAL_STATES.contains(state))
+		if (!state.isTerminal())
 			throw new InvalidJobStateException(
 					String.format("Job must be in a terminal state to set AI result, but it is %s", state));
 

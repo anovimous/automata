@@ -107,7 +107,7 @@ class HttpJobQueryServiceTest {
 
 		assertEquals(41, page.getTotalElements());
 		assertEquals(List.of(new HttpJobSummaryInternalDto(1L, Instant.EPOCH, HttpJobScope.WIDE, JobState.RUNNING, 3,
-				40, 7L, "routine-key", JobCreator.USER, true)), page.getContent());
+				40, 7L, "routine-key", JobCreator.USER, true, false, false)), page.getContent());
 	}
 
 	// ---- getJobFullDetails
