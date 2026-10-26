@@ -21,6 +21,7 @@ import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.JobResult;
 import com.automata.job.domain.model.WideHttpJob;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
+import com.automata.job.domain.model.enums.FailureCategory;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.repository.HttpJobRepository;
 
@@ -47,7 +48,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void workerStateIsStoredAndTheRequestedStateCleared() {
 		HttpJob job = job();
 
-		service.updateCurrentJobState(1L, JobState.RUNNING, "started");
+		service.updateCurrentJobState(1L, JobState.RUNNING, "started", null);
 
 		assertEquals(JobState.RUNNING, job.getGenericDetails().getCurrentState());
 		assertNull(job.getGenericDetails().getRequestedState());
@@ -58,7 +59,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void acceptedReportCountsAsContactOfTheWorker() {
 		HttpJob job = job();
 
-		service.updateCurrentJobState(1L, JobState.RUNNING, null);
+		service.updateCurrentJobState(1L, JobState.RUNNING, null, null);
 
 		assertNotNull(job.getGenericDetails().getLastWorkerContactAt());
 	}
@@ -67,7 +68,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void rejectedReportIsNotContactOfTheWorker() {
 		HttpJob job = job();
 
-		assertThrows(InvalidJobStateException.class, () -> service.updateCurrentJobState(1L, JobState.TOQUEUE, null));
+		assertThrows(InvalidJobStateException.class, () -> service.updateCurrentJobState(1L, JobState.TOQUEUE, null, null));
 
 		assertNull(job.getGenericDetails().getLastWorkerContactAt());
 	}
@@ -77,7 +78,7 @@ class HttpJobStateServiceUpdateStateTest {
 		HttpJob job = job();
 
 		assertThrows(InvalidJobStateException.class,
-				() -> service.updateCurrentJobState(1L, JobState.QUEUED, "nope"));
+				() -> service.updateCurrentJobState(1L, JobState.QUEUED, "nope", null));
 
 		assertEquals(JobState.QUEUED, job.getGenericDetails().getCurrentState());
 		verify(jobRepo, never()).save(job);
@@ -88,7 +89,7 @@ class HttpJobStateServiceUpdateStateTest {
 		when(jobRepo.findById(1L)).thenReturn(Optional.empty());
 
 		assertThrows(EntityNotFoundException.class,
-				() -> service.updateCurrentJobState(1L, JobState.RUNNING, null));
+				() -> service.updateCurrentJobState(1L, JobState.RUNNING, null, null));
 	}
 
 	private HttpJob runningJob() {
@@ -102,7 +103,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void failureMessageIsStoredWhenTheJobFails() {
 		HttpJob job = runningJob();
 
-		service.updateCurrentJobState(1L, JobState.FAILED, "target refused the connection");
+		service.updateCurrentJobState(1L, JobState.FAILED, "target refused the connection", null);
 
 		assertEquals("target refused the connection", job.getResult().getFailureMsg());
 	}
@@ -111,7 +112,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void terminationMessageIsStoredToo() {
 		HttpJob job = runningJob();
 
-		service.updateCurrentJobState(1L, JobState.SELFTERMINATED, "worker lost its brain");
+		service.updateCurrentJobState(1L, JobState.SELFTERMINATED, "worker lost its brain", null);
 
 		assertEquals("worker lost its brain", job.getResult().getFailureMsg());
 	}
@@ -120,7 +121,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void messageOfAStateWhichIsNotAFailureIsNotStored() {
 		HttpJob job = runningJob();
 
-		service.updateCurrentJobState(1L, JobState.FINISHED, "done");
+		service.updateCurrentJobState(1L, JobState.FINISHED, "done", null);
 
 		assertNull(job.getResult());
 	}
@@ -129,7 +130,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void missingOrBlankFailureMessageStoresNothing() {
 		HttpJob job = runningJob();
 
-		service.updateCurrentJobState(1L, JobState.FAILED, "  ");
+		service.updateCurrentJobState(1L, JobState.FAILED, "  ", null);
 
 		assertNull(job.getResult());
 	}
@@ -138,7 +139,7 @@ class HttpJobStateServiceUpdateStateTest {
 	void longFailureMessageIsCutToWhatTheColumnHolds() {
 		HttpJob job = runningJob();
 
-		service.updateCurrentJobState(1L, JobState.FAILED, "x".repeat(JobResult.MAX_FAILURE_MSG_LENGTH + 50));
+		service.updateCurrentJobState(1L, JobState.FAILED, "x".repeat(JobResult.MAX_FAILURE_MSG_LENGTH + 50), null);
 
 		assertEquals(JobResult.MAX_FAILURE_MSG_LENGTH, job.getResult().getFailureMsg().length());
 	}
@@ -146,10 +147,68 @@ class HttpJobStateServiceUpdateStateTest {
 	@Test
 	void repeatedFailureReportKeepsTheFirstMessage() {
 		HttpJob job = runningJob();
-		service.updateCurrentJobState(1L, JobState.FAILED, "first");
+		service.updateCurrentJobState(1L, JobState.FAILED, "first", null);
 
-		service.updateCurrentJobState(1L, JobState.FAILED, "second");
+		service.updateCurrentJobState(1L, JobState.FAILED, "second", null);
 
+		assertEquals("first", job.getResult().getFailureMsg());
+	}
+
+	@Test
+	void failureCategoryIsStoredWithTheMessage() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.FAILED, "tool exited", FailureCategory.TOOL_EXIT);
+
+		assertEquals(FailureCategory.TOOL_EXIT, job.getResult().getFailureCategory());
+		assertEquals("tool exited", job.getResult().getFailureMsg());
+	}
+
+	@Test
+	void aMessageWithoutACategoryIsStoredAsUnknown() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.FAILED, "something", null);
+
+		assertEquals(FailureCategory.UNKNOWN, job.getResult().getFailureCategory());
+	}
+
+	@Test
+	void aCategoryWithoutAMessageIsStoredToo() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.FAILED, " ", FailureCategory.RESULT);
+
+		assertEquals(FailureCategory.RESULT, job.getResult().getFailureCategory());
+		assertNull(job.getResult().getFailureMsg());
+	}
+
+	@Test
+	void theCategoryOfASelfTerminatedJobIsStored() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.SELFTERMINATED, "no heartbeat", FailureCategory.TOOL_EXIT);
+
+		assertEquals(FailureCategory.TOOL_EXIT, job.getResult().getFailureCategory());
+	}
+
+	@Test
+	void theCategoryOfAStateWhichIsNotAFailureIsNotStored() {
+		HttpJob job = runningJob();
+
+		service.updateCurrentJobState(1L, JobState.FINISHED, "done", FailureCategory.TOOL_EXIT);
+
+		assertNull(job.getResult());
+	}
+
+	@Test
+	void repeatedFailureReportKeepsTheFirstCategory() {
+		HttpJob job = runningJob();
+		service.updateCurrentJobState(1L, JobState.FAILED, "first", FailureCategory.POLL);
+
+		service.updateCurrentJobState(1L, JobState.FAILED, "second", FailureCategory.TOOL_EXIT);
+
+		assertEquals(FailureCategory.POLL, job.getResult().getFailureCategory());
 		assertEquals("first", job.getResult().getFailureMsg());
 	}
 
@@ -160,7 +219,7 @@ class HttpJobStateServiceUpdateStateTest {
 		job.setGenericDetails(HttpJobGenericDetails.builder().currentState(JobState.PAUSED).build());
 		when(jobRepo.findById(1L)).thenReturn(Optional.of(job));
 
-		assertThrows(InvalidJobStateException.class, () -> service.updateCurrentJobState(1L, JobState.FAILED, "x"));
+		assertThrows(InvalidJobStateException.class, () -> service.updateCurrentJobState(1L, JobState.FAILED, "x", null));
 
 		assertNull(job.getResult());
 	}

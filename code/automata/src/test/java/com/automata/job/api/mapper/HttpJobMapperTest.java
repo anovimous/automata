@@ -43,7 +43,7 @@ class HttpJobMapperTest {
 		java.util.UUID owner = java.util.UUID.randomUUID();
 		var config = JsonNodeFactory.instance.objectNode().put("flags", "-x");
 		HttpJobFullDetailsInternalDto full = new HttpJobFullDetailsInternalDto(4L, HttpJobScope.NARROW,
-				JobState.FAILED, null, null, 2, 30, null, null, config, 1L, "program", 7L, "fuzz", "boom", null,
+				JobState.FAILED, null, null, 2, 30, null, null, config, 1L, "program", 7L, "fuzz", "boom", null, null,
 				null, "desc", "result", JobCreator.AI, true, owner);
 
 		RequestJobResponseDto dto = HttpJobMapper.toRequestJobResponseDto(full, asking);
@@ -65,6 +65,7 @@ class HttpJobMapperTest {
 	void fullDetailsAreMappedIncludingProgramAndRoutine() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(7L, HttpJobScope.WIDE, JobState.PAUSED,
 				JobState.RUNNING, null, 3, 20, null, null, null, 11L, "prog", 12L, "routine-key", "it broke",
+				null,
 				com.automata.job.domain.model.enums.ConfigFileStatus.FAILED, "S3 is down", "test description",
 				"test result", JobCreator.AI, false, CONTEXT_UUID);
 
@@ -97,6 +98,7 @@ class HttpJobMapperTest {
 	void anUnapprovedAiDraftIsWaitingForAnAction() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, HttpJobScope.NARROW, JobState.DRAFT,
 				null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", null,
+				null,
 				com.automata.job.domain.model.enums.ConfigFileStatus.READY, null, null, null, JobCreator.AI, false,
 				null);
 
@@ -111,6 +113,7 @@ class HttpJobMapperTest {
 	void aFinishedJobIsTerminal() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, HttpJobScope.NARROW,
 				JobState.FINISHED, null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", null,
+				null,
 				com.automata.job.domain.model.enums.ConfigFileStatus.READY, null, null, null, JobCreator.AI, true,
 				null);
 
@@ -122,7 +125,7 @@ class HttpJobMapperTest {
 	@Test
 	void fullDetailsWithNullAiFieldsAreMapped() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, HttpJobScope.NARROW,
-				JobState.DRAFT, null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", null, null, null, null,
+				JobState.DRAFT, null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", null, null, null, null, null,
 				null, JobCreator.USER, true, null);
 
 		HttpJobResponseDto response = HttpJobMapper.toResponseDto(dto);
@@ -158,6 +161,30 @@ class HttpJobMapperTest {
 		assertTrue(response.approved());
 		assertFalse(response.terminal());
 		assertTrue(response.waitingForAction());
+	}
+
+	@Test
+	void theFailureCategoryIsMappedInTheFullAndTheHistoryResponse() {
+		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, HttpJobScope.NARROW, JobState.FAILED,
+				null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", "boom",
+				com.automata.job.domain.model.enums.FailureCategory.TOOL_EXIT,
+				com.automata.job.domain.model.enums.ConfigFileStatus.READY, null, null, null, JobCreator.AI, true,
+				null);
+
+		assertEquals(com.automata.job.domain.model.enums.FailureCategory.TOOL_EXIT,
+				HttpJobMapper.toResponseDto(dto).failureCategory());
+		assertEquals(com.automata.job.domain.model.enums.FailureCategory.TOOL_EXIT,
+				HttpJobMapper.toRequestJobResponseDto(dto, java.util.UUID.randomUUID()).failureCategory());
+	}
+
+	@Test
+	void aJobWithoutAFailureHasNoCategory() {
+		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, HttpJobScope.NARROW, JobState.RUNNING,
+				null, null, 1, 10, null, null, null, 1L, "p", 1L, "r", null, null,
+				com.automata.job.domain.model.enums.ConfigFileStatus.READY, null, null, null, JobCreator.AI, true,
+				null);
+
+		assertNull(HttpJobMapper.toResponseDto(dto).failureCategory());
 	}
 
 }

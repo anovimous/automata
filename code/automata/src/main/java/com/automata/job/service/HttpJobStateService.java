@@ -17,6 +17,7 @@ import com.automata.job.domain.model.HttpJob;
 import com.automata.job.domain.model.embedded.HttpJobGenericDetails;
 import com.automata.job.domain.model.JobResult;
 import com.automata.job.domain.model.enums.ConfigFileStatus;
+import com.automata.job.domain.model.enums.FailureCategory;
 import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.policy.JobPreparationPolicy;
@@ -130,7 +131,7 @@ public class HttpJobStateService {
 	}
 
 	@Transactional
-	public void updateCurrentJobState(Long jobId, JobState newState, String message) {
+	public void updateCurrentJobState(Long jobId, JobState newState, String message, FailureCategory failureCategory) {
 
 		log.info("Update job state request received: jobId={} newState={}", jobId, newState);
 		// free text sent by the worker, so it is kept out of the info level
@@ -144,9 +145,10 @@ public class HttpJobStateService {
 		applyStateChange(job, JobStateTransitions.reportStateAppliedByWorker(previousState,
 				job.getGenericDetails().getRequestedState(), newState));
 
-		// a repeated report is not a new failure, so it keeps the message of the first
-		if (previousState != newState && FAILURE_STATES.contains(newState) && message != null && !message.isBlank())
-			job.setResult(JobResult.failed(message));
+		// a repeated report is not a new failure, so it keeps the message and the category of the first
+		if (previousState != newState && FAILURE_STATES.contains(newState)
+				&& (message != null && !message.isBlank() || failureCategory != null))
+			job.setResult(JobResult.failed(message == null || message.isBlank() ? null : message, failureCategory));
 
 		job.getGenericDetails().setLastWorkerContactAt(Instant.now());
 

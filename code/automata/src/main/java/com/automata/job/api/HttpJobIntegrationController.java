@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.automata.job.api.dto.JobPollDto;
 import com.automata.job.api.dto.JobStateUpdateRequest;
 import com.automata.job.domain.model.HttpJob;
+import com.automata.job.domain.model.enums.FailureCategory;
 import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobStateService;
@@ -45,7 +46,8 @@ public class HttpJobIntegrationController {
 	@PostMapping("/update/{jobId}")
 	public ResponseEntity<Void> updateJob(@PathVariable Long jobId, @RequestBody JobStateUpdateRequest req) {
 
-		stateService.updateCurrentJobState(jobId, req.newState(), req.message());
+		stateService.updateCurrentJobState(jobId, req.newState(), req.message(),
+				req.failureCategory() == null ? null : FailureCategory.fromReported(req.failureCategory()));
 
 		return ResponseEntity.status(204).build();
 

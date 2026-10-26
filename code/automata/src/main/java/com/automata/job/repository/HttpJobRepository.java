@@ -56,6 +56,7 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 			    j.routine.id,
 			    j.routine.key,
 			    j.result.failureMsg,
+			    j.result.failureCategory,
 			    j.genericDetails.configFileStatus,
 			    j.genericDetails.configFileFailure,
 			    j.aiDescription,

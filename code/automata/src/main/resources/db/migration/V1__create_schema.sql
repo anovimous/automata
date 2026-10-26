@@ -329,7 +329,8 @@ CREATE TABLE http_job (
     requested_state varchar(255),
     target_selector jsonb,
     verbosity varchar(255) NOT NULL,
-    failure_msg varchar(255),
+    failure_category varchar(255),
+    failure_msg varchar(500),
     version bigint,
     duration varchar(255),
     agent_context_id bigint,
@@ -344,6 +345,7 @@ CREATE TABLE http_job (
     CONSTRAINT http_job_created_by_check CHECK (created_by IN ('USER', 'AI')),
     CONSTRAINT http_job_current_state_check CHECK (current_state IN ('DRAFT', 'TOQUEUE', 'SCHEDULED', 'QUEUED', 'RUNNING', 'PAUSED', 'CANCELED', 'FINISHED', 'FAILED', 'SELFTERMINATED', 'LOSTCONTACT')),
     CONSTRAINT http_job_duration_check CHECK (duration IN ('SHORT', 'LONG')),
+    CONSTRAINT http_job_failure_category_check CHECK (failure_category IN ('PREPARATION', 'POLL', 'INVALID_CONFIG', 'TOOL_START', 'TOOL_EXIT', 'RESULT', 'UNKNOWN')),
     CONSTRAINT http_job_http_job_scope_check CHECK (http_job_scope IN ('NARROW', 'WIDE')),
     CONSTRAINT http_job_requested_state_check CHECK (requested_state IN ('DRAFT', 'TOQUEUE', 'SCHEDULED', 'QUEUED', 'RUNNING', 'PAUSED', 'CANCELED', 'FINISHED', 'FAILED', 'SELFTERMINATED', 'LOSTCONTACT')),
     CONSTRAINT http_job_verbosity_check CHECK (verbosity IN ('SUMMARIZED', 'NORMAL', 'VERBOSE'))

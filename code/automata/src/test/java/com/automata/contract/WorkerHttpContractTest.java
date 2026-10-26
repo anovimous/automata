@@ -60,12 +60,12 @@ class WorkerHttpContractTest {
 		mvc.perform(post("/api/external/jobs/http/update/5").contentType(MediaType.APPLICATION_JSON)
 				.content(update("RUNNING"))).andExpect(status().isNoContent());
 
-		verify(stateService).updateCurrentJobState(5L, JobState.RUNNING, "m");
+		verify(stateService).updateCurrentJobState(5L, JobState.RUNNING, "m", null);
 	}
 
 	@Test
 	void aReportOfAnUnknownJobIsAnswered404() throws Exception {
-		doThrow(new EntityNotFoundException()).when(stateService).updateCurrentJobState(eq(5L), any(), any());
+		doThrow(new EntityNotFoundException()).when(stateService).updateCurrentJobState(eq(5L), any(), any(), any());
 
 		mvc.perform(post("/api/external/jobs/http/update/5").contentType(MediaType.APPLICATION_JSON)
 				.content(update("RUNNING"))).andExpect(status().isNotFound());
@@ -73,7 +73,7 @@ class WorkerHttpContractTest {
 
 	@Test
 	void aReportOfAStateTheJobCanNotMoveToIsAnswered409() throws Exception {
-		doThrow(new InvalidJobStateException("no")).when(stateService).updateCurrentJobState(eq(5L), any(), any());
+		doThrow(new InvalidJobStateException("no")).when(stateService).updateCurrentJobState(eq(5L), any(), any(), any());
 
 		mvc.perform(post("/api/external/jobs/http/update/5").contentType(MediaType.APPLICATION_JSON)
 				.content(update("FINISHED"))).andExpect(status().isConflict());

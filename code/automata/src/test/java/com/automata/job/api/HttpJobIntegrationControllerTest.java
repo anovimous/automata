@@ -76,10 +76,26 @@ class HttpJobIntegrationControllerTest {
 
 	@Test
 	void jobToUpdateIsTheOneInThePathNotTheOneInTheBody() {
-		ResponseEntity<Void> response = controller.updateJob(5L, new JobStateUpdateRequest(99L, JobState.RUNNING, "msg"));
+		ResponseEntity<Void> response = controller.updateJob(5L, new JobStateUpdateRequest(99L, JobState.RUNNING, "msg", null));
 
 		assertEquals(204, response.getStatusCode().value());
-		verify(stateService).updateCurrentJobState(5L, JobState.RUNNING, "msg");
+		verify(stateService).updateCurrentJobState(5L, JobState.RUNNING, "msg", null);
+	}
+
+	@Test
+	void theFailureCategoryOfTheReportIsPassedAsAnEnum() {
+		controller.updateJob(5L, new JobStateUpdateRequest(5L, JobState.FAILED, "boom", "INVALID_CONFIG"));
+
+		verify(stateService).updateCurrentJobState(5L, JobState.FAILED, "boom",
+				com.automata.job.domain.model.enums.FailureCategory.INVALID_CONFIG);
+	}
+
+	@Test
+	void aFailureCategoryTheCoreDoesNotKnowIsPassedAsUnknown() {
+		controller.updateJob(5L, new JobStateUpdateRequest(5L, JobState.FAILED, "boom", "SOMETHING_NEW"));
+
+		verify(stateService).updateCurrentJobState(5L, JobState.FAILED, "boom",
+				com.automata.job.domain.model.enums.FailureCategory.UNKNOWN);
 	}
 
 }

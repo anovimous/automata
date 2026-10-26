@@ -154,7 +154,7 @@ class WorkerPayloadContractTest {
 	void reportOfTheWorkerIsReadByTheCore() throws IOException {
 		JobStateUpdateRequest request = mapper.readValue(sample("update-request.json"), JobStateUpdateRequest.class);
 
-		assertEquals(new JobStateUpdateRequest(42L, JobState.FAILED, "failed to start the tool"), request);
+		assertEquals(new JobStateUpdateRequest(42L, JobState.FAILED, "failed to build command from job details: the job has no wordlist, ffuf needs one", "INVALID_CONFIG"), request);
 	}
 
 	@Test
