@@ -74,7 +74,7 @@ class HttpJobCreationServiceDraftHelpersTest {
 
 	@Test
 	void findRoutineReturnsTheRoutineOfTheDto() {
-		Routine routine = new Routine();
+		Routine routine = RoutineFixtures.usableRoutine();
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
 
 		assertSame(routine, service.findRoutine(genericDto(null)));
@@ -89,7 +89,7 @@ class HttpJobCreationServiceDraftHelpersTest {
 
 	@Test
 	void findRoutineAndValidateCustomConfigValidatesTheConfigOfTheDtoAgainstTheRoutine() {
-		Routine routine = new Routine();
+		Routine routine = RoutineFixtures.usableRoutine();
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
 		GenericHttpJobDetailsDto dto = genericDto(null);
 
@@ -110,7 +110,7 @@ class HttpJobCreationServiceDraftHelpersTest {
 
 	@Test
 	void findRoutineAndValidateCustomConfigPassesOnAnInvalidConfig() {
-		Routine routine = new Routine();
+		Routine routine = RoutineFixtures.usableRoutine();
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
 		GenericHttpJobDetailsDto dto = genericDto(null);
 		org.mockito.Mockito.doThrow(new InvalidCustomConfigException("fuzz", List.of("bad"))).when(customConfigValidator)
