@@ -60,7 +60,7 @@ Facts about the core below come from reading its code, not from memory. Anything
 | automata-mcp | tool surface, argument types only, text/size handling, polling, error translation, size caps | persistence, business rules, scheduling, approval |
 | Core | data, business rules, approval gate, rate caps, job state machine, scoping of reads | reasoning, tool dispatch |
 
-One server process serves one agent connection (stdio) or several (HTTP); it is stateless apart from in-memory guardrail counters. Restarting it loses nothing that matters.
+One server process serves one agent connection (stdio) or several (HTTP); it is stateless (no counters, no caches that matter). Restarting it loses nothing.
 
 **How scoping works.** The core has no authentication. The agent can only reach what the *context-scoped* routes expose: every route under `/api/agent-contexts/uuid/{uuid}/...` checks that the request/job belongs to the context and answers **404** otherwise (a request outside the context looks exactly like a missing one). The server must call only those routes for requests, responses, tenants, host and jobs. The routes that are not context-scoped (routines, vulnerabilities, wordlists, findings, export, request ingestion) are limited by the MCP layer as described in sections 9 and 11.
 
@@ -68,7 +68,7 @@ One server process serves one agent connection (stdio) or several (HTTP); it is 
 
 ## 3. Decisions already taken (do not reopen)
 
-1. **Language/SDK:** Python, official `mcp` SDK, high-level server class. In `mcp` 2.x (the version in use, 2.3.0 when the project was set up) `FastMCP` was renamed `MCPServer`: `from mcp.server.mcpserver import MCPServer`; `mcp.server.fastmcp` no longer exists. Not the standalone `fastmcp` package. Separate repo at `/home/haidar/dev/automata-mcp`. (Wherever this plan says `FastMCP`, read `MCPServer`; the 2.x API differs from 1.x in other places too, so every **(verify)** about the SDK is checked against 2.x, e.g. the in-memory test helper `create_connected_server_and_client_session` is not in `mcp.shared.memory` any more.)
+1. **Language/SDK:** Python, official `mcp` SDK, high-level server class. In `mcp` 2.x (the version in use, 2.3.0 when the project was set up) `FastMCP` was renamed `MCPServer`: `from mcp.server.mcpserver import MCPServer`; `mcp.server.fastmcp` no longer exists. Not the standalone `fastmcp` package. Separate repo at `/home/haidar/dev/automata-mcp`. (Wherever this plan says `FastMCP`, read `MCPServer`; the 2.x API differs from 1.x in other places too, so every **(verify)** about the SDK is checked against 2.x, e.g. the in-memory test helper `create_connected_server_and_client_session` is not in `mcp.shared.memory` any more; see section 13.)
 2. **No authentication**, in the core or in this server.
 3. **What the agent may do** is exactly the `t` rows of the operations table (section 17.A). The unscoped read routes of requests, responses, equality sets, tenants, hosts and jobs are `f`: the agent reads them only through the scoped routes.
 4. **"In the context" rule** (enforced by the core): a request is in the context when a `REQUEST` item is it, or it is in an `EQUALITY_SET` item, **every request of the set under both strategies**. The strategy only decides the *resolved targets* (`list_targets`; under `LATEST` the newest request of each set, under `AI_JUDGEMENT` every request), which are the only requests a job can target. Older members of a set are readable but not job targets. Anything else → 404.
@@ -78,8 +78,8 @@ One server process serves one agent connection (stdio) or several (HTTP); it is 
 8. **Ingestion:** the agent may add a request (and optional response) for **any host by name** through `POST /api/external/ai/requests` (stored with `Source.AI`). It is **not** added to any context; the agent cannot read it back or create jobs on it until a human adds it to a context. `tenantId` is optional and needs `agentContextUuid`: the tenant must be in that context's tenant list and belong to the request's host.
 9. **Findings** go through the context-scoped routes of the core (rows 119–122, done in the core): a finding is visible when its request is readable in the context (a request item or any member of an equality set item, under both strategies); it may point only to an AI job of this context; the core sets `createdBy=AI`; only a finding created by this context's agent and not reviewed can be edited. **Wordlist creation and body-property export are `t`** (the user's choice) although their core routes are not context-scoped: a wordlist is a file the core stores itself (an object in its `wordlists` bucket, never changed afterwards, at most 512 MB, a file that is already a wordlist is refused), so the agent uploads its text and cannot point the core at a path (C2, done); the export is pinned to the context's host by the MCP on purpose (C3, intentionally left as is).
 
-10. **The server holds no business logic.** Every rule (validation, scoping, state meanings, failure classification, limits) is enforced by the core, and its message is shown. The server only translates (errors, encodings, base64/CRLF, `rawRequestText`), caps sizes, pages, polls and describes the tools. A missing rule is a core change (with a row in the operations table), never a check here.
-11. **Dropped on purpose:** the loop detector for identical jobs (section 11.1), the finding scope checks, the wordlist path guard, the client-side validations of `create_job`, `set_job_ai_result` and `add_request`, and the regex failure analysis (replaced by the core's `failureCategory`, section 17.C).
+10. **The server holds no business logic.** What stays in the server is the shape of its own arguments and its own resource limits, not domain rules: the one-of rules of `add_request` (the server must pick which input to encode), the limits of `wait_for_jobs` (`AUTOMATA_WAIT_MAX_JOB_IDS`, `AUTOMATA_WAIT_MAX_POLL_ERRORS`), the UUID format of `context_uuid`, and the size caps. Every rule (validation, scoping, state meanings, failure classification, limits) is enforced by the core, and its message is shown. The server only translates (errors, encodings, base64/CRLF, `rawRequestText`), caps sizes, pages, polls and describes the tools. A missing rule is a core change (with a row in the operations table), never a check here.
+11. **Dropped on purpose:** the loop detector for identical jobs (section 11.1), the finding scope checks, the wordlist path guard, the client-side validations of the rules of `create_job`, `set_job_ai_result` and `add_request`, and the regex failure analysis (replaced by the core's `failureCategory`, section 17.C).
 
 ---
 
@@ -116,7 +116,8 @@ automata-mcp/
       errors.py                        CoreError hierarchy + status→message mapping
       paging.py                        Page[T] model, size/page clamping
       models/                          pydantic models (section 7): context.py, requests.py, responses.py, jobs.py,
-                                       findings.py, reference.py (routine/vulnerability/wordlist), tenants.py
+                                       findings.py, reference.py (routine/vulnerability/wordlist), tenants.py,
+                                       enums.py (the enums of section 6.3, tolerant of unknown values)
     services/
       bodies.py                        stream a body with a byte cap, decode text, binary detection
       raw_messages.py                  normalize/encode raw HTTP text <-> base64, compose message
@@ -142,8 +143,8 @@ Tool modules only declare tools (`@mcp.tool`) and delegate to `services/` and `c
 |---|---|---|
 | `AUTOMATA_CORE_URL` | `http://localhost:8080` | base URL of the core (compose publishes it on 8080) |
 | `AUTOMATA_TRANSPORT` | `stdio` | `stdio` or `streamable-http` |
-| `AUTOMATA_HTTP_HOST` / `AUTOMATA_HTTP_PORT` | `0.0.0.0` / `8000` | for `streamable-http` |
-| `AUTOMATA_DEFAULT_CONTEXT_UUID` | unset | when set, `context_uuid` becomes optional in every tool and falls back to this |
+| `AUTOMATA_HTTP_HOST` / `AUTOMATA_HTTP_PORT` | `0.0.0.0` / `8000` | for `streamable-http`; passed to `run_streamable_http_async(host=, port=)` (the SDK's own default host is `127.0.0.1`). The SDK has `TransportSecuritySettings` (Host-header check): **verify** in phase 2/9 that a request addressed to the compose service name (`automata-mcp:8000`) is accepted and configure the allowed hosts if not |
+| `AUTOMATA_HTTP_MAX_REQUEST_BYTES` | `4194304` | for `streamable-http`; the SDK's `max_request_body_size` (4 MB default) caps one tool call, so it caps `create_wordlist` content; raise it here if bigger wordlists are needed (stdio has no such limit) |
 | `AUTOMATA_REQUEST_TIMEOUT_SECONDS` | `30` | httpx read timeout (connect timeout fixed at 5) |
 | `AUTOMATA_GET_RETRIES` | `2` | retries of GETs on connect errors/5xx/timeouts (backoff 0.5 s, 1 s). Never retry POST/PATCH |
 | `AUTOMATA_BODY_MAX_BYTES` | `65536` | default cap of text returned for a request/response body |
@@ -151,6 +152,8 @@ Tool modules only declare tools (`@mcp.tool`) and delegate to `services/` and `c
 | `AUTOMATA_RESULT_MAX_BYTES` | `100000` | default cap of a job result returned in one call |
 | `AUTOMATA_WAIT_POLL_SECONDS` | `5` | poll interval of `wait_for_jobs` |
 | `AUTOMATA_WAIT_DEFAULT_SECONDS` / `AUTOMATA_WAIT_MAX_SECONDS` | `45` / `55` | default/max wait of one call (must stay under the MCP client's tool timeout — **verify** the client's limit) |
+| `AUTOMATA_WAIT_MAX_JOB_IDS` | `20` | most job ids one `wait_for_jobs` call accepts (bounds the parallel polls) |
+| `AUTOMATA_WAIT_MAX_POLL_ERRORS` | `3` | consecutive transient poll errors after which `wait_for_jobs` fails |
 | `AUTOMATA_TARGET_ENRICH_LIMIT` | `50` | max targets enriched with request metadata in `list_targets` |
 | `AUTOMATA_LOG_LEVEL` | `INFO` | |
 
@@ -163,7 +166,7 @@ Tool modules only declare tools (`@mcp.tool`) and delegate to `services/` and `c
 ### 6.1 Conventions
 
 - Base URL = `AUTOMATA_CORE_URL`. JSON in/out unless noted. No authentication, no versioning.
-- **Error bodies are plain text** (the exception message), not JSON. Status mapping (core `GlobalExceptionHandler`): `404` entity not found; `400` illegal argument / unreadable body (bad JSON, unknown enum name); `409` invalid job state, job not approved, a finding that cannot be edited (not created by this context's agent, or reviewed by a human), optimistic-lock conflict; `422` ineligible job target (a body that is not empty/JSON/FORM, another host, or a host with a rate limit of 0); `501` unsupported operation; `500` anything else.
+- **Error bodies are plain text** (the exception message), not JSON. Status mapping (core `GlobalExceptionHandler`): `404` entity not found; `400` illegal argument / unreadable body (bad JSON, unknown enum name); `409` invalid job state, job not approved, a finding that cannot be edited (not created by this context's agent, or reviewed by a human), optimistic-lock conflict; `422` ineligible job target (a body that is not empty/JSON/FORM, another host, or a host with a rate limit of 0); `501` unsupported operation; `413` a wordlist file over 512 MB (`create_wordlist` only); `500` anything else.
 - **Paged lists** return `{"content": [...], "page": 0, "size": 20, "totalElements": 0, "totalPages": 0, "last": true}`. Query params `page` (0-based), `size`, `sort=prop,asc|desc`. The tools expose `page` and `size` (clamp `size` to ≤ 100) and no `sort`.
 - Creation routes answer `201` with a `Location` header and usually an empty body.
 - Dates: `LocalDate` as `YYYY-MM-DD`; instants as ISO-8601 strings.
@@ -300,10 +303,10 @@ Base config: `ConfigDict(extra="ignore", populate_by_name=True, alias_generator=
 
 ### 8.1 Conventions
 
-- Names are snake_case verbs. Every tool that touches a context takes `context_uuid: str` (validated as a UUID; if `AUTOMATA_DEFAULT_CONTEXT_UUID` is set it is optional). All ids are ints.
+- Names are snake_case verbs. Every tool that touches a context takes a required `context_uuid: str` as its first parameter (validated as a UUID; there is no default context and no env fallback). All ids are ints.
 - Return structured data (dicts/pydantic) — **not** pre-formatted prose — plus, where useful, a short `next_steps: list[str]` of hints. Keep outputs compact: drop null fields, never return base64 blobs the agent cannot read (decode text; summarise binary).
 - **The docstring of each tool is the prompt.** For every tool write: what it returns, *when to use it*, what to do with the result, and the limits (what it will refuse). Use the description guidance given below as the minimum.
-- Annotations (**verify** the SDK API `ToolAnnotations`): `readOnlyHint=True` for every GET tool; `destructiveHint=True` + `idempotentHint=False` for `cancel_job`; `idempotentHint=False` for creating tools; `openWorldHint=False` for all.
+- Annotations (**verify** the SDK API `ToolAnnotations`): `readOnlyHint=True` for every GET tool; `destructiveHint=True` + `idempotentHint=False` for `cancel_job`; `idempotentHint=False` for creating tools and for `queue_job` (a second call after the job moved on answers 409); `idempotentHint=True` for `retry_job_preparation`, `set_job_ai_result` and `update_finding` (repeating them leaves the same state), all non-destructive; `openWorldHint=False` for all. These hints only advise the client: the core enforces the real rules.
 - Errors: raise an exception whose message is guidance text (the SDK turns it into an `isError` result — **verify**); never return a stack trace. Mapping in section 9.5.
 - Every tool call is logged at INFO: tool name, context uuid, duration, outcome. No payloads.
 
@@ -393,7 +396,7 @@ All require the request to be in the context (404 otherwise: say "not found or n
 
 **`list_wordlists(query="", vulnerability_id=None, page=0, size=30)`** — row 60. **`get_wordlist(wordlist_id)`** — row 59 (returns what the core gives: name, description, line count, size and sha256; the agent cannot read the file itself, row 123 is `f`).
 
-**`create_wordlist(name, content, description=None, vulnerability_ids=None)`** — row 61. The server sends `content` (text, one entry per line) as the `file` part of a multipart request (file name = `name`) and the other arguments as the `metadata` JSON part; it checks nothing and adds no size cap of its own (the core answers 413 over 512 MB; the MCP transport may limit a tool call earlier). Returns the new id (from `Location`). Translate: 409 → "a wordlist with exactly this content already exists (id in the message); use it"; 400 → show the core's message. Guidance: "Creates a wordlist from the text you give. The content can not be changed afterwards (only name, description and vulnerabilities can); to change it, create a new wordlist. Give a description so it can be chosen later."
+**`create_wordlist(name, content, description=None, vulnerability_ids=None)`** — row 61. The server sends `content` (text, one entry per line) as the `file` part of a multipart request (file name = `name`) and the other arguments as the `metadata` JSON part; it checks nothing and adds no size cap of its own (the core answers 413 over 512 MB; over streamable HTTP the SDK limits one call to `AUTOMATA_HTTP_MAX_REQUEST_BYTES`, 4 MB by default, raise it there if needed; stdio has no such limit). Returns the new id (from `Location`). Translate: 409 → "a wordlist with exactly this content already exists (id in the message); use it"; 400 → show the core's message. Guidance: "Creates a wordlist from the text you give. The content can not be changed afterwards (only name, description and vulnerabilities can); to change it, create a new wordlist. Give a description so it can be chosen later."
 
 ### 8.6 Finding tools (`tools/findings.py`)
 
@@ -423,7 +426,7 @@ The core scopes the findings and enforces every rule (visible = the request of t
 ## 9. Cross-cutting behaviour
 
 ### 9.1 Context handling
-- `context_uuid` is validated with `uuid.UUID(...)` and passed in the path. There is no session state, so a restart or reconnect loses nothing. If `AUTOMATA_DEFAULT_CONTEXT_UUID` is set it is used when a tool is called without one.
+- `context_uuid` is validated with `uuid.UUID(...)` and passed in the path. There is no session state, so a restart or reconnect loses nothing, and no default context: the agent passes the uuid on every call.
 - No tool lists contexts (the table forbids it): the agent gets the uuid from the human (prompt).
 
 ### 9.2 Bodies and text
@@ -437,11 +440,11 @@ The core scopes the findings and enforces every rule (visible = the request of t
 
 ### 9.3 Jobs, waiting and results
 - **Lifecycle the tools must explain:** `create_job` → `DRAFT` (`approved` true/false) → (human approves if needed) → `queue_job` requires `approved` and `configFileStatus=READY` → `TOQUEUE` → the core's scheduler (every 60 s) moves it to `QUEUED` when rate limits allow → worker `RUNNING` → `FINISHED|FAILED|SELFTERMINATED|CANCELED` (`LOSTCONTACT` if the worker is silent for 30 minutes) → `get_job_result` → `set_job_ai_result`.
-- **`wait_for_jobs`** (`services/waiting.py`): validates ids (≤ 20) and `timeout_seconds` (default `AUTOMATA_WAIT_DEFAULT_SECONDS`, clamp to `AUTOMATA_WAIT_MAX_SECONDS`); loop: `get_job` for every job that is not `terminal` (concurrently) every `AUTOMATA_WAIT_POLL_SECONDS`; after each poll call `ctx.report_progress(...)` with a short message (keeps some clients' timers alive — **verify**). The server knows no state meaning: it only reads the `terminal` and `waitingForAction` fields of the core. Returns early when:
+- **`wait_for_jobs`** (`services/waiting.py`): validates ids (at most `AUTOMATA_WAIT_MAX_JOB_IDS`) and `timeout_seconds` (default `AUTOMATA_WAIT_DEFAULT_SECONDS`, clamp to `AUTOMATA_WAIT_MAX_SECONDS`); loop: `get_job` for every job that is not `terminal` (concurrently) every `AUTOMATA_WAIT_POLL_SECONDS`; after each poll call `ctx.report_progress(...)` with a short message (keeps some clients' timers alive — **verify**). The server knows no state meaning: it only reads the `terminal` and `waitingForAction` fields of the core. Returns early when:
   - `return_when="any"` (default): any job is `terminal`; `"all"`: all are `terminal`;
   - every job that is not `terminal` is `waitingForAction` (nothing will happen until someone acts);
   - the deadline passes (`timedOut: true`).
-  Result: `{jobs: [{jobId, currentState, requestedState, approved, configFileStatus, terminal, waitingForAction, failureMessage?}], timedOut, terminalJobIds, waitingForActionJobIds, next_steps}`. The agent calls it again until it is satisfied. Poll errors: a transient 5xx/timeout on one poll is skipped; three in a row fail the call.
+  Result: `{jobs: [{jobId, currentState, requestedState, approved, configFileStatus, terminal, waitingForAction, failureMessage?}], timedOut, terminalJobIds, waitingForActionJobIds, next_steps}`. The agent calls it again until it is satisfied. Poll errors: a transient 5xx/timeout on one poll is skipped; `AUTOMATA_WAIT_MAX_POLL_ERRORS` in a row fail the call.
 - **`get_job_result`** (and `get_request_job_result`, same logic against the history route): the server does not decide which states have a result; it always streams `.../result` from the core. The core answers 409 "The job has to end before downloading its result" while the job is not `FINISHED` or `FAILED`, and 404 "Result not found" when the file does not exist (the worker uploads one only for a `FINISHED` job, so a `FAILED`, `CANCELED`, `SELFTERMINATED` or `LOSTCONTACT` job has none). Both become tool errors with the hints given in the tool entry; the server does not read the message to tell the 404 cases apart. A result is read with the same byte-cap logic (`AUTOMATA_RESULT_MAX_BYTES`, `offset`), content type `application/json` or `text/plain`. For JSON results, if truncated, say so and suggest paging with `offset`. (Later, optional: a summarizer for ffuf's JSON — section 14, phase 11.)
 - Core limits (it answers 400 above them): `ai_description` at most 1 000 characters, `ai_result` at most 5 000. The server does not check them and never truncates: the core's 400 names the limit, and the tool descriptions state both limits so the agent keeps its text short. The job result file itself (`get_job_result`) can be large and is read with `offset`/`max_bytes`, unrelated to these limits.
 
@@ -459,6 +462,7 @@ Core errors become exceptions with agent-facing messages. The core's text is inc
 | 400 | invalid argument | "The core rejected the arguments: <message>. Fix the arguments and retry." |
 | 409 | job state / not approved / finding not editable / conflict | tool-specific hint (see each tool; for `update_finding`: only a finding you created in this context and no human has reviewed can be edited); generic: "The job is not in a state that allows this: <message>." / "changed at the same time, re-read and retry" |
 | 422 | ineligible target | "That cannot be a job target: <message>." (a request that is not job-eligible, another host, or a host with a rate limit of 0 that the agent cannot change: tell the user) |
+| 413 | wordlist file too large | "The wordlist is over the core's limit (512 MB): <message>. Send a smaller file." |
 | 501 | not implemented | "Not supported by the core: <message>." |
 | 5xx | core failure | "The core failed (HTTP N). It may be temporary; retry once. Do not retry in a loop." |
 | connect error / timeout | core unreachable | "Cannot reach the core at <url> (timeout). Tell the user." (GETs are retried per config first) |
@@ -518,7 +522,7 @@ None of these blocks the MVP; each would be a separate core branch (the core rep
 | C4 | Requests added with `add_request` are not in any context | the agent cannot read them back or create jobs on them (by decision) | none required; a human adds them to a context |
 | C5 | A `DRAFT` job cannot be canceled | a draft the agent no longer wants stays | none; the agent just does not queue it |
 | C6 | No finish notification | `wait_for_jobs` polls | SSE `GET /api/agent-contexts/uuid/{uuid}/events` (core enhancement plan §4) |
-| C7 | Job results are raw tool output (`ffuf` JSON, `masser` output) | the agent reads raw text | structured `{jobId}.summary.json` written by the worker (enhancement plan §3) |
+| C7 | Job results are raw tool output (`ffuf` JSON, `masser` output) | the agent reads raw text | structured `{jobId}.summary.json` written by the worker (enhancement plan §3); preferred over the server-side summariser of phase 11 |
 | C8 | ~~Failure classification is MCP-side~~ **Done** (core and worker: `failureCategory` on the job) | the tools return the category | — |
 | C9 | No budgets / test plans / audit log | no hard limit on jobs per context | enhancement plan §1, §2, §9 |
 | C11 | Nothing stops the same job from being created many times (the loop detector was dropped) | the approval gate, the rate caps and the job history bound the load | a per-context job budget (with C9) if a hard limit is wanted |
@@ -530,7 +534,7 @@ None of these blocks the MVP; each would be a separate core branch (the core rep
 
 - **Unit tests** for every function (project rule): `services/*` (pure logic), `core/errors.py`, `core/paging.py`, models parsing, each tool with the core mocked by `respx`.
 - **Fixtures:** `tests/fixtures/core/*.json` — one real-shaped sample per payload in section 7 (copy the shapes from the core DTOs; refresh them when the core changes). Tests parse every fixture with the pydantic models and assert round-trips of the request bodies.
-- **Tool-level tests through the MCP protocol** with an in-memory client/server pair (the SDK provides a helper such as `mcp.shared.memory.create_connected_server_and_client_session` — **verify**): list tools (assert the exact tool name set = section 17.A), call a tool, assert the structured result and that errors come back as `isError`.
+- **Tool-level tests through the MCP protocol** with an in-memory client/server pair (in `mcp` 2.x the old helper `mcp.shared.memory.create_connected_server_and_client_session` is gone; `mcp.Client` is exported and is the likely replacement — **verify** in phase 2 that it can be connected to an `MCPServer` in memory, and fix this line with what works): list tools (assert the exact tool name set = section 17.A), call a tool, assert the structured result and that errors come back as `isError`.
 - **Must-have cases:** each core status (404/400/409/422/5xx/timeout) for at least one tool of each group; `wait_for_jobs` early exits (any, all, waitingForAction, timeout) with a fake clock/sleep; byte-cap truncation and offset; binary detection; `normalize_raw_message` (LF→CRLF, missing blank line, body untouched); `rawRequestText` conversion (and that `create_job` makes no call other than the POST and the job fetch); finding tools only call the scoped routes (and show 404/409 messages); `export_body_property_names` never sends `programId`.
 - **Integration tests** (`tests/integration`, opt-in via `AUTOMATA_IT=1`, real core on `AUTOMATA_CORE_URL` with a prepared context): one happy path per tool group. Not required for CI.
 - **Contract check** (`scripts/check_core_contract.py`): fetch the core's OpenAPI (`{core}/v3/api-docs`, springdoc is enabled — **verify** the path) and assert every method+path in `core/client.py` exists. Run manually and in phase 9.
@@ -545,17 +549,17 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | # | Branch(es) | Work | Needs |
 |---|---|---|---|
 | 0 | `chore/set-up-project-skeleton` | `git init`, `main` + `staging`; `pyproject.toml` (uv), `.gitignore`, `.env.example`, ruff/mypy/pytest config, empty package, CI-less Makefile or `justfile` for the gates | — |
-| 1 | `feat/add-core-client` | `config.py`, `core/` (models for all payloads, `CoreClient` with one method per route in 6.2, retries for GETs, error mapping, paging), `docs/core-contract.md`, fixtures | 0 |
-| 2 | `feat/add-server-skeleton` | `server.py` (MCPServer, lifespan creating `AppState`), `__main__`, transports (stdio + streamable HTTP), logging, startup log of core reachability, tool-name registry test | 1 |
+| 1 | `feat/add-core-client` | `config.py`, `core/` (models for all payloads and `models/enums.py` for the enums of 6.3, `CoreClient` with one method per route in 6.2, retries for GETs, error mapping, paging), `docs/core-contract.md`, fixtures | 0 |
+| 2 | `feat/add-server-skeleton` | `server.py` (MCPServer, lifespan creating `AppState`), `__main__`, the `automata-mcp` console script (`[project.scripts]` in `pyproject.toml`, needed by `uv run automata-mcp`, section 15), transports (stdio + streamable HTTP; in `mcp` 2.x host and port are arguments of `run_streamable_http_async`, default host `127.0.0.1`, so pass the settings explicitly), logging, startup log of core reachability, tool-name registry test through the in-memory `mcp.Client` (**verify**, section 13) | 1 |
 | 3 | `feat/add-context-tools`, `feat/add-reference-tools` | section 8.2 (without the briefing's jobs/findings parts), 8.5 (without `create_wordlist`) | 2 |
 | 4 | `feat/add-request-response-tools` | `services/bodies.py`, `raw_messages.py`, section 8.3 (including `list_context_requests`) | 2 |
 | 5 | `feat/add-job-tools` | `config_validation.py` (only the `rawRequestText` conversion), `waiting.py`, section 8.4 (all twelve tools), briefing's jobs part | 3, 4 |
-| 6 | `feat/add-finding-tools`, `feat/add-ingestion-and-export-tools`, `feat/add-wordlist-creation-tool` | section 8.6, 8.7, `create_wordlist`; briefing's findings part | 5 |
+| 6 | `feat/add-finding-tools`, `feat/add-ingestion-and-export-tools`, `feat/add-wordlist-creation-tool` | section 8.6, 8.7, `create_wordlist`; briefing's findings part; `tests/integration` (opt-in with `AUTOMATA_IT=1`, one happy path per tool group, section 13), as its own branch `feat/add-integration-tests` once every group exists | 5 |
 | 7 | (dropped) | the loop detector was dropped (section 11.1); the number is kept because the phases are referenced | — |
 | 8 | `feat/add-workflow-prompt-and-resources` | section 10 | 6 |
-| 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions | 6 |
+| 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions; check that the SDK's Host-header check accepts the compose service name (section 5) | 6 |
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
-| 11 | optional: `feat/add-ffuf-result-summary` | summarise ffuf JSON results (counts by status/size/words, outliers) in `get_job_result(summary=true)`; do **not** guess masser's output format | 5 |
+| 11 | optional: `feat/add-ffuf-result-summary` | only if the worker-side summary of C7 is not done: summarise ffuf JSON results (counts by status/size/words, outliers) in `get_job_result(summary=true)` (a parameter that section 8.4 does not have until this phase; it is presentation of raw output, not a rule); do **not** guess masser's output format. If the worker writes `{jobId}.summary.json`, return that file instead and parse nothing | 5 |
 
 **Definition of done per phase:** gates pass; every new/changed function has tests; `docs/` updated; the tool-name set test matches section 17.A for the tools that exist so far; the user confirmed before any commit/merge.
 
@@ -564,7 +568,7 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 ## 15. Deployment
 
 - **Local (stdio):** the MCP client launches `uv run automata-mcp` (or the console script) with `AUTOMATA_CORE_URL` in its environment. Example client config entry: command `uv`, args `["--directory", "/home/haidar/dev/automata-mcp", "run", "automata-mcp"]`, env `AUTOMATA_CORE_URL`.
-- **Docker (streamable HTTP):** `AUTOMATA_TRANSPORT=streamable-http`, port 8000, one container can serve several agent sessions (the server is stateless apart from guardrail counters). The compose service (phase 10) points `AUTOMATA_CORE_URL` at `http://app:8080`.
+- **Docker (streamable HTTP):** `AUTOMATA_TRANSPORT=streamable-http`, port 8000, one container can serve several agent sessions (the server is stateless). The compose service (phase 10) points `AUTOMATA_CORE_URL` at `http://app:8080`.
 - No secrets exist in this server's configuration (no auth anywhere). Do not publish the HTTP port beyond the trusted network: the server has no authentication either, so it is as open as the core.
 
 ---
@@ -573,7 +577,7 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 
 | # | Decision | Default |
 |---|---|---|
-| D1 | `context_uuid` as an explicit parameter of every tool vs. a session "active context" | explicit parameter; optional env default `AUTOMATA_DEFAULT_CONTEXT_UUID` |
+| D1 | `context_uuid` as an explicit parameter of every tool vs. a session "active context" | explicit required parameter on every tool, no env default (decided by the user) |
 | D2 | MCP-side `rawRequestText` convenience for `fuzz` custom config | yes (9.4) |
 | D3 | `wait_for_jobs` defaults | poll 5 s, default wait 45 s, max 55 s, `return_when="any"` |
 | D4 | `create_wordlist` guard | none in the MCP; the core validates the file (C2 done) |
