@@ -66,6 +66,14 @@ IMPLEMENTED: frozenset[str] = frozenset(
         "get_vulnerability",
         "list_wordlists",
         "get_wordlist",
+        # phase 4: request and response tools
+        "list_context_requests",
+        "get_request",
+        "get_request_raw",
+        "get_request_body",
+        "get_response",
+        "get_response_raw",
+        "get_response_body",
     }
 )
 

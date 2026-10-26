@@ -7,6 +7,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
+from automata_mcp.core.errors import CoreError
 from automata_mcp.core.models.base import CoreModel
 from automata_mcp.core.paging import Page
 
@@ -20,6 +21,24 @@ ContextUuid = Annotated[
 
 PageNumber = Annotated[int, Field(description="Page number, starting at 0.")]
 PageSize = Annotated[int, Field(description="Items per page, 1 to 100 (more is cut to 100).")]
+
+
+RequestId = Annotated[
+    int,
+    Field(
+        description="Id of a request of the context (see list_targets or list_context_requests)."
+    ),
+]
+BodyOffset = Annotated[int, Field(ge=0, description="Bytes of the body to skip before reading.")]
+BodyMaxBytes = Annotated[
+    int | None,
+    Field(ge=1, description="Most bytes of the body to return (default: the server's limit)."),
+]
+
+
+def with_hint(error: CoreError, hint: str) -> CoreError:
+    """The same error with a tool-specific hint after its guidance."""
+    return type(error)(f"{error} {hint}", status=error.status, core_message=error.core_message)
 
 
 def page_output[T: CoreModel](page: Page[T], key: str) -> dict[str, Any]:
