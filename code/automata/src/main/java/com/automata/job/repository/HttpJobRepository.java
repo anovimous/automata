@@ -20,6 +20,7 @@ import com.automata.job.domain.model.enums.JobState;
 import com.automata.job.domain.valueobject.HttpJobFullDetailsInternalDto;
 import com.automata.job.domain.valueobject.HttpJobRoutineInternalDto;
 import com.automata.job.domain.valueobject.ProgramRateDto;
+import com.automata.wordlist.Wordlist;
 
 @Repository
 public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpecificationExecutor<HttpJob> {
@@ -126,7 +127,11 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 	@Query("SELECT new com.automata.job.domain.valueobject.HttpJobRoutineInternalDto(j.id, j.routine.key) FROM HttpJob j WHERE j.id IN :jobsIds")
 	List<HttpJobRoutineInternalDto> findJobsRoutineKeys(@Param("jobsIds") List<Long> jobsIds);
 
-	@Query("SELECT w.path FROM HttpJob j JOIN j.wordlists w WHERE j.id = :jobId")
-	Set<String> findWordlistPathsByJobId(@Param("jobId") Long jobId);
+	// The order is by id, so the worker gets the wordlists of a job in the same order every time
+	@Query("SELECT w FROM HttpJob j JOIN j.wordlists w WHERE j.id = :jobId ORDER BY w.id")
+	List<Wordlist> findWordlistsByJobId(@Param("jobId") Long jobId);
+
+	@Query("SELECT COUNT(j) > 0 FROM HttpJob j JOIN j.wordlists w WHERE w.id = :wordlistId")
+	boolean existsByWordlistId(@Param("wordlistId") Long wordlistId);
 
 }

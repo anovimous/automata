@@ -66,6 +66,7 @@ services:
     environment:
       REQUEST_BODIES_BUCKET: request-bodies
       RESPONSE_BODIES_BUCKET: response-bodies
+      WORDLISTS_BUCKET: wordlists
     entrypoint: >
       /bin/sh -c "
         mc alias set rustfs http://rustfs:9000 automata OjN86GXh6bLX9ltp &&
@@ -76,7 +77,8 @@ services:
         mc mb --ignore-existing rustfs/$${REQUEST_BODIES_BUCKET} &&
         mc anonymous set public rustfs/$${REQUEST_BODIES_BUCKET} &&
         mc mb --ignore-existing rustfs/$${RESPONSE_BODIES_BUCKET} &&
-        mc anonymous set public rustfs/$${RESPONSE_BODIES_BUCKET}
+        mc anonymous set public rustfs/$${RESPONSE_BODIES_BUCKET} &&
+        mc mb --ignore-existing rustfs/$${WORDLISTS_BUCKET}
       "
 
   app:
@@ -111,8 +113,8 @@ services:
       # Tmp storage for job config files
       TMP_FILES_PATH: /app/files
 
-      # Wordlist paths must be inside this directory (as the worker sees it)
-      WORDLISTS_BASE_DIRECTORY: /home/haidar/cbr/wordlists
+      # Bucket of the wordlist files (private, created by rustfs-init; the worker downloads from it)
+      WORDLISTS_BUCKET: wordlists
     networks:
       - backend
     depends_on:

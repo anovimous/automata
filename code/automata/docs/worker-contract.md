@@ -32,13 +32,14 @@ The orchestrator ignores the message properties and reads only the body. `routin
 
 ## 3. Object storage (S3 API, RustFS)
 
-The core writes with its own credentials. The orchestrator uses `RUSTFS_JOBS_BUCKET` and `RUSTFS_RESULTS_BUCKET`, which must be `job-configuration` and `job-results`.
+The core writes with its own credentials. The orchestrator uses `RUSTFS_JOBS_BUCKET`, `RUSTFS_RESULTS_BUCKET` and `RUSTFS_WORDLISTS_BUCKET`, which must be `job-configuration`, `job-results` and `wordlists` (the core's `WORDLISTS_BUCKET`).
 
 | Object | Written by | Read by |
 |---|---|---|
 | `job-configuration/details/{jobId}.json` | core | orchestrator → connector |
 | `job-configuration/data/{jobId}.jsonl` | core | orchestrator downloads it, only masser reads it |
 | `job-results/{jobId}.result` | orchestrator | core (`GET /api/jobs/http/{id}/result`) |
+| `wordlists/{wordlistId}` | core (on `POST /api/wordlists`) | orchestrator, see 3.5 |
 
 ### 3.1 Details file
 
@@ -50,7 +51,7 @@ The core writes it with the application's Jackson mapper (`FAIL_ON_UNKNOWN_PROPE
 | `routineKey` | string | |
 | `rate` | number or `null` | requests per second; the worker reads `null` as 0 |
 | `verbosity` | `SUMMARIZED` \| `NORMAL` \| `VERBOSE` | masser gets it as `-verbosity`; ffuf ignores it |
-| `wordlistsPaths` | array of strings | order is undefined (a set on the core); may be empty. ffuf uses the first one only and reports a job without any as `FAILED` (masser takes all of them) |
+| `wordlists` | array of `{id, name, sha256, sizeBytes}` | ordered by `id`; may be empty; `name` may be `null`. The orchestrator downloads each one (3.5) and gives the connectors local paths, see below. ffuf uses the first one only and reports a job without any as `FAILED` (masser takes all of them) |
 | `auth` | object or `null` | only narrow jobs of a tenant with stored authentication; the worker treats `null` as no headers, cookies or query parameters |
 | `auth.data.headers`, `.cookies`, `.queryParameters` | arrays of `{"key", "value"}` | the worker uses headers and cookies; **query parameters are never applied by either connector** |
 | `auth.lifeTimeInSeconds`, `auth.populatedAt` | ISO-8601 instant strings | the worker keeps them as strings and never reads them |
@@ -58,7 +59,9 @@ The core writes it with the application's Jackson mapper (`FAIL_ON_UNKNOWN_PROPE
 | `genericConfig.matchAndReplace` | array of `{targetType, rule, targetKey, value}` | `targetType` is `HEADER` only; `rule` is `ADD` \| `REPLACE` \| `DELETE` |
 | `customConfig` | any JSON, or `null` | checked by the core against the routine's `configSchema` when the job is created, see 3.3 |
 
-The file holds credentials (`auth`). The buckets are public today (known, see the review file).
+The file holds credentials (`auth`). The `job-configuration` and `job-results` buckets are public today (known, see the review file); the `wordlists` bucket is private.
+
+The connectors never see `wordlists`: before it starts one, the orchestrator rewrites its copy of the file in the job directory so that it has `wordlistsPaths` (an array of absolute local paths, in the order of `wordlists`) instead of `wordlists`. Everything else in the file is kept as it is. The worker's own sample of that form is `details-file-resolved.json`.
 
 Match-and-replace as the worker applies it: for `HEADER` and a rule other than `DELETE` it adds the header `targetKey: value`. `ADD` and `REPLACE` therefore behave the same (they do not replace an existing header of the request), and **`DELETE` is accepted by the core and ignored by both connectors**.
 
@@ -84,11 +87,24 @@ The connector of the routine is still the one that parses it; both ignore unknow
 | `fuzz` (ffuf) | `{"rawRequestBase64": "<base64>", "flags": [{"key": "-mc", "value": "200"}]}` | `-request <file in the job dir>` (the decoded bytes) and `<key> <value>` for each flag |
 | `masser` | `{"flags": [{"key": "-n", "value": "5"}]}` | `<key> <value>` for each flag |
 
-Always passed by the connector: ffuf `-o <result> -w <first wordlist> -rate <rate> -noninteractive`, `-b` for cookies, `-H` for headers; masser `-requests <data file> -output <result> -rate <rate>`, `-verbosity`, one `-wordlist` per wordlist, `-C` for cookies, `-H` for headers. The allow-lists are `allowedFlags` in each `builder.go`.
+Always passed by the connector: ffuf `-o <result> -w <first wordlists path> -rate <rate> -noninteractive`, `-b` for cookies, `-H` for headers; masser `-requests <data file> -output <result> -rate <rate>`, `-verbosity`, one `-wordlist` per wordlist, `-C` for cookies, `-H` for headers. The allow-lists are `allowedFlags` in each `builder.go`.
 
 ### 3.4 Result
 
 `{jobId}.result` is whatever file the tool wrote, uploaded unchanged. Only a `FINISHED` job has one. A `FAILED`, `CANCELED`, `SELFTERMINATED` or `LOSTCONTACT` job has none; the reason of a failure is stored with the job (`failureMsg`, cut to 500 characters, with its `failureCategory`).
+
+### 3.5 Wordlists
+
+A wordlist is created by `POST /api/wordlists` (multipart: part `file`, at most 512 MB, and an optional JSON part `metadata` with `name`, `description`, `vulnIds`). The core reads the file once and stores its SHA-256 (lower case hex), size in bytes and number of lines, and uploads it to the `wordlists` bucket under the key `{wordlistId}`. The file of a wordlist never changes (no route replaces it), so an object is the content `sha256` says for as long as the wordlist exists; a wordlist with the same file as an existing one is refused (409). The core refuses to delete a wordlist that a job refers to (409).
+
+The orchestrator, after the initial poll says the job may start and before it starts the connector:
+
+1. takes the `wordlists` of the details file;
+2. for each one, uses the cached file `<WORDLIST_CACHE_DIR>/<sha256>` when it exists with `sizeBytes` bytes, otherwise downloads `wordlists/{id}`, checks the SHA-256 and the size, and keeps it under that name (written to a temporary name and renamed, so a half file is never used);
+3. keeps the files of the job in the cache while the job runs, and removes the least recently used other files while the cache is over `WORDLIST_CACHE_MAX_BYTES` (1.5 GB by default; one job whose wordlists alone are bigger still runs). There is no time limit on cached files;
+4. rewrites the details file as described in 3.1.
+
+A wordlist that cannot be downloaded, or does not match its `sha256` or `sizeBytes`, fails the job as `PREPARATION` (the message names the wordlist). The cache key is the hash, so a cached file is never stale and no check against the core is needed.
 
 ## 4. HTTP
 
@@ -108,7 +124,7 @@ Body (sample `update-request.json`): `{"jobId": 42, "newState": "FAILED", "messa
 
 | Category | Reported by | When |
 |---|---|---|
-| `PREPARATION` | orchestrator | the work directory could not be created, the details and data files could not be downloaded, or the routine key has no mapping |
+| `PREPARATION` | orchestrator | the work directory could not be created, the details and data files could not be downloaded, a wordlist could not be downloaded or did not match its hash, or the routine key has no mapping |
 | `POLL` | orchestrator | the first poll of the core failed |
 | `INVALID_CONFIG` | connector | the job details could not be parsed or turned into a command (unknown flag, no wordlist for ffuf, a `customConfig` the connector can not read) |
 | `TOOL_START` | orchestrator, connector | the connector or the tool could not be started, or the connector did not connect to the sockets in time |
@@ -197,7 +213,7 @@ Also: the scheduler moves `TOQUEUE` → `QUEUED` when it publishes the message (
 
 Not changed here, listed so nobody assumes otherwise (details in `.claude/components-code-review.md`):
 
-- Wordlist paths are filesystem paths, so core and worker must see the same files (A11). The core only accepts (and stores normalized) a path strictly inside `WORDLISTS_BASE_DIRECTORY`, so the worker can rely on every `wordlistsPaths` entry being inside that directory.
+- The `wordlists` bucket is private but the worker holds full RustFS credentials; a user cancel during a wordlist download is only applied by the first poll after the job has started.
 - No version field in any payload; compatibility is only checked by the sample tests.
 - `auth.data.queryParameters` and the match-and-replace `DELETE` rule are not applied by the connectors.
 - Buckets are public and the HTTP endpoints have no authentication.
