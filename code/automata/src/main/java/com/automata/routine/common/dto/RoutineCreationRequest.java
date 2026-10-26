@@ -8,7 +8,7 @@ import com.automata.routine.common.enums.ResultContentType;
 import com.automata.routine.common.enums.TargetCardinalityPair;
 import com.fasterxml.jackson.databind.JsonNode;
 
-public record RoutineCreationRequest(String key, String description, Boolean isAvailableAtConsumer, Overhead overhead,
+public record RoutineCreationRequest(String key, String description, Boolean isAvailableAtConsumer, Boolean wordlistRequired, Overhead overhead,
 		Protocol protocol, Set<TargetCardinalityPair> allowedTargets, Long vulnerabilityId, JsonNode configSchema,
 		ResultContentType resultContentType) {
 

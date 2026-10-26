@@ -44,7 +44,7 @@ class RoutineServicePatchConfigSchemaTest {
 		Routine r = routine();
 		JsonNode schema = objectMapper.readTree("{\"type\": \"object\"}");
 
-		RoutinePatchRequest request = new RoutinePatchRequest(Optional.empty(), false, Optional.empty(),
+		RoutinePatchRequest request = new RoutinePatchRequest(Optional.empty(), false, Optional.empty(), Optional.empty(),
 				Optional.empty(), Optional.empty(), null, Optional.empty(), false, Optional.of(schema), false);
 
 		service.patchRoutine(1L, request);
@@ -57,7 +57,7 @@ class RoutineServicePatchConfigSchemaTest {
 		Routine r = routine();
 		r.setConfigSchema(objectMapper.readTree("{\"type\": \"object\"}"));
 
-		RoutinePatchRequest request = new RoutinePatchRequest(Optional.empty(), false, Optional.empty(),
+		RoutinePatchRequest request = new RoutinePatchRequest(Optional.empty(), false, Optional.empty(), Optional.empty(),
 				Optional.empty(), Optional.empty(), null, Optional.empty(), false, Optional.empty(), true);
 
 		service.patchRoutine(1L, request);
@@ -71,7 +71,7 @@ class RoutineServicePatchConfigSchemaTest {
 		JsonNode existing = objectMapper.readTree("{\"existing\": true}");
 		r.setConfigSchema(existing);
 
-		RoutinePatchRequest request = new RoutinePatchRequest(Optional.empty(), false, Optional.empty(),
+		RoutinePatchRequest request = new RoutinePatchRequest(Optional.empty(), false, Optional.empty(), Optional.empty(),
 				Optional.empty(), Optional.empty(), null, Optional.empty(), false, Optional.empty(), false);
 
 		service.patchRoutine(1L, request);

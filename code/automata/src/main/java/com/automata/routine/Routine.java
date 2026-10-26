@@ -52,6 +52,10 @@ public class Routine {
 
 	private boolean isAvailableAtConsumer;
 
+	// Tells whether the routine is meant to run with at least one wordlist. It is information for the callers
+	// (the AI reads it), the core does not enforce it when a job is created.
+	private boolean wordlistRequired;
+
 	@Enumerated(EnumType.STRING)
 	private Overhead overhead;
 

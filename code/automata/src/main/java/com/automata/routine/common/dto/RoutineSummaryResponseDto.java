@@ -11,6 +11,6 @@ import lombok.Builder;
 
 @Builder
 public record RoutineSummaryResponseDto(Long id, LocalDate creationDate, String key, boolean isAvailableAtConsumer,
-		Overhead overhead, Protocol protocol, Set<TargetCardinalityPair> allowedTargets) {
+		boolean wordlistRequired, Overhead overhead, Protocol protocol, Set<TargetCardinalityPair> allowedTargets) {
 
 }
