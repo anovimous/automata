@@ -5,6 +5,8 @@ exception whose text is guidance followed by the core's message, cut to ``MAX_ME
 Tools that need a more specific hint catch the exception and use ``status`` and ``core_message``.
 """
 
+from mcp.server.mcpserver.exceptions import ToolError
+
 MAX_MESSAGE_CHARS = 1000
 
 
@@ -13,8 +15,12 @@ def truncate_message(text: str, limit: int = MAX_MESSAGE_CHARS) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-class CoreError(Exception):
-    """An error reported by, or while talking to, the core."""
+class CoreError(ToolError):
+    """An error reported by, or while talking to, the core.
+
+    It is a ``ToolError`` on purpose: the MCP SDK shows the message of a ``ToolError`` to the
+    agent, while any other exception is a crash whose text is withheld ("Error executing tool").
+    """
 
     def __init__(self, message: str, *, status: int | None = None, core_message: str = "") -> None:
         super().__init__(message)

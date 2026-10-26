@@ -1,4 +1,5 @@
 import json
+import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -16,3 +17,10 @@ def load_fixture() -> Callable[[str], Any]:
         return json.loads((FIXTURES_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
     return load
+
+
+@pytest.fixture(autouse=True)
+def clean_automata_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test sees an AUTOMATA_* variable of the machine it runs on."""
+    for name in [name for name in os.environ if name.startswith("AUTOMATA_")]:
+        monkeypatch.delenv(name)
