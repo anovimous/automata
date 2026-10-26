@@ -48,4 +48,14 @@ class RoutineMapperTest {
 		assertNull(response.configSchema());
 	}
 
+	@Test
+	void theWordlistRequirementIsMappedInTheDetailedAndTheSummaryResponse() {
+		Routine routine = new Routine();
+		routine.setWordlistRequired(true);
+
+		assertEquals(true, RoutineMapper.toDetailedResponse(routine).wordlistRequired());
+		assertEquals(true, RoutineMapper.toSummaryResponse(routine).wordlistRequired());
+		assertEquals(false, RoutineMapper.toSummaryResponse(new Routine()).wordlistRequired());
+	}
+
 }

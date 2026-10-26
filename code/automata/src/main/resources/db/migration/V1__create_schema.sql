@@ -88,6 +88,7 @@ CREATE TABLE routine (
     result_content_type varchar(255) NOT NULL,
     updated_at timestamp(6) with time zone,
     vulnerability_id bigint,
+    wordlist_required boolean NOT NULL,
     CONSTRAINT routine_pkey PRIMARY KEY (id),
     CONSTRAINT uk_routine_key UNIQUE (key),
     CONSTRAINT routine_overhead_check CHECK (overhead IN ('HIGH', 'MEDIUM', 'LOW')),

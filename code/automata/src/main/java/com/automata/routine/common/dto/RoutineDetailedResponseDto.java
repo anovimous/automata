@@ -14,7 +14,7 @@ import lombok.Builder;
 
 @Builder
 public record RoutineDetailedResponseDto(Long id, LocalDate creationDate, String key, String description,
-		Instant updatedAt, boolean isAvailableAtConsumer, Overhead overhead, Protocol protocol,
+		Instant updatedAt, boolean isAvailableAtConsumer, boolean wordlistRequired, Overhead overhead, Protocol protocol,
 		Set<TargetCardinalityPair> allowedTargets, Long vulnerabilityId, JsonNode configSchema,
 		ResultContentType resultContentType) {
 

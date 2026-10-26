@@ -67,6 +67,10 @@ public class RoutineController {
 
 		Routine toBeCreatedRoutine = mapper.convertValue(request, Routine.class);
 
+		// convertValue loses isAvailableAtConsumer (the property of the entity is named availableAtConsumer)
+		toBeCreatedRoutine.setAvailableAtConsumer(Boolean.TRUE.equals(request.isAvailableAtConsumer()));
+		toBeCreatedRoutine.setWordlistRequired(Boolean.TRUE.equals(request.wordlistRequired()));
+
 		Long vulnId = request.vulnerabilityId();
 
 		Routine createdRoutine = routineService.createRoutine(toBeCreatedRoutine, vulnId);

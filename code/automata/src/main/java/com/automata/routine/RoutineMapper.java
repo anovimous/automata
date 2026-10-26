@@ -10,7 +10,8 @@ public abstract class RoutineMapper {
 	public static RoutineDetailedResponseDto toDetailedResponse(Routine routine) {
 		return RoutineDetailedResponseDto.builder().id(routine.getId()).creationDate(routine.getCreationDate())
 				.key(routine.getKey()).description(routine.getDescription()).updatedAt(routine.getUpdatedAt())
-				.isAvailableAtConsumer(routine.isAvailableAtConsumer()).overhead(routine.getOverhead())
+				.isAvailableAtConsumer(routine.isAvailableAtConsumer()).wordlistRequired(routine.isWordlistRequired())
+				.overhead(routine.getOverhead())
 				.protocol(routine.getProtocol()).allowedTargets(routine.getAllowedTargets())
 				.vulnerabilityId(routine.getVulnerability() != null ? routine.getVulnerability().getId() : null)
 				.configSchema(routine.getConfigSchema()).resultContentType(routine.getResultContentType()).build();
@@ -25,7 +26,7 @@ public abstract class RoutineMapper {
 
 		return RoutineSummaryResponseDto.builder().id(routine.getId()).creationDate(routine.getCreationDate())
 				.key(routine.getKey()).isAvailableAtConsumer(routine.isAvailableAtConsumer())
-				.overhead(routine.getOverhead()).protocol(routine.getProtocol())
+				.wordlistRequired(routine.isWordlistRequired()).overhead(routine.getOverhead()).protocol(routine.getProtocol())
 				.allowedTargets(routine.getAllowedTargets()).build();
 	}
 

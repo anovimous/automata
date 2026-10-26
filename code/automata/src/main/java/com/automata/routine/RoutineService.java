@@ -71,6 +71,8 @@ public class RoutineService {
 
 		patchRequest.isAvailableAtConsumer().ifPresent(routine::setAvailableAtConsumer);
 
+		patchRequest.wordlistRequired().ifPresent(routine::setWordlistRequired);
+
 		patchRequest.overhead().ifPresent(routine::setOverhead);
 
 		if (patchRequest.allowedTargets() != null && !patchRequest.allowedTargets().isEmpty())
