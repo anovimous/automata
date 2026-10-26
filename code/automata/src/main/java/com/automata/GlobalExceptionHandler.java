@@ -4,7 +4,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.automata.finding.common.exception.InvalidFindingStateException;
@@ -12,6 +15,8 @@ import com.automata.host.common.exception.HostInUseException;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.exception.JobNotApprovedException;
+import com.automata.wordlist.common.exception.WordlistAlreadyExistsException;
+import com.automata.wordlist.common.exception.WordlistInUseException;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
@@ -45,6 +50,33 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(HostInUseException.class)
 	public ResponseEntity<String> handleHostInUse(HostInUseException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(WordlistInUseException.class)
+	public ResponseEntity<String> handleWordlistInUse(WordlistInUseException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(WordlistAlreadyExistsException.class)
+	public ResponseEntity<String> handleWordlistAlreadyExists(WordlistAlreadyExistsException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	// an upload over the limit (spring.servlet.multipart.max-file-size)
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	public ResponseEntity<String> handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+		return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("The uploaded file is too large");
+	}
+
+	// a multipart request without a part it needs
+	@ExceptionHandler(MissingServletRequestPartException.class)
+	public ResponseEntity<String> handleMissingPart(MissingServletRequestPartException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+	public ResponseEntity<String> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex) {
+		return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(ex.getMessage());
 	}
 
 	@ExceptionHandler(JobNotApprovedException.class)

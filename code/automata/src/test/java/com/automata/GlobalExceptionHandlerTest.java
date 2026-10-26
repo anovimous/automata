@@ -61,6 +61,48 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void wordlistInUseMapsTo409() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleWordlistInUse(new com.automata.wordlist.common.exception.WordlistInUseException("in use"));
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("in use", response.getBody());
+	}
+
+	@Test
+	void wordlistAlreadyExistsMapsTo409() {
+		ResponseEntity<String> response = new GlobalExceptionHandler().handleWordlistAlreadyExists(
+				new com.automata.wordlist.common.exception.WordlistAlreadyExistsException("same file"));
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("same file", response.getBody());
+	}
+
+	@Test
+	void uploadOverTheLimitMapsTo413() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleUploadTooLarge(new org.springframework.web.multipart.MaxUploadSizeExceededException(1L));
+
+		assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, response.getStatusCode());
+	}
+
+	@Test
+	void missingMultipartPartMapsTo400() {
+		ResponseEntity<String> response = new GlobalExceptionHandler().handleMissingPart(
+				new org.springframework.web.multipart.support.MissingServletRequestPartException("file"));
+
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+	}
+
+	@Test
+	void unsupportedMediaTypeMapsTo415() {
+		ResponseEntity<String> response = new GlobalExceptionHandler().handleUnsupportedMediaType(
+				new org.springframework.web.HttpMediaTypeNotSupportedException("application/json not supported"));
+
+		assertEquals(HttpStatus.UNSUPPORTED_MEDIA_TYPE, response.getStatusCode());
+	}
+
+	@Test
 	void unreadableRequestBodyMapsTo400() {
 		HttpMessageNotReadableException ex = new HttpMessageNotReadableException("JSON parse error", (HttpInputMessage) null);
 

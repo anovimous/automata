@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -35,6 +34,7 @@ import com.automata.job.domain.model.enums.TargetType;
 import com.automata.job.domain.valueobject.HostData;
 import com.automata.job.domain.valueobject.HttpJobQueueMetadata;
 import com.automata.job.domain.valueobject.JobDetailsFileContainer;
+import com.automata.job.domain.valueobject.WorkerWordlist;
 import com.automata.job.domain.valueobject.RequestData;
 import com.automata.job.infra.JobDataJsonLinesWriter;
 import com.automata.tenant.authentication.AuthNameValuePair;
@@ -104,7 +104,8 @@ class WorkerPayloadContractTest {
 		StaticAuthData auth = new StaticAuthData(data, Instant.parse("2026-10-20T10:00:00Z"),
 				Instant.parse("2026-10-20T09:00:00Z"));
 		JobDetailsFileContainer container = details().jobId(42L).routineKey("fuzz").rate(50)
-				.verbosity(ResultsVerbosity.NORMAL).wordlistsPaths(new LinkedHashSet<>(List.of("/wordlists/common.txt")))
+				.verbosity(ResultsVerbosity.NORMAL).wordlists(List.of(new WorkerWordlist(7L, "common",
+						"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", 1234L)))
 				.auth(auth).targetType(TargetType.REQUEST)
 				.genericConfig(GenericConfig.of(List.of(new MatchAndReplace(MatchAndReplaceTargetType.HEADER,
 						MatchAndReplaceRule.ADD, "X-Test", "1"))))
@@ -118,7 +119,7 @@ class WorkerPayloadContractTest {
 	@Test
 	void detailsFileOfAJobWithoutAuthenticationHasANullAuth() throws IOException {
 		JobDetailsFileContainer container = details().jobId(43L).routineKey("masser").rate(10)
-				.verbosity(ResultsVerbosity.SUMMARIZED).wordlistsPaths(new LinkedHashSet<>())
+				.verbosity(ResultsVerbosity.SUMMARIZED).wordlists(List.of())
 				.targetType(TargetType.HOST).genericConfig(GenericConfig.of(List.of()))
 				.customConfig(mapper.readTree("{\"flags\":[]}")).build();
 

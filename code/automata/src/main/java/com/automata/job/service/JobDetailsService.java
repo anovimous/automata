@@ -1,7 +1,7 @@
 package com.automata.job.service;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +12,7 @@ import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.SelectorType;
 import com.automata.job.domain.model.enums.TargetType;
 import com.automata.job.domain.valueobject.JobDetailsFileContainer;
+import com.automata.job.domain.valueobject.WorkerWordlist;
 import com.automata.job.repository.HttpJobRepository;
 import com.automata.routine.Routine;
 import com.automata.routine.RoutineRepository;
@@ -57,11 +58,12 @@ public class JobDetailsService {
 			}
 		}
 
-		Set<String> wordlistsPaths = httpJobRepo.findWordlistPathsByJobId(job.getId());
-		log.debug("Job {} uses {} wordlists", job.getId(), wordlistsPaths.size());
+		List<WorkerWordlist> wordlists = httpJobRepo.findWordlistsByJobId(job.getId()).stream()
+				.map(WorkerWordlist::of).toList();
+		log.debug("Job {} uses {} wordlists", job.getId(), wordlists.size());
 		return JobDetailsFileContainer.builder().jobId(job.getId()).rate(job.getGenericDetails().getRate())
 				.verbosity(job.getGenericDetails().getVerbosity()).targetType(targetType).routineKey(routine.getKey())
-				.auth(authData).wordlistsPaths(wordlistsPaths).customConfig(job.getGenericDetails().getCustomConfig())
+				.auth(authData).wordlists(wordlists).customConfig(job.getGenericDetails().getCustomConfig())
 				.genericConfig(job.getGenericDetails().getGenericConfig()).build();
 
 	}

@@ -9,7 +9,8 @@ public abstract class WordlistMapper {
 
 	public static WordlistDetailedResponseDto toDetailedResponse(Wordlist wordlist) {
 		return WordlistDetailedResponseDto.builder().id(wordlist.getId()).name(wordlist.getName())
-				.path(wordlist.getPath()).numberOfLines(wordlist.getNumberOfLines()).build();
+				.description(wordlist.getDescription()).numberOfLines(wordlist.getNumberOfLines())
+				.sizeBytes(wordlist.getSizeBytes()).sha256(wordlist.getSha256()).build();
 	}
 
 	public static Page<WordlistSummaryResponseDto> toSummaryResponse(Page<Wordlist> wordlists) {
@@ -18,7 +19,8 @@ public abstract class WordlistMapper {
 
 	public static WordlistSummaryResponseDto toSummaryResponse(Wordlist wordlist) {
 		return WordlistSummaryResponseDto.builder().id(wordlist.getId()).name(wordlist.getName())
-				.numberOfLines(wordlist.getNumberOfLines()).build();
+				.description(wordlist.getDescription()).numberOfLines(wordlist.getNumberOfLines())
+				.sizeBytes(wordlist.getSizeBytes()).build();
 	}
 
 }
