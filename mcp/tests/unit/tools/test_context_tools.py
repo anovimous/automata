@@ -33,6 +33,7 @@ def known_context(
     metadata = load_fixture("request_metadata")
     core_api.get(f"{CP}/requests/7/metadata").respond(200, json=metadata)
     core_api.get(f"{CP}/requests/21/metadata").respond(200, json=metadata | {"requestId": 21})
+    core_api.get(f"{CP}/jobs").respond(200, json=load_fixture("job_summary_page"))
     core_api.get("/api/routines/1").respond(200, json=load_fixture("routine_detailed"))
     core_api.get("/api/routines/2").respond(404, text="Routine not found")
     return core_api
@@ -149,7 +150,16 @@ async def test_the_briefing_has_every_section_of_the_plan(
 
     assert not result.is_error
     data = result.structured_content or {}
-    assert set(data) == {"context", "host", "targets", "tenants", "allowedRoutines", "notes"}
+    assert set(data) == {
+        "context",
+        "host",
+        "targets",
+        "tenants",
+        "allowedRoutines",
+        "recentJobs",
+        "notes",
+    }
+    assert [job["id"] for job in data["recentJobs"]] == [31, 30]
     assert data["context"]["defaults"] == {
         "duration": "SHORT",
         "verbosity": "SUMMARIZED",

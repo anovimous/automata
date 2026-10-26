@@ -54,6 +54,7 @@ def mock_core(core: respx.MockRouter, load_fixture: Callable[[str], Any]) -> res
     metadata = load_fixture("request_metadata")
     core.get(f"{CP}/requests/7/metadata").respond(200, json=metadata)
     core.get(f"{CP}/requests/21/metadata").respond(200, json=metadata | {"requestId": 21})
+    core.get(f"{CP}/jobs").respond(200, json=load_fixture("job_summary_page"))
     core.get("/api/routines/1").respond(200, json=load_fixture("routine_detailed"))
     core.get("/api/routines/2").respond(404, text="Routine not found")
     return core
@@ -224,7 +225,15 @@ async def test_the_briefing_gathers_everything(
 ) -> None:
     briefing = await build_briefing(client, settings, CTX)
 
-    assert set(briefing) == {"context", "host", "targets", "tenants", "allowedRoutines", "notes"}
+    assert set(briefing) == {
+        "context",
+        "host",
+        "targets",
+        "tenants",
+        "allowedRoutines",
+        "recentJobs",
+        "notes",
+    }
     assert briefing["context"]["name"] == "Users API"
     assert briefing["host"]["host"] == "api.example.com"
     assert [target["requestId"] for target in briefing["targets"]] == [7, 21]
@@ -294,4 +303,82 @@ async def test_the_error_of_the_context_comes_before_the_others(
     mock_core.get(f"{CP}/host").respond(500, text="database down")
 
     with pytest.raises(CoreNotFound):
+        await build_briefing(client, settings, CTX)
+
+
+# ---------------------------------------------------------------------------- recent jobs
+
+
+async def test_the_recent_jobs_are_the_ten_newest_of_the_context(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings
+) -> None:
+    briefing = await build_briefing(client, settings, CTX)
+
+    jobs_route = next(r for r in mock_core.routes if r.name is None and "jobs" in str(r.pattern))
+    assert dict(jobs_route.calls.last.request.url.params) == {"page": "0", "size": "10"}
+    assert [job["id"] for job in briefing["recentJobs"]] == [31, 30]
+    assert briefing["recentJobs"][0]["waitingForAction"] is True
+    assert briefing["recentJobs"][1]["terminal"] is True
+
+
+async def test_jobs_that_wait_for_someone_are_called_out(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings
+) -> None:
+    notes = (await build_briefing(client, settings, CTX))["notes"]
+
+    assert any(note.startswith("Jobs waiting for someone: [31].") for note in notes)
+
+
+async def test_no_note_when_no_job_waits(
+    client: CoreClient,
+    mock_core: respx.MockRouter,
+    settings: Settings,
+    load_fixture: Callable[[str], Any],
+) -> None:
+    page = load_fixture("job_summary_page")
+    page["content"] = [page["content"][1]]
+    mock_core.get(f"{CP}/jobs").respond(200, json=page)
+
+    notes = (await build_briefing(client, settings, CTX))["notes"]
+
+    assert not any("waiting for someone" in note for note in notes)
+
+
+async def test_a_context_without_jobs_gives_an_empty_list(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings
+) -> None:
+    mock_core.get(f"{CP}/jobs").respond(
+        200,
+        json={
+            "content": [],
+            "page": 0,
+            "size": 10,
+            "totalElements": 0,
+            "totalPages": 0,
+            "last": True,
+        },
+    )
+
+    assert (await build_briefing(client, settings, CTX))["recentJobs"] == []
+
+
+@pytest.mark.parametrize("status", [404, 500])
+async def test_jobs_that_cannot_be_read_do_not_fail_the_briefing(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings, status: int
+) -> None:
+    mock_core.get(f"{CP}/jobs").respond(status, text="jobs are broken")
+
+    briefing = await build_briefing(client, settings, CTX)
+
+    assert "jobs are broken" in briefing["recentJobs"]["error"]
+    assert briefing["context"]["name"] == "Users API"
+    assert briefing["targets"]
+
+
+async def test_an_unexpected_failure_reading_the_jobs_is_not_hidden(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings
+) -> None:
+    mock_core.get(f"{CP}/jobs").mock(side_effect=RuntimeError("bug"))
+
+    with pytest.raises(RuntimeError, match="bug"):
         await build_briefing(client, settings, CTX)
