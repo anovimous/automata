@@ -198,7 +198,10 @@ async def read_body(
         slice_ = await read_slice(response, offset=offset, max_bytes=max_bytes, fetch_cap=fetch_cap)
     if verdict is None and looks_binary(slice_.data):
         return binary_section(content_type, size)
-    return text_section(slice_, content_type, fetch_cap)
+    section = text_section(slice_, content_type, fetch_cap)
+    if content_type:
+        section["contentType"] = content_type
+    return section
 
 
 async def read_described_body(
