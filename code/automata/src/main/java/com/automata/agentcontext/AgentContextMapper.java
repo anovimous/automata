@@ -1,11 +1,16 @@
 package com.automata.agentcontext;
 
 import java.util.List;
+import java.util.UUID;
 
 import com.automata.agentcontext.common.dto.AgentContextDetailedResponse;
+import com.automata.agentcontext.common.dto.AgentFindingDetailedResponse;
+import com.automata.agentcontext.common.dto.AgentFindingSummaryResponse;
 import com.automata.agentcontext.common.dto.AgentContextItemResponse;
 import com.automata.agentcontext.common.dto.AgentContextSummaryResponse;
 import com.automata.agentcontext.common.dto.AgentContextTenantResponse;
+import com.automata.finding.Finding;
+import com.automata.finding.common.enums.FindingOrigin;
 import com.automata.routine.Routine;
 import com.automata.tenant.Tenant;
 
@@ -43,6 +48,31 @@ public abstract class AgentContextMapper {
 				.email(tenant.getEmail())
 				.authData(tenant.getAuthentication() != null ? tenant.getAuthentication().getAuthData() : null)
 				.requestIds(requestIds).build();
+	}
+
+	public static AgentFindingSummaryResponse toAgentFindingSummary(Finding finding, UUID contextUuid) {
+		return AgentFindingSummaryResponse.builder().id(finding.getId()).requestId(finding.getRequest().getId())
+				.hostId(finding.getHost().getId()).vulnerabilityId(finding.getVulnerability().getId())
+				.severity(finding.getSeverity()).status(finding.getStatus()).confidence(finding.getConfidence())
+				.createdBy(finding.getCreatedBy()).origin(originOf(finding, contextUuid))
+				.humanVerdict(finding.getHumanVerdict()).creationDate(finding.getCreationDate()).build();
+	}
+
+	public static AgentFindingDetailedResponse toAgentFindingDetail(Finding finding, UUID contextUuid) {
+		return AgentFindingDetailedResponse.builder().id(finding.getId()).creationDate(finding.getCreationDate())
+				.requestId(finding.getRequest().getId()).hostId(finding.getHost().getId())
+				.jobId(finding.getJob() != null ? finding.getJob().getId() : null)
+				.vulnerabilityId(finding.getVulnerability().getId()).severity(finding.getSeverity())
+				.status(finding.getStatus()).confidence(finding.getConfidence()).evidence(finding.getEvidence())
+				.pocReproductionSteps(finding.getPocReproductionSteps()).createdBy(finding.getCreatedBy())
+				.origin(originOf(finding, contextUuid)).aiDescription(finding.getAiDescription())
+				.humanVerdict(finding.getHumanVerdict()).humanComment(finding.getHumanComment())
+				.reviewedAt(finding.getReviewedAt()).build();
+	}
+
+	private static FindingOrigin originOf(Finding finding, UUID contextUuid) {
+		UUID findingContextUuid = finding.getAgentContext() == null ? null : finding.getAgentContext().getUuid();
+		return FindingOrigin.of(finding.getCreatedBy(), findingContextUuid, contextUuid);
 	}
 
 	public static List<AgentContextItemResponse> toItemResponses(List<AgentContextItem> items) {

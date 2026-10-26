@@ -4,6 +4,7 @@ import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
 
+import com.automata.agentcontext.AgentContext;
 import com.automata.finding.common.enums.FindingCreator;
 import com.automata.finding.common.enums.FindingStatus;
 import com.automata.finding.common.enums.HumanVerdict;
@@ -50,6 +51,10 @@ public class Finding {
 
 	@ManyToOne
 	private HttpJob job;
+
+	// The context whose agent created the finding, null for the findings of users
+	@ManyToOne
+	private AgentContext agentContext;
 
 	@ManyToOne(optional = false)
 	private Vulnerability vulnerability;

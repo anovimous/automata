@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import com.automata.finding.common.exception.InvalidFindingStateException;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.model.HttpJob;
@@ -36,6 +37,16 @@ class GlobalExceptionHandlerTest {
 
 		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
 		assertEquals("wrong state", response.getBody());
+	}
+
+	@Test
+	void invalidFindingStateMapsTo409() {
+		InvalidFindingStateException ex = new InvalidFindingStateException("reviewed");
+
+		ResponseEntity<String> response = new GlobalExceptionHandler().handleInvalidFindingState(ex);
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("reviewed", response.getBody());
 	}
 
 	@Test

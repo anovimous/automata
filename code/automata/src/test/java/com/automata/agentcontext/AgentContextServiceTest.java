@@ -716,6 +716,32 @@ class AgentContextServiceTest {
 		assertThrows(EntityNotFoundException.class, () -> service.requireRequestInContext(uuid, 10L));
 	}
 
+	// ---- item id helpers
+
+	@Test
+	void requestItemIdsListOnlyTheRequestItems() {
+		AgentContext ctx = contextOf(RepresentativeStrategy.LATEST, requestItem(10L), setItem(setOf(30L, host(1L))),
+				requestItem(11L));
+
+		assertEquals(List.of(10L, 11L), service.getRequestItemIds(ctx));
+	}
+
+	@Test
+	void equalitySetItemIdsListOnlyTheSetItems() {
+		AgentContext ctx = contextOf(RepresentativeStrategy.LATEST, requestItem(10L), setItem(setOf(30L, host(1L))),
+				setItem(setOf(31L, host(1L))));
+
+		assertEquals(List.of(30L, 31L), service.getEqualitySetItemIds(ctx));
+	}
+
+	@Test
+	void itemIdsOfAnEmptyContextAreEmpty() {
+		AgentContext ctx = contextOf(RepresentativeStrategy.LATEST);
+
+		assertEquals(List.of(), service.getRequestItemIds(ctx));
+		assertEquals(List.of(), service.getEqualitySetItemIds(ctx));
+	}
+
 	// ---- getContextRequests
 
 	private com.automata.request.Request requestOf(Long id, String path) {

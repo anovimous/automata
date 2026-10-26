@@ -7,6 +7,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.automata.finding.common.exception.InvalidFindingStateException;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.exception.JobNotApprovedException;
@@ -32,6 +33,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(InvalidJobStateException.class)
 	public ResponseEntity<String> handleInvalidJobState(InvalidJobStateException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(InvalidFindingStateException.class)
+	public ResponseEntity<String> handleInvalidFindingState(InvalidFindingStateException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
 	}
 

@@ -385,6 +385,7 @@ CREATE TABLE finding (
     reviewed_at timestamp(6) with time zone,
     severity double precision NOT NULL,
     status varchar(255) NOT NULL,
+    agent_context_id bigint,
     host_id bigint NOT NULL,
     job_id bigint,
     request_id bigint NOT NULL,
@@ -502,6 +503,7 @@ ALTER TABLE wide_job_target_host
     ADD CONSTRAINT fk_wide_job_target_host_target_host_id FOREIGN KEY (target_host_id) REFERENCES host (id);
 
 ALTER TABLE finding
+    ADD CONSTRAINT fk_finding_agent_context_id FOREIGN KEY (agent_context_id) REFERENCES agent_context (id),
     ADD CONSTRAINT fk_finding_host_id FOREIGN KEY (host_id) REFERENCES host (id),
     ADD CONSTRAINT fk_finding_job_id FOREIGN KEY (job_id) REFERENCES http_job (id),
     ADD CONSTRAINT fk_finding_request_id FOREIGN KEY (request_id) REFERENCES request (id),

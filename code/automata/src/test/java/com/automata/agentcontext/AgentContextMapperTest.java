@@ -161,4 +161,45 @@ class AgentContextMapperTest {
 		assertNull(AgentContextMapper.toTenantResponse(tenant, List.of()).authData());
 	}
 
+	private com.automata.finding.Finding finding(com.automata.finding.common.enums.FindingCreator createdBy,
+			AgentContext findingContext) {
+		com.automata.vulnerability.Vulnerability vulnerability = new com.automata.vulnerability.Vulnerability();
+		vulnerability.setId(4L);
+		return com.automata.finding.Finding.builder().id(1L).request(Request.of(10L)).host(host(2L))
+				.vulnerability(vulnerability).severity(7.5).confidence(8.0)
+				.status(com.automata.finding.common.enums.FindingStatus.SUGGESTED).evidence("evidence")
+				.createdBy(createdBy).agentContext(findingContext).humanComment("looks real")
+				.humanVerdict(com.automata.finding.common.enums.HumanVerdict.TRUE_POSITIVE).build();
+	}
+
+	@Test
+	void toAgentFindingDetailMapsTheFieldsAndTheOwnOrigin() {
+		UUID uuid = UUID.randomUUID();
+		AgentContext ctx = AgentContext.builder().id(3L).uuid(uuid).build();
+
+		var detail = AgentContextMapper.toAgentFindingDetail(
+				finding(com.automata.finding.common.enums.FindingCreator.AI, ctx), uuid);
+
+		assertEquals(10L, detail.requestId());
+		assertEquals(2L, detail.hostId());
+		assertEquals(4L, detail.vulnerabilityId());
+		assertEquals("evidence", detail.evidence());
+		assertEquals("looks real", detail.humanComment());
+		assertNull(detail.jobId());
+		assertEquals(com.automata.finding.common.enums.FindingOrigin.THIS_CONTEXT, detail.origin());
+	}
+
+	@Test
+	void toAgentFindingSummaryTellsTheOriginOfFindingsOfOtherContextsAndUsers() {
+		UUID uuid = UUID.randomUUID();
+		AgentContext other = AgentContext.builder().id(5L).uuid(UUID.randomUUID()).build();
+
+		assertEquals(com.automata.finding.common.enums.FindingOrigin.OTHER_CONTEXT,
+				AgentContextMapper.toAgentFindingSummary(
+						finding(com.automata.finding.common.enums.FindingCreator.AI, other), uuid).origin());
+		assertEquals(com.automata.finding.common.enums.FindingOrigin.USER,
+				AgentContextMapper.toAgentFindingSummary(
+						finding(com.automata.finding.common.enums.FindingCreator.USER, null), uuid).origin());
+	}
+
 }
