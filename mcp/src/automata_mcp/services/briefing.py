@@ -8,12 +8,13 @@ from automata_mcp.config import Settings
 from automata_mcp.core.client import CoreClient
 from automata_mcp.core.errors import CoreError
 from automata_mcp.core.models.context import AgentContextDetailed, HostDetailed
-from automata_mcp.core.models.enums import RepresentativeStrategy
+from automata_mcp.core.models.enums import HumanVerdict, RepresentativeStrategy
 from automata_mcp.core.models.reference import RoutineDetailed
 from automata_mcp.core.models.tenants import AgentContextTenant
 from automata_mcp.services.targets import list_targets
 
 RECENT_JOBS = 10
+RECENT_FINDINGS = 5
 
 
 def unwrap[T](result: T | BaseException) -> T:
@@ -142,10 +143,10 @@ def briefing_notes(
 async def build_briefing(
     core: CoreClient, settings: Settings, context_uuid: UUID
 ) -> dict[str, Any]:
-    """The context, host, targets, tenants, allowed routines and recent jobs, with notes.
+    """The context, host, targets, tenants, allowed routines, recent jobs and findings, with notes.
 
-    The context, host, targets and tenants are required: their error is raised. A routine or the
-    recent jobs that cannot be read are reported in their own slot.
+    The context, host, targets and tenants are required: their error is raised. A routine, the
+    recent jobs or the recent findings that cannot be read are reported in their own slot.
     """
     results = await asyncio.gather(
         core.get_context(context_uuid),
@@ -155,6 +156,7 @@ async def build_briefing(
         ),
         core.list_tenants(context_uuid),
         core.list_jobs(context_uuid, page=0, size=RECENT_JOBS),
+        core.list_findings(context_uuid, page=0, size=RECENT_FINDINGS),
         return_exceptions=True,
     )
     context = unwrap(results[0])
@@ -162,6 +164,7 @@ async def build_briefing(
     targets = unwrap(results[2])
     tenants = unwrap(results[3])
     recent_jobs = results[4]
+    recent_findings = results[5]
     routines = list(
         await asyncio.gather(*(fetch_routine(core, rid) for rid in context.allowed_routine_ids))
     )
@@ -186,6 +189,23 @@ async def build_briefing(
             notes.append(
                 f"Jobs waiting for someone: {waiting}. A human must approve them, or their "
                 "config files failed (retry_job_preparation); see get_job."
+            )
+    if isinstance(recent_findings, CoreError):
+        briefing["recentFindings"] = {"error": str(recent_findings)}
+    elif isinstance(recent_findings, BaseException):
+        raise recent_findings
+    else:
+        briefing["recentFindings"] = {
+            "total": recent_findings.total_elements,
+            "items": [finding.to_output() for finding in recent_findings.content],
+        }
+        judged = [f.human_verdict for f in recent_findings.content if f.human_verdict is not None]
+        if judged:
+            true_positives = sum(1 for verdict in judged if verdict == HumanVerdict.TRUE_POSITIVE)
+            notes.append(
+                f"{len(judged)} of the {len(recent_findings.content)} latest findings have a "
+                f"human verdict ({true_positives} true positive, {len(judged) - true_positives} "
+                "false positive): read them with get_finding before recording a similar one."
             )
     briefing["notes"] = notes
     return briefing

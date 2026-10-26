@@ -55,6 +55,7 @@ def mock_core(core: respx.MockRouter, load_fixture: Callable[[str], Any]) -> res
     core.get(f"{CP}/requests/7/metadata").respond(200, json=metadata)
     core.get(f"{CP}/requests/21/metadata").respond(200, json=metadata | {"requestId": 21})
     core.get(f"{CP}/jobs").respond(200, json=load_fixture("job_summary_page"))
+    core.get(f"{CP}/findings").respond(200, json=load_fixture("finding_summary_page"))
     core.get("/api/routines/1").respond(200, json=load_fixture("routine_detailed"))
     core.get("/api/routines/2").respond(404, text="Routine not found")
     return core
@@ -232,6 +233,7 @@ async def test_the_briefing_gathers_everything(
         "tenants",
         "allowedRoutines",
         "recentJobs",
+        "recentFindings",
         "notes",
     }
     assert briefing["context"]["name"] == "Users API"
@@ -379,6 +381,100 @@ async def test_an_unexpected_failure_reading_the_jobs_is_not_hidden(
     client: CoreClient, mock_core: respx.MockRouter, settings: Settings
 ) -> None:
     mock_core.get(f"{CP}/jobs").mock(side_effect=RuntimeError("bug"))
+
+    with pytest.raises(RuntimeError, match="bug"):
+        await build_briefing(client, settings, CTX)
+
+
+# ---------------------------------------------------------------------------- recent findings
+
+
+async def test_the_recent_findings_are_the_five_newest_with_their_total(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings
+) -> None:
+    briefing = await build_briefing(client, settings, CTX)
+
+    route = next(r for r in mock_core.routes if "findings" in str(r.pattern))
+    assert dict(route.calls.last.request.url.params) == {"page": "0", "size": "5"}
+    assert briefing["recentFindings"]["total"] == 2
+    items = briefing["recentFindings"]["items"]
+    assert [f["id"] for f in items] == [5, 4]
+    assert items[0]["humanVerdict"] == "TRUE_POSITIVE"
+    assert items[0]["origin"] == "THIS_CONTEXT"
+    assert items[1]["origin"] == "USER"
+
+
+async def test_human_verdicts_on_the_latest_findings_are_called_out(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings
+) -> None:
+    notes = (await build_briefing(client, settings, CTX))["notes"]
+
+    assert any(
+        "1 of the 2 latest findings have a human verdict (1 true positive, 0 false positive)" in n
+        for n in notes
+    )
+
+
+async def test_both_kinds_of_verdict_are_counted(
+    client: CoreClient,
+    mock_core: respx.MockRouter,
+    settings: Settings,
+    load_fixture: Callable[[str], Any],
+) -> None:
+    page = load_fixture("finding_summary_page")
+    page["content"][1]["humanVerdict"] = "FALSE_POSITIVE"
+    mock_core.get(f"{CP}/findings").respond(200, json=page)
+
+    notes = (await build_briefing(client, settings, CTX))["notes"]
+
+    assert any("2 of the 2 latest findings" in n and "1 false positive" in n for n in notes)
+
+
+async def test_no_verdict_note_without_verdicts(
+    client: CoreClient,
+    mock_core: respx.MockRouter,
+    settings: Settings,
+    load_fixture: Callable[[str], Any],
+) -> None:
+    page = load_fixture("finding_summary_page")
+    for finding in page["content"]:
+        finding["humanVerdict"] = None
+    mock_core.get(f"{CP}/findings").respond(200, json=page)
+
+    notes = (await build_briefing(client, settings, CTX))["notes"]
+
+    assert not any("human verdict" in n for n in notes)
+
+
+async def test_a_context_without_findings_gives_a_zero_total(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings
+) -> None:
+    empty = {"content": [], "page": 0, "size": 5, "totalElements": 0, "totalPages": 0, "last": True}
+    mock_core.get(f"{CP}/findings").respond(200, json=empty)
+
+    assert (await build_briefing(client, settings, CTX))["recentFindings"] == {
+        "total": 0,
+        "items": [],
+    }
+
+
+@pytest.mark.parametrize("status", [404, 500])
+async def test_findings_that_cannot_be_read_do_not_fail_the_briefing(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings, status: int
+) -> None:
+    mock_core.get(f"{CP}/findings").respond(status, text="findings are broken")
+
+    briefing = await build_briefing(client, settings, CTX)
+
+    assert "findings are broken" in briefing["recentFindings"]["error"]
+    assert briefing["recentJobs"]
+    assert briefing["targets"]
+
+
+async def test_an_unexpected_failure_reading_the_findings_is_not_hidden(
+    client: CoreClient, mock_core: respx.MockRouter, settings: Settings
+) -> None:
+    mock_core.get(f"{CP}/findings").mock(side_effect=RuntimeError("bug"))
 
     with pytest.raises(RuntimeError, match="bug"):
         await build_briefing(client, settings, CTX)

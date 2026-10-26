@@ -16,8 +16,8 @@ def register(mcp: MCPServer[AppState]) -> None:
     async def get_context_briefing(
         context_uuid: ContextUuid, ctx: Context[AppState, Any]
     ) -> dict[str, Any]:
-        """Call this first in a session. It gives your targets, tenants, host, allowed routines and
-        recent jobs in one call, with notes that explain the situation.
+        """Call this first in a session. It gives your targets, tenants, host, allowed routines,
+        recent jobs and findings in one call, with notes that explain the situation.
 
         Returns `context` (name, description, representativeStrategy, defaultAutoApproval,
         defaults, maxRate), `host` (rate limits, technologies, notes), `targets` (the requests you
@@ -25,7 +25,8 @@ def register(mcp: MCPServer[AppState]) -> None:
         of the context with their authentication data and the ids of their requests),
         `allowedRoutines` (the only routines you can use in create_job, each with its
         configSchema, whether it needs a wordlist and what it can target), `recentJobs` (your ten
-        newest jobs, to pick up where an earlier session stopped) and `notes`.
+        newest jobs, to pick up where an earlier session stopped), `recentFindings` (the total and
+        your five newest, with any human verdict) and `notes`.
 
         Read the notes: they say how many targets are not job-eligible or need a human to approve
         a job, what the rate limits are (a host limit of 0 closes the host to jobs), and which
@@ -34,8 +35,8 @@ def register(mcp: MCPServer[AppState]) -> None:
 
         If a routine cannot be read, its slot in `allowedRoutines` holds an `error` instead; call
         get_routine for it. If the recent jobs cannot be read, `recentJobs` holds an `error`; call
-        list_jobs. If the context itself does not exist you get an error: check the uuid
-        with the user.
+        list_jobs, and likewise `recentFindings` and list_findings. If the context itself does not
+        exist you get an error: check the uuid with the user.
         """
         state = get_state(ctx)
         return await build_briefing(state.core, state.settings, parse_context_uuid(context_uuid))
