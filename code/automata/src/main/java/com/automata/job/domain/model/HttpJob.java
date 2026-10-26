@@ -44,6 +44,12 @@ public abstract class HttpJob {
 
 	// the lengths of the ai_description and ai_result columns (see the Flyway migrations); longer
 	// values are rejected before they reach the database
+	public static final int MIN_RATE = 1;
+
+	public static final int MIN_PRIORITY = 1;
+
+	public static final int MAX_PRIORITY = 5;
+
 	public static final int MAX_AI_DESCRIPTION_LENGTH = 1000;
 
 	public static final int MAX_AI_RESULT_LENGTH = 5000;

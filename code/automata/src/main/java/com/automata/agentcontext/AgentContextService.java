@@ -81,6 +81,11 @@ public class AgentContextService {
 	@Transactional
 	public AgentContext createContext(AgentContextCreationRequest request) {
 
+		if (request.maxRate() == null)
+			throw new IllegalArgumentException("maxRate is required");
+
+		requireValidDefaults(request.defaultPriority(), request.maxRate());
+
 		Host host = hostRepo.findById(request.hostId())
 				.orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
@@ -97,6 +102,12 @@ public class AgentContextService {
 
 		return contextRepo.save(context);
 
+	}
+
+	// The defaults of a context become the values of the jobs of its agent, so they follow the rules of jobs
+	void requireValidDefaults(Integer defaultPriority, Integer maxRate) {
+		HttpJobUtils.requireValidPriority(defaultPriority, "defaultPriority");
+		HttpJobUtils.requireValidRate(maxRate, "maxRate");
 	}
 
 	// Every tenant must exist and belong to the host of the context
@@ -163,6 +174,11 @@ public class AgentContextService {
 	@Transactional
 	public void patchContext(Long contextId, AgentContextPatchRequest patch) {
 
+		if (patch.setMaxRateNull())
+			throw new IllegalArgumentException("maxRate is required, it cannot be removed");
+
+		requireValidDefaults(patch.defaultPriority().orElse(null), patch.maxRate().orElse(null));
+
 		AgentContext context = contextRepo.findById(contextId)
 				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
 
@@ -194,10 +210,7 @@ public class AgentContextService {
 		else
 			patch.defaultPriority().ifPresent(context::setDefaultPriority);
 
-		if (patch.setMaxRateNull())
-			context.setMaxRate(null);
-		else
-			patch.maxRate().ifPresent(context::setMaxRate);
+		patch.maxRate().ifPresent(context::setMaxRate);
 
 		contextRepo.save(context);
 

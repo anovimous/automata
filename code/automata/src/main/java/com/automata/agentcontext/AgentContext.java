@@ -80,6 +80,7 @@ public class AgentContext {
 
 	private Integer defaultPriority;
 
+	@Column(nullable = false)
 	private Integer maxRate;
 
 	@CreationTimestamp

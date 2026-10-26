@@ -81,7 +81,7 @@ class AgentContextServiceTest {
 		when(contextRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		AgentContextCreationRequest request = new AgentContextCreationRequest("ctx", "desc", 1L, false,
-				RepresentativeStrategy.LATEST, null, null, null, null, null, null);
+				RepresentativeStrategy.LATEST, null, null, null, null, 10, null);
 
 		AgentContext ctx = service.createContext(request);
 
@@ -95,9 +95,93 @@ class AgentContextServiceTest {
 		when(hostRepo.findById(99L)).thenReturn(Optional.empty());
 
 		AgentContextCreationRequest request = new AgentContextCreationRequest("ctx", null, 99L, false,
-				RepresentativeStrategy.LATEST, null, null, null, null, null, null);
+				RepresentativeStrategy.LATEST, null, null, null, null, 10, null);
 
 		assertThrows(EntityNotFoundException.class, () -> service.createContext(request));
+	}
+
+	// ---- defaults of a context follow the rules of jobs
+
+	private AgentContextCreationRequest creationWith(Integer defaultPriority, Integer maxRate) {
+		return new AgentContextCreationRequest("ctx", null, 1L, false, RepresentativeStrategy.LATEST, null, null, null,
+				defaultPriority, maxRate, null);
+	}
+
+	@Test
+	void createContextWithADefaultPriorityOutsideTheRangeIsRefused() {
+		assertThrows(IllegalArgumentException.class, () -> service.createContext(creationWith(0, 10)));
+		assertThrows(IllegalArgumentException.class, () -> service.createContext(creationWith(6, 10)));
+		verify(contextRepo, never()).save(any());
+	}
+
+	@Test
+	void createContextWithoutAMaxRateIsRefused() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> service.createContext(creationWith(null, null)));
+
+		assertEquals("maxRate is required", e.getMessage());
+		verify(contextRepo, never()).save(any());
+	}
+
+	@Test
+	void createContextWithAMaxRateBelowOneIsRefused() {
+		assertThrows(IllegalArgumentException.class, () -> service.createContext(creationWith(null, 0)));
+		assertThrows(IllegalArgumentException.class, () -> service.createContext(creationWith(null, -4)));
+		verify(contextRepo, never()).save(any());
+	}
+
+	@Test
+	void createContextWithValidDefaultsIsSaved() {
+		when(hostRepo.findById(1L)).thenReturn(Optional.of(host(1L)));
+		when(contextRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		AgentContext ctx = service.createContext(creationWith(5, 1));
+
+		assertEquals(5, ctx.getDefaultPriority());
+		assertEquals(1, ctx.getMaxRate());
+	}
+
+	private AgentContextPatchRequest patchWith(Optional<Integer> defaultPriority, Optional<Integer> maxRate) {
+		return new AgentContextPatchRequest(Optional.empty(), Optional.empty(), false, Optional.empty(),
+				Optional.empty(), null, Optional.empty(), false, Optional.empty(), false, defaultPriority, false,
+				maxRate, false);
+	}
+
+	@Test
+	void patchContextWithADefaultPriorityOutsideTheRangeIsRefused() {
+		assertThrows(IllegalArgumentException.class,
+				() -> service.patchContext(1L, patchWith(Optional.of(7), Optional.empty())));
+		verify(contextRepo, never()).save(any());
+	}
+
+	@Test
+	void patchContextWithAMaxRateBelowOneIsRefused() {
+		assertThrows(IllegalArgumentException.class,
+				() -> service.patchContext(1L, patchWith(Optional.empty(), Optional.of(0))));
+		verify(contextRepo, never()).save(any());
+	}
+
+	@Test
+	void patchContextCannotRemoveTheMaxRate() {
+		AgentContextPatchRequest removeMaxRate = new AgentContextPatchRequest(Optional.empty(), Optional.empty(),
+				false, Optional.empty(), Optional.empty(), null, Optional.empty(), false, Optional.empty(), false,
+				Optional.empty(), false, Optional.empty(), true);
+
+		assertThrows(IllegalArgumentException.class, () -> service.patchContext(1L, removeMaxRate));
+		verify(contextRepo, never()).save(any());
+	}
+
+	@Test
+	void patchContextWithValidDefaultsIsSaved() {
+		AgentContext ctx = AgentContext.builder().id(1L).host(host(1L))
+				.representativeStrategy(RepresentativeStrategy.LATEST).build();
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		when(contextRepo.save(any())).thenReturn(ctx);
+
+		service.patchContext(1L, patchWith(Optional.of(3), Optional.of(10)));
+
+		assertEquals(3, ctx.getDefaultPriority());
+		assertEquals(10, ctx.getMaxRate());
 	}
 
 	// ---- patchContext
@@ -475,7 +559,7 @@ class AgentContextServiceTest {
 
 	private AgentContextCreationRequest creationWithTenants(java.util.List<Long> tenantIds) {
 		return new AgentContextCreationRequest("ctx", null, 1L, false, RepresentativeStrategy.LATEST, null, null,
-				null, null, null, tenantIds);
+				null, null, 10, tenantIds);
 	}
 
 	@Test
