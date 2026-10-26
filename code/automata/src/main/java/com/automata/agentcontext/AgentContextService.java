@@ -332,6 +332,22 @@ public class AgentContextService {
 
 	}
 
+	// The ids of the requests that are REQUEST items of the context
+	public List<Long> getRequestItemIds(AgentContext context) {
+
+		return context.getItems().stream().filter(item -> item.getItemType() == AgentContextItemType.REQUEST)
+				.map(item -> item.getRequest().getId()).toList();
+
+	}
+
+	// The ids of the equality sets that are EQUALITY_SET items of the context
+	public List<Long> getEqualitySetItemIds(AgentContext context) {
+
+		return context.getItems().stream().filter(item -> item.getItemType() == AgentContextItemType.EQUALITY_SET)
+				.map(item -> item.getEqualitySet().getId()).toList();
+
+	}
+
 	// The requests the agent can read: the REQUEST items and every request of the
 	// EQUALITY_SET items, newest first. With equalitySetId only the members of that
 	// set, which must be an item of the context (404 otherwise).
@@ -340,14 +356,8 @@ public class AgentContextService {
 
 		AgentContext context = this.getContextByUuid(contextUuid);
 
-		List<Long> requestIds = new ArrayList<>();
-		List<Long> setIds = new ArrayList<>();
-		for (AgentContextItem item : context.getItems()) {
-			if (item.getItemType() == AgentContextItemType.REQUEST)
-				requestIds.add(item.getRequest().getId());
-			else
-				setIds.add(item.getEqualitySet().getId());
-		}
+		List<Long> requestIds = this.getRequestItemIds(context);
+		List<Long> setIds = this.getEqualitySetItemIds(context);
 
 		// The order is fixed by the queries, a sort of the caller is ignored
 		Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
