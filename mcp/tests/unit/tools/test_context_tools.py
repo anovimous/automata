@@ -5,13 +5,17 @@ from typing import Any
 
 import pytest
 import respx
-from mcp.types import CallToolResult
+from mcp.types import CallToolResult, Tool
 
 from helpers import Agent
 
 CTX = "6f1c0a52-0000-4000-8000-000000000001"
 CP = f"/api/agent-contexts/uuid/{CTX}"
 TOOLS = ["get_context_briefing", "get_context", "get_host", "list_targets", "list_tenants"]
+
+
+async def context_tools(agent: Agent) -> list[Tool]:
+    return [tool for tool in (await agent.list_tools()).tools if tool.name in TOOLS]
 
 
 def text_of(result: CallToolResult) -> str:
@@ -38,13 +42,13 @@ def known_context(
 
 
 async def test_the_five_context_tools_are_registered(agent: Agent) -> None:
-    names = {tool.name for tool in (await agent.list_tools()).tools}
+    names = {tool.name for tool in await context_tools(agent)}
 
     assert names == set(TOOLS)
 
 
 async def test_every_context_tool_is_read_only_and_closed_world(agent: Agent) -> None:
-    for tool in (await agent.list_tools()).tools:
+    for tool in await context_tools(agent):
         assert tool.annotations is not None
         assert tool.annotations.read_only_hint is True
         assert tool.annotations.open_world_hint is False
@@ -53,20 +57,20 @@ async def test_every_context_tool_is_read_only_and_closed_world(agent: Agent) ->
 async def test_every_context_tool_requires_a_context_uuid_and_hides_the_sdk_context(
     agent: Agent,
 ) -> None:
-    for tool in (await agent.list_tools()).tools:
+    for tool in await context_tools(agent):
         assert "context_uuid" in tool.input_schema["required"], tool.name
         assert "ctx" not in tool.input_schema["properties"], tool.name
         assert "UUID" in tool.input_schema["properties"]["context_uuid"]["description"]
 
 
 async def test_every_context_tool_explains_itself(agent: Agent) -> None:
-    for tool in (await agent.list_tools()).tools:
+    for tool in await context_tools(agent):
         assert tool.description
         assert len(tool.description) > 150, tool.name
 
 
 async def test_list_targets_offers_with_summary_on_by_default(agent: Agent) -> None:
-    tool = next(t for t in (await agent.list_tools()).tools if t.name == "list_targets")
+    tool = next(t for t in await context_tools(agent) if t.name == "list_targets")
 
     assert tool.input_schema["properties"]["with_summary"]["default"] is True
     assert tool.input_schema["required"] == ["context_uuid"]

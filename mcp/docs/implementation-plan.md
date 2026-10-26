@@ -129,7 +129,7 @@ automata-mcp/
       briefing.py                      builds get_context_briefing
       targets.py                       list_targets: the resolved targets, enriched with their request, and the notes about them
     tools/
-      common.py                        shared by the tool modules: ContextUuid, parse_context_uuid, READ_ONLY
+      common.py                        shared by the tool modules: ContextUuid, parse_context_uuid, READ_ONLY, PageNumber/PageSize, page_output
       context.py  requests.py  responses.py  jobs.py  reference.py  wordlists.py  findings.py  ingestion.py  export.py
     prompts.py  resources.py
   tests/
@@ -427,6 +427,12 @@ All require the request to be in the context (404 otherwise: say "not found or n
 
 **`create_wordlist(name, content, description=None, vulnerability_ids=None)`** — row 61. The server sends `content` (text, one entry per line) as the `file` part of a multipart request (file name = `name`) and the other arguments as the `metadata` JSON part; it checks nothing and adds no size cap of its own (the core answers 413 over 512 MB; over streamable HTTP the SDK limits one call to `AUTOMATA_HTTP_MAX_REQUEST_BYTES`, 4 MB by default, raise it there if needed; stdio has no such limit). Returns the new id (from `Location`). Translate: 409 → "a wordlist with exactly this content already exists (id in the message); use it"; 400 → show the core's message. Guidance: "Creates a wordlist from the text you give. The content can not be changed afterwards (only name, description and vulnerabilities can); to change it, create a new wordlist. Give a description so it can be chosen later."
 
+*As implemented in phase 3 (reference tools, `tools/reference.py` for routines and vulnerabilities, `tools/wordlists.py` for the wordlist reads; `create_wordlist` is added to the latter in phase 6):*
+
+- None of the six tools takes a `context_uuid` (the routes are not context-scoped). All are `READ_ONLY`.
+- **Lists** (`list_routines`, `list_vulnerabilities`, `list_wordlists`) take `query` (default empty, sent as `query=`), the filter (`vulnerability_id` for routines and wordlists, sent as `vulnId`; `parent_id` for vulnerabilities, sent as `parentVulnId`), `page` (0) and `size` (30; clamped to 1..100). They return `page_output(page, key)`: the items under `routines`, `vulnerabilities` or `wordlists`, plus `page`, `size`, `totalElements`, `totalPages`, `last` and, only when there is more, `nextPage` (the page number to ask for next). The same helper is used by every paged tool of later phases.
+- **Gets** (`get_routine`, `get_vulnerability`, `get_wordlist`) take the id and return the model as is. The descriptions tell the agent what to do with the result: read `configSchema` before building a `custom_config`; `wordlistRequired`, `resultContentType` and `isAvailableAtConsumer`; the vulnerability id is what `create_finding` needs; the content of a wordlist cannot be read, only its metadata and sha256.
+
 ### 8.6 Finding tools (`tools/findings.py`)
 
 The core scopes the findings and enforces every rule (visible = the request of the finding is readable in the context, i.e. a request item or any member of an equality set item; editing only a finding created by this context's agent and not yet reviewed). The tools only call the scoped routes and show the core's messages.
@@ -603,7 +609,7 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
 | 11 | optional: `feat/add-ffuf-result-summary` | only if the worker-side summary of C7 is not done: summarise ffuf JSON results (counts by status/size/words, outliers) in `get_job_result(summary=true)` (a parameter that section 8.4 does not have until this phase; it is presentation of raw output, not a rule); do **not** guess masser's output format. If the worker writes `{jobId}.summary.json`, return that file instead and parse nothing | 5 |
 
-**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phase 3 is half done: the context tools (`feat/add-context-tools`) are merged into `staging`; the reference tools (`feat/add-reference-tools`) are not started. Later phases have not started.
+**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phase 3 (`feat/add-context-tools` and `feat/add-reference-tools`) is done and merged into `staging`. Later phases have not started.
 
 **Definition of done per phase:** gates pass; every new/changed function has tests; `docs/` updated; the tool-name set test matches section 17.A for the tools that exist so far; the user confirmed before any commit/merge.
 

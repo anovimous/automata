@@ -59,6 +59,13 @@ IMPLEMENTED: frozenset[str] = frozenset(
         "get_host",
         "list_targets",
         "list_tenants",
+        # phase 3: reference tools
+        "list_routines",
+        "get_routine",
+        "list_vulnerabilities",
+        "get_vulnerability",
+        "list_wordlists",
+        "get_wordlist",
     }
 )
 

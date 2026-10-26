@@ -8,9 +8,11 @@ place that lists the modules, so a phase that adds a group adds one line here.
 from mcp.server.mcpserver import MCPServer
 
 from automata_mcp.state import AppState
-from automata_mcp.tools import context
+from automata_mcp.tools import context, reference, wordlists
 
 
 def register_all(mcp: MCPServer[AppState]) -> None:
     """Declare every tool on the server."""
     context.register(mcp)
+    reference.register(mcp)
+    wordlists.register(mcp)
