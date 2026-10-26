@@ -10,7 +10,9 @@ from mcp.server.mcpserver import MCPServer
 from automata_mcp.state import AppState
 from automata_mcp.tools import (
     context,
+    export,
     findings,
+    ingestion,
     jobs,
     reference,
     requests,
@@ -26,5 +28,7 @@ def register_all(mcp: MCPServer[AppState]) -> None:
     responses.register(mcp)
     jobs.register(mcp)
     findings.register(mcp)
+    ingestion.register(mcp)
+    export.register(mcp)
     reference.register(mcp)
     wordlists.register(mcp)
