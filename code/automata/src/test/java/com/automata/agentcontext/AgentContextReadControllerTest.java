@@ -386,7 +386,7 @@ class AgentContextReadControllerTest {
 		UUID owner = UUID.randomUUID();
 		when(jobQueryService.getJobFullDetails(4L)).thenReturn(new HttpJobFullDetailsInternalDto(4L,
 				HttpJobScope.NARROW, JobState.FINISHED, null, null, 1, 10, null, null,
-				JsonNodeFactory.instance.objectNode().put("flags", "-x"), 1L, "program", 7L, "fuzz", null, null,
+				JsonNodeFactory.instance.objectNode().put("flags", "-x"), 1L, "program", 7L, "fuzz", null, null, null,
 				null, null, null, JobCreator.AI, true, owner));
 
 		mvc.perform(get(BASE + "/requests/7/jobs/4")).andExpect(status().isOk())

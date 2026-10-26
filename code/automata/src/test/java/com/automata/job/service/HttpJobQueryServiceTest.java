@@ -115,7 +115,7 @@ class HttpJobQueryServiceTest {
 	@Test
 	void fullDetailsAreReturned() {
 		HttpJobFullDetailsInternalDto dto = new HttpJobFullDetailsInternalDto(1L, null, JobState.DRAFT, null, null,
-				1, 1, null, null, null, 1L, "p", 1L, "r", null, null, null, null, null, JobCreator.USER, true, null);
+				1, 1, null, null, null, 1L, "p", 1L, "r", null, null, null, null, null, null, JobCreator.USER, true, null);
 		when(jobRepo.findFullDetailsByJobId(1L)).thenReturn(Optional.of(dto));
 
 		assertSame(dto, service.getJobFullDetails(1L));

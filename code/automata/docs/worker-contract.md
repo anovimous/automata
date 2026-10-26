@@ -88,7 +88,7 @@ Always passed by the connector: ffuf `-o <result> -w <first wordlist> -rate <rat
 
 ### 3.4 Result
 
-`{jobId}.result` is whatever file the tool wrote, uploaded unchanged. Only a `FINISHED` job has one. A `FAILED`, `CANCELED`, `SELFTERMINATED` or `LOSTCONTACT` job has none; the reason of a failure is stored with the job (`failureMsg`, cut to 255 characters).
+`{jobId}.result` is whatever file the tool wrote, uploaded unchanged. Only a `FINISHED` job has one. A `FAILED`, `CANCELED`, `SELFTERMINATED` or `LOSTCONTACT` job has none; the reason of a failure is stored with the job (`failureMsg`, cut to 500 characters, with its `failureCategory`).
 
 ## 4. HTTP
 
@@ -102,7 +102,19 @@ Worker: the first poll before starting decides what to do (`QUEUED` → start, `
 
 ### 4.2 Report: `POST /update/{jobId}`
 
-Body (sample `update-request.json`): `{"jobId": 42, "newState": "FAILED", "message": "..."}`. The job is the one in the path; `jobId` in the body is ignored. `message` is kept (cut to 255 characters) as the failure message only for `FAILED` and `SELFTERMINATED`, and only the first time.
+Body (sample `update-request.json`): `{"jobId": 42, "newState": "FAILED", "message": "...", "failureCategory": "INVALID_CONFIG"}`. The job is the one in the path; `jobId` in the body is ignored. `message` is kept (cut to 500 characters) as the failure message, and `failureCategory` as the failure category, only for `FAILED` and `SELFTERMINATED`, and only the first time. `failureCategory` is optional: it is sent with a failure only and left out of every other report (the worker omits it when empty).
+
+`failureCategory` says what kind of failure it was, so a reader knows what to do next; the message says what happened. The core reads a name it does not know, or a failure reported without a category, as `UNKNOWN` (stored and returned as `failureCategory` of the job responses; a job that did not fail has none).
+
+| Category | Reported by | When |
+|---|---|---|
+| `PREPARATION` | orchestrator | the work directory could not be created, the details and data files could not be downloaded, or the routine key has no mapping |
+| `POLL` | orchestrator | the first poll of the core failed |
+| `INVALID_CONFIG` | connector | the job details could not be parsed or turned into a command (unknown flag, no wordlist for ffuf, a `customConfig` the connector can not read) |
+| `TOOL_START` | orchestrator, connector | the connector or the tool could not be started, or the connector did not connect to the sockets in time |
+| `TOOL_EXIT` | connector | the tool ran and exited with an error |
+| `RESULT` | orchestrator | the job finished without a result file, the file is missing, or it could not be uploaded |
+| `UNKNOWN` | orchestrator, core | nothing more is known: a worker that reports no category, a heartbeat timeout, or a failure the core records itself (`LOSTCONTACT`) |
 
 | Status | When | Worker |
 |---|---|---|

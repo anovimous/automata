@@ -7,6 +7,7 @@ import org.springframework.lang.Nullable;
 import com.automata.job.domain.model.embedded.GenericConfig;
 import com.automata.job.domain.model.embedded.TargetSelector;
 import com.automata.job.domain.model.enums.ConfigFileStatus;
+import com.automata.job.domain.model.enums.FailureCategory;
 import com.automata.job.domain.model.enums.HttpJobScope;
 import com.automata.job.domain.model.enums.JobCreator;
 import com.automata.job.domain.model.enums.JobState;
@@ -22,7 +23,7 @@ public record HttpJobResponseDto(Long jobId, HttpJobScope httpJobScope, JobState
 		@Nullable JobState requestedState, ResultsVerbosity verbosity, Integer priority, Integer rate,
 		TargetSelector targetSelector, GenericConfig genericConfig, JsonNode customConfig,
 		ProgramSummaryDetailsResponseDto program, RoutineSummaryDetailsResponseDto routine,
-		@Nullable String failureMessage, ConfigFileStatus configFileStatus, @Nullable String configFileFailure,
+		@Nullable String failureMessage, @Nullable FailureCategory failureCategory, ConfigFileStatus configFileStatus, @Nullable String configFileFailure,
 		@Nullable String aiDescription, @Nullable String aiResult, JobCreator createdBy, boolean approved,
 		boolean terminal, boolean waitingForAction, @Nullable UUID agentContextUuid) {
 
