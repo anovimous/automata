@@ -110,6 +110,9 @@ services:
 
       # Tmp storage for job config files
       TMP_FILES_PATH: /app/files
+
+      # Wordlist paths must be inside this directory (as the worker sees it)
+      WORDLISTS_BASE_DIRECTORY: /home/haidar/cbr/wordlists
     networks:
       - backend
     depends_on:

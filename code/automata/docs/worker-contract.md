@@ -185,7 +185,7 @@ Also: the scheduler moves `TOQUEUE` → `QUEUED` when it publishes the message (
 
 Not changed here, listed so nobody assumes otherwise (details in `.claude/components-code-review.md`):
 
-- Wordlist paths are filesystem paths, so core and worker must see the same files (A11).
+- Wordlist paths are filesystem paths, so core and worker must see the same files (A11). The core only accepts (and stores normalized) a path strictly inside `WORDLISTS_BASE_DIRECTORY`, so the worker can rely on every `wordlistsPaths` entry being inside that directory.
 - No version field in any payload; compatibility is only checked by the sample tests.
 - `auth.data.queryParameters` and the match-and-replace `DELETE` rule are not applied by the connectors.
 - Buckets are public and the HTTP endpoints have no authentication.
