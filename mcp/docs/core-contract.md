@@ -126,6 +126,19 @@ Found when reading the core's code; the plan was corrected where it mattered.
 - The core's `staging` moved past the commit the plan was written against (`a3e02b2`); the routes
   and DTOs read here match the plan.
 
+## Checking that the routes still exist
+
+`scripts/check_core_contract.py` compares the routes, HTTP methods and query parameters that
+`CoreClient` really sends with the OpenAPI document of the core (`/v3/api-docs`). Run it after any
+change in the core's routes, or in the client:
+
+```
+uv run python scripts/check_core_contract.py --core-url http://localhost:8080
+```
+
+It exits 0 when everything exists, 1 when something is missing and 2 when the document cannot be
+read. It does not compare payload shapes; the fixtures and the integration tests cover those.
+
 ## Verified against a live core
 
 On 2026-10-27 the integration tests (`tests/integration`, see the plan section 13) ran against the core

@@ -41,3 +41,14 @@ AUTOMATA_IT=1 AUTOMATA_CORE_URL=http://localhost:8080 uv run pytest tests/integr
 ```
 
 Each run seeds its own uniquely named data through the core's REST API, so it can be repeated.
+
+## Checking the routes against the core
+
+`scripts/check_core_contract.py` calls every method of the client against a recording transport and
+checks that each route, HTTP method and query parameter exists in the core's OpenAPI document:
+
+```
+uv run python scripts/check_core_contract.py --core-url http://localhost:8080   # or --file openapi.json
+```
+
+Exit status 0: all exist; 1: something is missing; 2: the document could not be read.
