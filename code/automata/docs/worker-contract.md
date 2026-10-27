@@ -51,7 +51,7 @@ The core writes it with the application's Jackson mapper (`FAIL_ON_UNKNOWN_PROPE
 | `routineKey` | string | |
 | `rate` | number or `null` | requests per second; the worker reads `null` as 0 |
 | `verbosity` | `SUMMARIZED` \| `NORMAL` \| `VERBOSE` | masser gets it as `-verbosity`; ffuf ignores it |
-| `wordlists` | array of `{id, name, sha256, sizeBytes}` | ordered by `id`; may be empty; `name` may be `null`. The orchestrator downloads each one (3.5) and gives the connectors local paths, see below. ffuf uses the first one only and reports a job without any as `FAILED` (masser takes all of them) |
+| `wordlists` | array of `{id, name, sha256, sizeBytes}` | ordered by `id`; may be empty; `name` may be `null`. The orchestrator downloads each one (3.5) and gives the connectors local paths, see below. ffuf needs exactly one and reports a job with none or more than one as `FAILED` (`INVALID_CONFIG`) (masser takes all of them) |
 | `auth` | object or `null` | only narrow jobs of a tenant with stored authentication; the worker treats `null` as no headers, cookies or query parameters |
 | `auth.data.headers`, `.cookies`, `.queryParameters` | arrays of `{"key", "value"}` | the worker uses headers and cookies; **query parameters are never applied by either connector** |
 | `auth.lifeTimeInSeconds`, `auth.populatedAt` | ISO-8601 instant strings | the worker keeps them as strings and never reads them |
@@ -87,7 +87,7 @@ The connector of the routine is still the one that parses it; both ignore unknow
 | `fuzz` (ffuf) | `{"rawRequestBase64": "<base64>", "flags": [{"key": "-mc", "value": "200"}]}` | `-request <file in the job dir>` (the decoded bytes) and `<key> <value>` for each flag |
 | `masser` | `{"flags": [{"key": "-n", "value": "5"}]}` | `<key> <value>` for each flag |
 
-Always passed by the connector: ffuf `-o <result> -w <first wordlists path> -rate <rate> -noninteractive`, `-b` for cookies, `-H` for headers; masser `-requests <data file> -output <result> -rate <rate>`, `-verbosity`, one `-wordlist` per wordlist, `-C` for cookies, `-H` for headers. The allow-lists are `allowedFlags` in each `builder.go`.
+Always passed by the connector: ffuf `-o <result> -w <the wordlists path> -rate <rate> -noninteractive`, `-b` for cookies, `-H` for headers; masser `-requests <data file> -output <result> -rate <rate>`, `-verbosity`, one `-wordlist` per wordlist, `-C` for cookies, `-H` for headers. The allow-lists are `allowedFlags` in each `builder.go`.
 
 ### 3.4 Result
 
@@ -126,7 +126,7 @@ Body (sample `update-request.json`): `{"jobId": 42, "newState": "FAILED", "messa
 |---|---|---|
 | `PREPARATION` | orchestrator | the work directory could not be created, the details and data files could not be downloaded, a wordlist could not be downloaded or did not match its hash, or the routine key has no mapping |
 | `POLL` | orchestrator | the first poll of the core failed |
-| `INVALID_CONFIG` | connector | the job details could not be parsed or turned into a command (unknown flag, no wordlist for ffuf, a `customConfig` the connector can not read) |
+| `INVALID_CONFIG` | connector | the job details could not be parsed or turned into a command (unknown flag, not exactly one wordlist for ffuf, a `customConfig` the connector can not read) |
 | `TOOL_START` | orchestrator, connector | the connector or the tool could not be started, or the connector did not connect to the sockets in time |
 | `TOOL_EXIT` | connector | the tool ran and exited with an error |
 | `RESULT` | orchestrator | the job finished without a result file, the file is missing, or it could not be uploaded |
