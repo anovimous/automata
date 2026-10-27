@@ -6,49 +6,7 @@ from mcp import Client
 
 from automata_mcp.config import Settings
 from automata_mcp.server import create_server
-
-# The 37 tools of the plan.
-ALL_TOOLS = frozenset(
-    [
-        "get_context_briefing",
-        "get_context",
-        "get_host",
-        "list_targets",
-        "list_tenants",
-        "get_request",
-        "get_request_raw",
-        "get_request_body",
-        "get_response",
-        "get_response_raw",
-        "get_response_body",
-        "create_job",
-        "list_jobs",
-        "get_job",
-        "wait_for_jobs",
-        "get_job_result",
-        "queue_job",
-        "retry_job_preparation",
-        "set_job_ai_result",
-        "cancel_job",
-        "list_routines",
-        "get_routine",
-        "list_vulnerabilities",
-        "get_vulnerability",
-        "list_wordlists",
-        "get_wordlist",
-        "create_wordlist",
-        "create_finding",
-        "get_finding",
-        "list_findings",
-        "update_finding",
-        "export_body_property_names",
-        "add_request",
-        "list_request_jobs",
-        "get_request_job",
-        "get_request_job_result",
-        "list_context_requests",
-    ]
-)
+from helpers import ALL_TOOLS
 
 # The tools that exist so far: each phase that adds tools adds their names here.
 IMPLEMENTED: frozenset[str] = frozenset(
