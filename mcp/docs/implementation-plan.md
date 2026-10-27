@@ -128,6 +128,7 @@ automata-mcp/
       jobs.py                          what the job tools do around one core call: read the job back, next_step texts, results
       findings.py                      create_finding / update_finding around one core call
       ingestion.py                     add_request (encode the messages, one call) and the body property names of the host
+      wordlists.py                     create_wordlist (one upload)
       config_validation.py             rawRequestText conversion (no validation: the core validates)
       briefing.py                      builds get_context_briefing
       targets.py                       list_targets: the resolved targets, enriched with their request, and the notes about them
@@ -497,6 +498,13 @@ The core scopes the findings and enforces every rule (visible = the request of t
 - **Result:** the core's `RequestSummaryResponse` (`requestId`, `responseId`, `hostId`, `method`, `computatedPath`, `source` AI, ...) plus `note`: "This request is not part of any context: you cannot read it back or create jobs on it until a human adds it to a context." **404 hint:** one hint for both causes ("no host has that name - hosts are managed by humans, you cannot create one - or, if you gave context_uuid, that context does not exist"), because the server does not read the core's message to tell them apart; 400 shows the parser's message. The text of the messages is never logged (the logging middleware records only the tool name and the context uuid).
 - **`export_body_property_names`** (`READ_ONLY`; `max_names` is at least 1, default 2000) reads the context's host (`get_host`), exports with `hostId` only (a test asserts that `programId` is never sent) and returns `{names, truncated, total}`, `names` being the first `max_names`. A context that does not exist fails at the `get_host` call, before the export.
 
+*As implemented in phase 6 (`create_wordlist`, in `tools/wordlists.py` with the two reads; `services/wordlists.py`):*
+
+- It is `CREATES` (a second identical call is refused by the core, so it is not idempotent), takes no `context_uuid`, and needs `name` and `content`; `description` and `vulnerability_ids` are optional. Over the client's `create_wordlist` the text is sent as the multipart part `file` (file name = `name`, content type `text/plain`, UTF-8) and `name`, `description` and `vulnIds` as the JSON part `metadata` (without a file name). `name` is always in the metadata; an empty `vulnerability_ids` list is sent as it is.
+- Nothing is checked and no size cap is added: an empty file, a NUL byte, more than 512 MB and a duplicate are the core's answers (400, 413, 409) and their messages are shown. The only hint added is for 409: "A wordlist with exactly this content already exists (its id is in the message): use it instead of creating another." The tool description tells the agent the content cannot be changed afterwards, to give a description, the core's refusals and the 4 MB limit of one call over HTTP (`AUTOMATA_HTTP_MAX_REQUEST_BYTES`).
+- Returns `{wordlistId, next_step}` (the id from `Location`; the wordlist is not read back).
+- With this tool all 37 tools of 17.A are implemented; `tests/unit/test_tool_registry.py` asserts that the registered set equals the plan's (`IMPLEMENTED == ALL_TOOLS`).
+
 ---
 
 ## 9. Cross-cutting behaviour
@@ -649,7 +657,7 @@ Every phase = branches from `staging`, tests included, docs (`docs/core-contract
 | 9 | `feat/add-contract-check-script`, `feat/add-docker-packaging` | `scripts/check_core_contract.py`; `Dockerfile` (python slim, uv sync, non-root, `AUTOMATA_TRANSPORT=streamable-http`), `.dockerignore`, README run instructions (the Host-header check of the SDK was already verified in phase 2, section 5: nothing to configure when bound to `0.0.0.0`) | 6 |
 | 10 | (core repo) `feat/add-mcp-service-to-compose` | add an `automata-mcp` service to the core's `docker-compose.yml` (build `../../../automata-mcp`, env `AUTOMATA_CORE_URL=http://app:8080`, port 8000, `depends_on: app`) | 9 |
 
-**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phases 3 (`feat/add-context-tools`, `feat/add-reference-tools`), 4 (`feat/add-request-response-tools`) and 5 (`feat/add-job-tools`) are done and merged into `staging`. Phase 6 is in progress: the finding tools and the briefing's findings part (`feat/add-finding-tools`) and the ingestion and export tools (`feat/add-ingestion-and-export-tools`) are done; the wordlist creation tool is not started. Later phases have not started.
+**Status:** phase 0 (`chore/set-up-project-skeleton`), phase 1 (`feat/add-core-client`) and phase 2 (`feat/add-server-skeleton`) are done and merged into `staging`. Nothing is merged into `main` (the user's decision for now). Phases 3 (`feat/add-context-tools`, `feat/add-reference-tools`), 4 (`feat/add-request-response-tools`) and 5 (`feat/add-job-tools`) are done and merged into `staging`. Phase 6 is in progress: the finding tools and the briefing's findings part (`feat/add-finding-tools`) and the ingestion and export tools (`feat/add-ingestion-and-export-tools`) and the wordlist creation tool (`feat/add-wordlist-creation-tool`) are done, so all 37 tools exist; the integration tests named in the phase 6 row are not started and wait for the user's decision. Later phases have not started.
 
 **Definition of done per phase:** gates pass; every new/changed function has tests; `docs/` updated; the tool-name set test matches section 17.A for the tools that exist so far; the user confirmed before any commit/merge.
 
