@@ -126,14 +126,34 @@ Found when reading the core's code; the plan was corrected where it mattered.
 - The core's `staging` moved past the commit the plan was written against (`a3e02b2`); the routes
   and DTOs read here match the plan.
 
-## Not verified against a live core
+## Verified against a live core
 
-These follow from reading the code or the framework's documented behaviour, not from a call:
+On 2026-10-27 the integration tests (`tests/integration`, see the plan section 13) ran against the core
+built from `staging` at `d7e0297`, with a fresh database. Everything that had only been read in the
+code held:
 
-- `states=A,B` (comma-separated) binding to `Set<JobState>`: Spring converts a comma-separated value
-  into a collection. Repeated `states=` parameters should work too.
-- Multipart upload of `create_wordlist`: the `metadata` part is sent with content type
-  `application/json` and no file name, which is what `@RequestPart` needs to read JSON.
-- A PATCH that omits a field leaves it untouched (`Optional.empty()` in `FindingPatchRequest`).
+- `states=A,B` (comma-separated) is accepted for `Set<JobState>` (`list_jobs`, `list_request_jobs`).
+- The multipart upload of `create_wordlist` works: the `file` part and the JSON `metadata` part (name,
+  description, vulnerability ids) are read, the line count and size are right, and the same content
+  under another name answers 409.
+- A PATCH that leaves fields out leaves them unchanged (`update_finding` with only `severity`).
+- The scoped routes answer as documented: a request or job outside the context, or an unknown context,
+  is a 404; a job nobody approved cannot be queued (409), has no result yet (409), cannot get an AI
+  result (409) and cannot be canceled (409).
 
-They are covered by the opt-in integration tests, planned after the tool groups exist.
+## Found against the live core
+
+- **Core bug:** `GET /api/vulnerabilities/{id}` answers 500 for a vulnerability without a parent
+  (`VulnerabilityMapper` line 13 calls `getParent().getId()`). `get_vulnerability` therefore fails for
+  a root class. It is a change for the core repo; the integration suite keeps an expected failure
+  (`test_a_root_vulnerability_can_be_read`) for it.
+- A routine whose `configSchema` says `type: object` needs a `custom_config` that is an object: a job
+  without one is refused with 400 ("customConfig is not valid for routine ...: $: null found, object
+  expected"). The core's message is shown to the agent as it is.
+- Host names are validated against real top-level domains (`example.test` is refused, `example.com`
+  is accepted) and a host's rate limit must be at least the sum of its long and short limits.
+- `POST /api/external/requests` (Burp) answers 201 with no `Location` and no body, so it cannot tell
+  the caller the new id; `POST /api/requests/raw` returns the `RequestSummaryResponse` and also takes
+  the host id, a tenant and the response. The tests seed through the second.
+- The core's `Flyway` migration refuses a database that has tables but no migration history (what an
+  old volume of a previous version holds): start the stack with a fresh database volume.
