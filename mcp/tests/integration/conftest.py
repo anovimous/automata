@@ -100,8 +100,8 @@ def seed() -> Iterator[Seed]:
                 },
             )
         )
-        # The child has a parent on purpose: the core fails to show a vulnerability without one
-        # (see test_a_root_vulnerability_can_be_read, an expected failure).
+        # A child with a parent, like the real hierarchy; a vulnerability without a parent is
+        # covered by test_a_root_vulnerability_can_be_read.
         parent = created_id(
             core.post("/api/vulnerabilities", json={"name": f"IT-parent-{uuid.uuid4().hex[:8]}"})
         )

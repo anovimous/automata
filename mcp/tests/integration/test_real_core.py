@@ -134,10 +134,6 @@ async def test_the_requests_of_the_context_are_listed(real_agent: Agent, seed: S
 # --- reference and wordlists
 
 
-@pytest.mark.xfail(
-    reason="core bug: VulnerabilityMapper dereferences getParent() of a root vulnerability (500)",
-    strict=False,
-)
 async def test_a_root_vulnerability_can_be_read(real_agent: Agent, seed: Seed) -> None:
     async with httpx.AsyncClient(base_url=CORE_URL, timeout=30) as core:
         created = await core.post(
