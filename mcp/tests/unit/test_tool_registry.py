@@ -95,6 +95,8 @@ IMPLEMENTED: frozenset[str] = frozenset(
         # phase 6: ingestion and export tools
         "add_request",
         "export_body_property_names",
+        # phase 6: wordlist creation
+        "create_wordlist",
     }
 )
 
@@ -105,6 +107,10 @@ def test_the_plan_has_37_tools() -> None:
 
 def test_implemented_tools_are_tools_of_the_plan() -> None:
     assert IMPLEMENTED <= ALL_TOOLS
+
+
+def test_every_tool_of_the_plan_is_implemented() -> None:
+    assert IMPLEMENTED == ALL_TOOLS
 
 
 async def test_the_server_registers_exactly_the_implemented_tools() -> None:

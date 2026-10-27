@@ -1,12 +1,26 @@
-"""Tools for wordlists: reading them (creating one is added in a later phase)."""
+"""Tools for wordlists: reading them and creating one."""
 
 from typing import Annotated, Any
 
 from mcp.server.mcpserver import Context, MCPServer
 from pydantic import Field
 
+from automata_mcp.core.errors import CoreConflict
+from automata_mcp.services import wordlists as wordlist_service
 from automata_mcp.state import AppState, get_state
-from automata_mcp.tools.common import READ_ONLY, PageNumber, PageSize, page_output
+from automata_mcp.tools.common import (
+    CREATES,
+    READ_ONLY,
+    PageNumber,
+    PageSize,
+    hints,
+    page_output,
+)
+
+DUPLICATE_409 = (
+    "A wordlist with exactly this content already exists (its id is in the message): use it "
+    "instead of creating another."
+)
 
 
 def register(mcp: MCPServer[AppState]) -> None:
@@ -47,3 +61,44 @@ def register(mcp: MCPServer[AppState]) -> None:
         """
         state = get_state(ctx)
         return (await state.core.get_wordlist(wordlist_id)).to_output()
+
+    @mcp.tool(annotations=CREATES)
+    async def create_wordlist(
+        name: Annotated[
+            str, Field(description="Name of the wordlist; also the name of the stored file.")
+        ],
+        content: Annotated[
+            str, Field(description="The entries, one per line, as plain text (no NUL bytes).")
+        ],
+        ctx: Context[AppState, Any],
+        description: Annotated[
+            str | None, Field(description="What the list is for, so it can be chosen later.")
+        ] = None,
+        vulnerability_ids: Annotated[
+            list[int] | None,
+            Field(description="Ids of the vulnerabilities it is meant for (list_vulnerabilities)."),
+        ] = None,
+    ) -> dict[str, Any]:
+        """Creates a wordlist from the text you give, to use in the `wordlist_ids` of create_job
+        (for example parameter names from export_body_property_names, or ids and paths you
+        collected while testing).
+
+        `content` is the list, one entry per line. The content can not be changed afterwards (only
+        the name, description and vulnerabilities can); to change it, create a new wordlist. Give
+        a `description` so the list can be chosen later with list_wordlists, and the
+        `vulnerability_ids` it is meant for. The core stores the file and checks it: it refuses an
+        empty file, a file with a NUL byte and one over 512 MB, and a wordlist whose content
+        already exists (then the message holds its id: use that one). Over HTTP a single call is
+        also limited by the server's request size (4 MB by default), so keep the list reasonable.
+
+        Returns the new `wordlistId`.
+        """
+        state = get_state(ctx)
+        with hints({CoreConflict: DUPLICATE_409}):
+            return await wordlist_service.create_wordlist(
+                state.core,
+                name=name,
+                content=content,
+                description=description,
+                vulnerability_ids=vulnerability_ids,
+            )
