@@ -4,7 +4,8 @@ MCP server of the Automata automation framework (security testing of HTTP APIs).
 this server over MCP; the server turns the agent's tool calls into REST calls on the Automata core and
 returns the answers in a form the agent can reason about. It persists nothing and holds no business logic.
 
-Status: under construction. The plan is in [`docs/implementation-plan.md`](docs/implementation-plan.md).
+Status: implemented (37 tools, a workflow prompt, two resources, a Docker image and a compose service).
+The plan, and what each phase did, is in [`docs/implementation-plan.md`](docs/implementation-plan.md).
 
 ## Development
 
@@ -45,6 +46,17 @@ Configure it with the `AUTOMATA_*` variables of [`.env.example`](.env.example) (
 health check succeeds when the port accepts a connection; the server also starts when the core is
 down. Like the core, the server has no authentication: do not publish its port beyond a trusted
 network. For stdio use `uv run automata-mcp` instead (see Run).
+
+### With the core (docker compose)
+
+The core's `docker-compose.yml` has an `automata-mcp` service that builds this image from
+`../../../automata-mcp`. `docker compose up --build` in the core repo starts it with the rest:
+
+- from the host: `http://localhost:8000/mcp` (the port is published on `127.0.0.1` only, since there is
+  no authentication);
+- from another container of the stack: `http://automata-mcp:8000/mcp`;
+- it reaches the core at `http://app:8080`. It may start a few seconds before the app and log that it
+  cannot reach it; it keeps running and works as soon as the app is up.
 
 ## Integration tests
 
