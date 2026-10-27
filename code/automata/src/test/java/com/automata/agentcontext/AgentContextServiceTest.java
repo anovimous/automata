@@ -1036,4 +1036,44 @@ class AgentContextServiceTest {
 		assertThrows(EntityNotFoundException.class, () -> service.getContextHost(uuid));
 	}
 
+
+	// ---- unknown routine ids (BUG-038) ----
+
+	@Test
+	@com.automata.testsupport.KnownBug("BUG-038")
+	void createContextWithAnUnknownRoutineIdIsNotFound() {
+		Host h = host(1L);
+		when(hostRepo.findById(1L)).thenReturn(Optional.of(h));
+		when(routineRepo.findAllById(List.of(1L, 99L))).thenReturn(List.of(new com.automata.routine.Routine()));
+		com.automata.agentcontext.common.dto.AgentContextCreationRequest request = new com.automata.agentcontext.common.dto.AgentContextCreationRequest(
+				"ctx", null, 1L, false, RepresentativeStrategy.LATEST, List.of(1L, 99L), null, null, null, 5, null);
+
+		org.junit.jupiter.api.Assertions.assertThrows(jakarta.persistence.EntityNotFoundException.class,
+				() -> service.createContext(request));
+	}
+
+	// ---- the order of the items (BUG-040) ----
+
+	@Test
+	@com.automata.testsupport.KnownBug("BUG-040")
+	void theApprovalOfARequestDoesNotDependOnTheOrderOfTheItems() {
+		Host h = host(1L);
+		Request req = eligibleRequest(10L);
+		Equalization eq = Equalization.builder().id(5L).host(h).build();
+		RequestEqualitySet set = RequestEqualitySet.builder().id(30L).equalization(eq).alias("s").autoApproval(true).build();
+		AgentContextItem directItem = AgentContextItem.builder().id(1L).itemType(AgentContextItemType.REQUEST).request(req).build();
+		AgentContextItem setItem = AgentContextItem.builder().id(2L).itemType(AgentContextItemType.EQUALITY_SET).equalitySet(set).build();
+		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set)).thenReturn(req);
+		AgentContext directFirst = AgentContext.builder().id(1L).host(h).representativeStrategy(RepresentativeStrategy.LATEST)
+				.defaultAutoApproval(false).items(List.of(directItem, setItem)).build();
+		AgentContext setFirst = AgentContext.builder().id(2L).host(h).representativeStrategy(RepresentativeStrategy.LATEST)
+				.defaultAutoApproval(false).items(List.of(setItem, directItem)).build();
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(directFirst));
+		when(contextRepo.findById(2L)).thenReturn(Optional.of(setFirst));
+
+		boolean one = service.resolveContextTargets(1L).get(0).autoApproval();
+		boolean other = service.resolveContextTargets(2L).get(0).autoApproval();
+
+		org.junit.jupiter.api.Assertions.assertEquals(one, other);
+	}
 }
