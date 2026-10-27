@@ -1,8 +1,5 @@
 """The context tools, called the way an agent calls them: through MCP, against a fake core."""
 
-from collections.abc import Callable
-from typing import Any
-
 import pytest
 import respx
 from mcp.types import CallToolResult, Tool
@@ -20,24 +17,6 @@ async def context_tools(agent: Agent) -> list[Tool]:
 
 def text_of(result: CallToolResult) -> str:
     return result.content[0].text  # type: ignore[union-attr]
-
-
-@pytest.fixture
-def known_context(
-    core_api: respx.MockRouter, load_fixture: Callable[[str], Any]
-) -> respx.MockRouter:
-    core_api.get(CP).respond(200, json=load_fixture("agent_context_detailed"))
-    core_api.get(f"{CP}/host").respond(200, json=load_fixture("host_detailed"))
-    core_api.get(f"{CP}/resolved-requests").respond(200, json=load_fixture("resolved_targets"))
-    core_api.get(f"{CP}/tenants").respond(200, json=load_fixture("context_tenants"))
-    metadata = load_fixture("request_metadata")
-    core_api.get(f"{CP}/requests/7/metadata").respond(200, json=metadata)
-    core_api.get(f"{CP}/requests/21/metadata").respond(200, json=metadata | {"requestId": 21})
-    core_api.get(f"{CP}/jobs").respond(200, json=load_fixture("job_summary_page"))
-    core_api.get(f"{CP}/findings").respond(200, json=load_fixture("finding_summary_page"))
-    core_api.get("/api/routines/1").respond(200, json=load_fixture("routine_detailed"))
-    core_api.get("/api/routines/2").respond(404, text="Routine not found")
-    return core_api
 
 
 # ---------------------------------------------------------------------------- the tool list
