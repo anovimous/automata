@@ -29,3 +29,15 @@ Set `AUTOMATA_CORE_URL` to the core (default `http://localhost:8080`). The serve
 core is down and says so in its log (stderr); its tools report the problem when they are used.
 Example client entry for stdio: command `uv`, args `["--directory", "/path/to/automata-mcp", "run",
 "automata-mcp"]`, env `AUTOMATA_CORE_URL`.
+
+## Integration tests
+
+The unit tests use a fake core. `tests/integration` runs the real server against a real core and is
+skipped unless asked for:
+
+```
+# in the core repo: docker compose up -d --build    (needs a database volume without old tables)
+AUTOMATA_IT=1 AUTOMATA_CORE_URL=http://localhost:8080 uv run pytest tests/integration
+```
+
+Each run seeds its own uniquely named data through the core's REST API, so it can be repeated.
