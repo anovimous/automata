@@ -30,6 +30,22 @@ core is down and says so in its log (stderr); its tools report the problem when 
 Example client entry for stdio: command `uv`, args `["--directory", "/path/to/automata-mcp", "run",
 "automata-mcp"]`, env `AUTOMATA_CORE_URL`.
 
+## Docker
+
+The image runs the server over streamable HTTP (`/mcp` on port 8000), as a non-root user:
+
+```
+docker build -t automata-mcp .
+docker run --rm -p 8000:8000 -e AUTOMATA_CORE_URL=http://core:8080 automata-mcp
+```
+
+Configure it with the `AUTOMATA_*` variables of [`.env.example`](.env.example) (at least
+`AUTOMATA_CORE_URL`: inside a container `localhost` is the container itself). The image defaults to
+`AUTOMATA_TRANSPORT=streamable-http`, `AUTOMATA_HTTP_HOST=0.0.0.0` and `AUTOMATA_HTTP_PORT=8000`. Its
+health check succeeds when the port accepts a connection; the server also starts when the core is
+down. Like the core, the server has no authentication: do not publish its port beyond a trusted
+network. For stdio use `uv run automata-mcp` instead (see Run).
+
 ## Integration tests
 
 The unit tests use a fake core. `tests/integration` runs the real server against a real core and is
