@@ -138,6 +138,23 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  # MCP server of the AI agent (../../../automata-mcp): turns the agent's tool calls into REST calls
+  # on this app. It starts even when the app is down and reports that in its log.
+  automata-mcp:
+    build: ./../../../automata-mcp
+    container_name: automata-mcp
+    ports:
+      # Only this machine: the MCP server has no authentication, like the app
+      - "127.0.0.1:8000:8000"
+    environment:
+      AUTOMATA_CORE_URL: http://app:8080
+    networks:
+      - backend
+    depends_on:
+      app:
+        condition: service_started
+    restart: unless-stopped
+
 networks:
   backend:
     driver: bridge
