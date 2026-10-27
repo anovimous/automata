@@ -56,3 +56,18 @@ def stream_of(response: httpx.Response) -> AbstractAsyncContextManager[httpx.Res
         yield response
 
     return opened()
+
+
+def multipart_parts(request: httpx.Request) -> dict[str, tuple[str | None, str | None, bytes]]:
+    """The parts of a multipart request: name -> (file name, content type, content)."""
+    from email.parser import BytesParser
+    from email.policy import HTTP
+
+    header = f"Content-Type: {request.headers['content-type']}\r\n\r\n".encode()
+    message = BytesParser(policy=HTTP).parsebytes(header + request.content)
+    parts: dict[str, tuple[str | None, str | None, bytes]] = {}
+    for part in message.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        content_type = part.get_content_type() if part["content-type"] else None
+        parts[str(name)] = (part.get_filename(), content_type, part.get_payload(decode=True))
+    return parts
