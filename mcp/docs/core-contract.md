@@ -143,10 +143,10 @@ code held:
 
 ## Found against the live core
 
-- **Core bug:** `GET /api/vulnerabilities/{id}` answers 500 for a vulnerability without a parent
-  (`VulnerabilityMapper` line 13 calls `getParent().getId()`). `get_vulnerability` therefore fails for
-  a root class. It is a change for the core repo; the integration suite keeps an expected failure
-  (`test_a_root_vulnerability_can_be_read`) for it.
+- **Core bug, fixed:** `GET /api/vulnerabilities/{id}` answered 500 for a vulnerability without a
+  parent (`VulnerabilityMapper` called `getParent().getId()` on null), so `get_vulnerability` failed for
+  a root class. Fixed in the core by commit `4aa8b20` (`parentId` is null); the integration suite
+  checks it (`test_a_root_vulnerability_can_be_read`), which needs a core with that fix.
 - A routine whose `configSchema` says `type: object` needs a `custom_config` that is an object: a job
   without one is refused with 400 ("customConfig is not valid for routine ...: $: null found, object
   expected"). The core's message is shown to the agent as it is.
