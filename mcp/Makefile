@@ -4,16 +4,16 @@ sync:
 	uv sync
 
 lint:
-	uv run ruff check src tests
+	uv run ruff check src tests scripts
 
 format:
-	uv run ruff format src tests
+	uv run ruff format src tests scripts
 
 format-check:
-	uv run ruff format --check src tests
+	uv run ruff format --check src tests scripts
 
 typecheck:
-	uv run mypy --strict src
+	uv run mypy --strict src scripts
 
 test:
 	uv run pytest
