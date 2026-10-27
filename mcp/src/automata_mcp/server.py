@@ -7,6 +7,7 @@ from typing import Any
 
 from mcp.server.mcpserver import MCPServer
 
+from automata_mcp import prompts, resources
 from automata_mcp.config import Settings
 from automata_mcp.core.client import CoreClient
 from automata_mcp.core.errors import CoreError, CoreUnreachable
@@ -55,6 +56,8 @@ def create_server(settings: Settings) -> MCPServer[AppState]:
         log_level=settings.log_level,
     )
     register_all(mcp)
+    prompts.register(mcp)
+    resources.register(mcp)
     return mcp
 
 
