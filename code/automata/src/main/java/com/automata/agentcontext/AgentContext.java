@@ -24,6 +24,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -92,6 +93,7 @@ public class AgentContext {
 	private Instant creationDate;
 
 	@OneToMany(mappedBy = "context")
+	@OrderBy("id")
 	@Builder.Default
 	private List<AgentContextItem> items = new ArrayList<>();
 
