@@ -8,7 +8,8 @@ public abstract class ComparatorMapper {
 	public static ComparatorResponse toResponse(Comparator comparator) {
 
 		return ComparatorResponse.builder().id(comparator.getId()).creationDate(comparator.getCreationDate())
-				.name(comparator.getName()).schema(comparator.getSchema()).build();
+				.name(comparator.getName()).schema(comparator.getSchema())
+				.modifiers(comparator.getModifiers().stream().map(ModifierMapper::toDetailedResponse).toList()).build();
 
 	}
 

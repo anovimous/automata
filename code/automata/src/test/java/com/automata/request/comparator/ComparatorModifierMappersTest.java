@@ -16,7 +16,6 @@ import com.automata.request.comparator.common.dto.ModifierDetailedResponse;
 import com.automata.request.comparator.common.dto.ModifierSummaryResponse;
 import com.automata.request.comparator.common.enums.Schema;
 import com.automata.request.comparator.hash.HashTarget;
-import com.automata.testsupport.KnownBug;
 
 class ComparatorModifierMappersTest {
 
@@ -27,7 +26,7 @@ class ComparatorModifierMappersTest {
 
 		ComparatorResponse response = ComparatorMapper.toResponse(comparator);
 
-		assertEquals(new ComparatorResponse(1L, LocalDate.of(2026, 1, 1), "rest", Schema.GRAPHQL), response);
+		assertEquals(new ComparatorResponse(1L, LocalDate.of(2026, 1, 1), "rest", Schema.GRAPHQL, java.util.List.of()), response);
 	}
 
 	@Test
@@ -72,12 +71,15 @@ class ComparatorModifierMappersTest {
 	}
 
 	@Test
-	@KnownBug("BUG-029")
 	void comparatorResponseListsItsModifiers() {
-		// a client has no way to know which modifiers a comparator applies
-		boolean hasModifiers = java.util.Arrays.stream(ComparatorResponse.class.getRecordComponents())
-				.anyMatch(component -> component.getName().toLowerCase().contains("modifier"));
+		Modifier a = Modifier.builder().id(1L).target(HashTarget.METHOD).priority(1L).description("m").isAvailable(true).build();
+		Modifier b = Modifier.builder().id(2L).target(HashTarget.PATH).priority(2L).isAvailable(false).build();
+		Comparator comparator = Comparator.builder().id(1L).name("c").modifiers(java.util.List.of(a, b)).build();
 
-		assertTrue(hasModifiers);
+		ComparatorResponse response = ComparatorMapper.toResponse(comparator);
+
+		assertEquals(java.util.List.of(1L, 2L), response.modifiers().stream().map(ModifierDetailedResponse::id).toList());
+		assertEquals("m", response.modifiers().get(0).description());
+		assertTrue(!response.modifiers().get(1).isAvailable());
 	}
 }
