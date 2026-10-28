@@ -1156,7 +1156,7 @@ class AgentContextServiceTest {
 		when(hostRepo.findById(1L)).thenReturn(Optional.of(h));
 		when(routineRepo.findAllById(List.of(1L, 99L))).thenReturn(List.of(new com.automata.routine.Routine()));
 		com.automata.agentcontext.common.dto.AgentContextCreationRequest request = new com.automata.agentcontext.common.dto.AgentContextCreationRequest(
-				"ctx", null, 1L, false, RepresentativeStrategy.LATEST, List.of(1L, 99L), null, null, null, 5, null);
+				"ctx", null, 1L, false, RepresentativeStrategy.LATEST, List.of(1L, 99L), null, null, null, 5, 5, null);
 
 		org.junit.jupiter.api.Assertions.assertThrows(jakarta.persistence.EntityNotFoundException.class,
 				() -> service.createContext(request));

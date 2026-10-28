@@ -190,7 +190,6 @@ class RequestIngestionIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-021")
 	void aQueryParameterWithoutValueIsStored() {
 		requestService.addRawRequest(dto(get("/a?debug&x=1", ""), null, null));
 		fx.clear();
@@ -199,7 +198,6 @@ class RequestIngestionIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-030")
 	void aLongQueryValueOver255CharactersIsStored() {
 		// JWTs and other tokens in the query are routinely longer than 255 characters
 		String jwt = "e".repeat(600);
@@ -211,7 +209,6 @@ class RequestIngestionIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-030")
 	void aLongPathOver255CharactersIsStored() {
 		String path = "/" + "segment/".repeat(40) + "end";
 
@@ -219,6 +216,40 @@ class RequestIngestionIntegrationTest {
 		fx.clear();
 
 		assertEquals(path, requestRepo.findById(saved.getId()).orElseThrow().getComputatedPath());
+	}
+
+	@Test
+	void textsAtTheLimitsOfTheirColumnsAreStored() {
+		String path = "/" + "p".repeat(499);
+		String parameter = "n".repeat(500);
+		String value = "v".repeat(2000);
+
+		Request saved = requestService.addRawRequest(dto(get(path + "?" + parameter + "=" + value, ""), null, null));
+		fx.clear();
+
+		assertEquals(path, requestRepo.findById(saved.getId()).orElseThrow().getComputatedPath());
+		assertEquals(parameter, parameterRepo.findAll().get(0).getParameter());
+		assertEquals(value, parameterRepo.findAll().get(0).getValue());
+	}
+
+	@Test
+	void aTextOverTheLimitOfItsColumnIsRefusedWithAClearMessageAndNothingIsStored() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> requestService.addRawRequest(dto(get("/a?jwt=" + "e".repeat(2001), ""), null, null)));
+
+		assertEquals("The value of the query parameter 'jwt' is too long: 2001 characters, the limit is 2000",
+				e.getMessage());
+		assertEquals(0, requestRepo.count());
+	}
+
+	@Test
+	void aPercentEncodedPathAndQueryAreStoredAsSentAndDecodedOnceAsParameters() {
+		Request saved = requestService.addRawRequest(dto(get("/my%20files/100%25?q=a%26b&page=2", ""), null, null));
+		fx.clear();
+
+		assertEquals("/my%20files/100%25", requestRepo.findById(saved.getId()).orElseThrow().getComputatedPath());
+		assertEquals(java.util.Set.of("q=a&b", "page=2"), parameterRepo.findAll().stream()
+				.map(p -> p.getParameter() + "=" + p.getValue()).collect(java.util.stream.Collectors.toSet()));
 	}
 
 	@Autowired

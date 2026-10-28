@@ -1,5 +1,6 @@
 package com.automata.request;
 
+import com.automata.request.common.RequestFieldLimits;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,10 +57,11 @@ public class Request {
 	@Enumerated(EnumType.STRING)
 	private Method method;
 
-	@Column(nullable = false)
+	@Column(nullable = false, length = RequestFieldLimits.MAX_COMPUTATED_PATH)
 	private String computatedPath;
 
 	@Nullable
+	@Column(length = RequestFieldLimits.MAX_EXTENSION)
 	private String extension;
 
 	// Includes the Protocol

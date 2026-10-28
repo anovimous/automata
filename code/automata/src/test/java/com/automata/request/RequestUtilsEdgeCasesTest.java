@@ -55,12 +55,22 @@ class RequestUtilsEdgeCasesTest {
 		assertEquals(Method.GET, parse("get /a HTTP/1.1").getMethod());
 	}
 
-	@Test
-	@KnownBug("BUG-022")
-	void anOptionsRequestIsAccepted() {
-		RequestParseResult result = parse("OPTIONS /api/users HTTP/1.1");
+	@ParameterizedTest
+	@ValueSource(strings = { "OPTIONS", "TRACE", "CONNECT", "PROPFIND" })
+	void anUnsupportedMethodIsRefusedWithAClearMessage(String method) {
+		RequestParseResult result = parse(method + " /api/users HTTP/1.1");
 
-		assertEquals("OPTIONS", result.getMethod().name());
+		assertFalse(result.getValidationResult().isValid());
+		assertTrue(result.getValidationResult().getMessage().startsWith("Unsupported HTTP method '" + method + "'"));
+		assertTrue(result.getValidationResult().getMessage().contains("[GET, POST, PUT, PATCH, DELETE, HEAD]"));
+	}
+
+	@Test
+	void aVeryLongUnsupportedMethodIsCutInTheMessage() {
+		RequestParseResult result = parse("X".repeat(200) + " /a HTTP/1.1");
+
+		assertFalse(result.getValidationResult().isValid());
+		assertTrue(result.getValidationResult().getMessage().length() < 200);
 	}
 
 	// ---- path and query ----
@@ -84,21 +94,40 @@ class RequestUtilsEdgeCasesTest {
 	}
 
 	@Test
-	@KnownBug("BUG-023")
-	void aPercentEncodedSpaceInThePathIsAccepted() {
+	void aPercentEncodedSpaceInThePathIsAcceptedAndKeptAsSent() {
 		RequestParseResult result = parse("GET /my%20file.txt HTTP/1.1");
 
 		assertTrue(result.getValidationResult().isValid());
+		assertEquals("/my%20file.txt", result.getPathParseResult().getComputatedPath());
 	}
 
 	@Test
-	@KnownBug("BUG-023")
-	void aPercentEncodedPercentSignInThePathIsAccepted() {
-		assertDoesNotFail(() -> parse("GET /discount/100%25 HTTP/1.1"));
+	void aPercentEncodedPercentSignInThePathIsAcceptedAndKeptAsSent() {
+		RequestParseResult result = parse("GET /discount/100%25 HTTP/1.1");
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("/discount/100%25", result.getPathParseResult().getComputatedPath());
 	}
 
 	@Test
-	@KnownBug("BUG-023")
+	void anEncodedQuestionMarkInThePathDoesNotCutIt() {
+		RequestParseResult result = parse("GET /a%3Fb/c?x=1 HTTP/1.1");
+
+		assertEquals("/a%3Fb/c", result.getPathParseResult().getComputatedPath());
+		assertEquals(List.of("x=1"), pairs(result));
+	}
+
+	@Test
+	void aPercentEncodedPathComposesBackToTheSameRawPath() {
+		RequestParseResult result = parse("GET /my%20files/42/a%2Fb HTTP/1.1");
+
+		assertEquals("/my%20files/42/a%2Fb", com.automata.request.path.PathUtils.composeRawPath(
+				result.getPathParseResult().getComputatedPath(),
+				result.getPathParseResult().getPathVariables().stream()
+						.map(v -> new PathVariableInternalDto(v.getIndex(), v.getValue(), 1L)).toList()));
+	}
+
+	@Test
 	void anEncodedAmpersandInAQueryValueDoesNotSplitTheParameter() {
 		RequestParseResult result = parse("GET /search?q=a%26b&page=2 HTTP/1.1");
 
@@ -281,5 +310,73 @@ class RequestUtilsEdgeCasesTest {
 			throw new AssertionError("parsing threw " + e, e);
 		}
 		assertNull(result);
+	}
+
+	// ---- the size of the texts taken from the request ----
+
+	private static String invalidMessage(RequestParseResult result) {
+		assertFalse(result.getValidationResult().isValid());
+		return result.getValidationResult().getMessage();
+	}
+
+	@Test
+	void aComputatedPathAtTheLimitIsAccepted() {
+		String path = "/" + "a".repeat(499);
+
+		assertTrue(parse("GET " + path + " HTTP/1.1").getValidationResult().isValid());
+	}
+
+	@Test
+	void aComputatedPathOverTheLimitIsRefused() {
+		String path = "/" + "a".repeat(500);
+
+		assertEquals("The path is too long: 501 characters, the limit is 500",
+				invalidMessage(parse("GET " + path + " HTTP/1.1")));
+	}
+
+	@Test
+	void aQueryValueAtTheLimitIsAcceptedAndOneOverItIsRefused() {
+		assertTrue(parse("GET /a?jwt=" + "e".repeat(2000) + " HTTP/1.1").getValidationResult().isValid());
+
+		assertEquals("The value of the query parameter 'jwt' is too long: 2001 characters, the limit is 2000",
+				invalidMessage(parse("GET /a?jwt=" + "e".repeat(2001) + " HTTP/1.1")));
+	}
+
+	@Test
+	void aQueryParameterNameOverTheLimitIsRefusedAndCutInTheMessage() {
+		String message = invalidMessage(parse("GET /a?" + "n".repeat(501) + "=1 HTTP/1.1"));
+
+		assertTrue(message.startsWith("The name of the query parameter '" + "n".repeat(40) + "...' is too long: 501"));
+	}
+
+	@Test
+	void aPathVariableOverTheLimitIsRefused() {
+		// a long run of digits is a path variable, and it is also part of the computed path only as a placeholder
+		assertEquals("A path variable is too long: 2001 characters, the limit is 2000",
+				invalidMessage(parse("GET /items/" + "7".repeat(2001) + " HTTP/1.1")));
+	}
+
+	@Test
+	void aHeaderNameOverTheLimitIsRefused() {
+		RequestParseResult result = RequestUtils
+				.parseRawRequest(raw("GET /a HTTP/1.1", "X-" + "h".repeat(2000) + ": 1\r\n", ""));
+
+		assertTrue(invalidMessage(result).startsWith("The name of the header 'X-hhhh"));
+	}
+
+	@Test
+	void aBodyPropertyPathOverTheLimitIsRefused() {
+		String body = "{\"" + "k".repeat(2001) + "\":1}";
+		RequestParseResult result = RequestUtils.parseRawRequest(
+				raw("POST /a HTTP/1.1", "Content-Type: application/json\r\nContent-Length: " + body.length() + "\r\n", body));
+
+		assertTrue(invalidMessage(result).contains("The path of the body property"));
+	}
+
+	@Test
+	void everythingWithinTheLimitsIsKept() {
+		RequestParseResult result = parse("GET /a/b.json?x=1&y=2 HTTP/1.1");
+
+		assertTrue(result.getValidationResult().isValid());
 	}
 }
