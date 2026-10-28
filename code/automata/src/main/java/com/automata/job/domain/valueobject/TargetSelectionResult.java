@@ -17,10 +17,16 @@ public sealed interface TargetSelectionResult {
 	record SingleRequest(Long requestId, Long hostId) implements TargetSelectionResult {
 	}
 
-	record MultipleHosts(Set<Long> hostsIds) implements TargetSelectionResult {
+	/**
+	 * @param programsIds the programs of the selected hosts
+	 */
+	record MultipleHosts(Set<Long> hostsIds, Set<Long> programsIds) implements TargetSelectionResult {
 	}
 
-	record MultipleRequests(Set<Long> requestsIds) implements TargetSelectionResult {
+	/**
+	 * @param hostsIds the hosts of the selected requests
+	 */
+	record MultipleRequests(Set<Long> requestsIds, Set<Long> hostsIds) implements TargetSelectionResult {
 	}
 
 }

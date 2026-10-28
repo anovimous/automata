@@ -97,7 +97,7 @@ class HttpJobCreationServiceCreateWideJobTest {
 		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any()))
-				.thenReturn(new TargetSelectionResult.MultipleHosts(Set.of(5L)));
+				.thenReturn(new TargetSelectionResult.MultipleHosts(Set.of(5L), Set.of(2L)));
 		when(targetConfigService.configureHostsAsTarget(any(), eq(Set.of(5L))))
 				.thenAnswer(invocation -> invocation.getArgument(0));
 	}
@@ -158,6 +158,21 @@ class HttpJobCreationServiceCreateWideJobTest {
 
 		assertEquals(0, TransactionSynchronizationManager.getSynchronizations().size());
 		verifyNoInteractions(configFileService);
+	}
+
+	@Test
+	void hostsOfAnotherProgramAreRefusedWithoutConfiguringTargets() {
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
+		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
+		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+		when(targetSelectionService.handleTargetSelector(any()))
+				.thenReturn(new TargetSelectionResult.MultipleHosts(Set.of(5L, 6L), Set.of(2L, 3L)));
+
+		assertThrows(IllegalArgumentException.class, () -> service
+				.createDraftWideJob(genericDto(SelectorType.MULTIPLE_HOSTS), new WideHttpJobDetailsDto(2L)));
+
+		verifyNoInteractions(targetConfigService);
+		assertEquals(0, TransactionSynchronizationManager.getSynchronizations().size());
 	}
 
 }

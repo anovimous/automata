@@ -135,11 +135,16 @@ class JobCreationAndPlanningGapsTest {
 	// ---- the targets which cannot be selected ----
 
 	@Test
-	@KnownBug("BUG-041")
 	void aMultipleHostsSelectorCanBeHandledSoThatAWideJobCanBeCreated() throws Exception {
 		TargetSelectionService real = new TargetSelectionService(hostRepo, requestRepo);
-		when(hostRepo.existsById(any())).thenReturn(true);
-		TargetSelector selector = new TargetSelector(SelectorType.MULTIPLE_HOSTS, new ObjectMapper().readTree("{\"hostsIds\":[1,2]}"));
+		Program program = new Program();
+		program.setId(1L);
+		Host first = Host.of(1L);
+		first.setProgram(program);
+		Host second = Host.of(2L);
+		second.setProgram(program);
+		when(hostRepo.findAllById(java.util.Set.of(1L, 2L))).thenReturn(List.of(first, second));
+		TargetSelector selector = new TargetSelector(SelectorType.MULTIPLE_HOSTS, new ObjectMapper().readTree("{\"hostIds\":[1,2]}"));
 
 		TargetSelectionResult result = real.handleTargetSelector(selector);
 
@@ -147,10 +152,14 @@ class JobCreationAndPlanningGapsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-041")
 	void aMultipleRequestsSelectorCanBeHandled() throws Exception {
 		TargetSelectionService real = new TargetSelectionService(hostRepo, requestRepo);
-		TargetSelector selector = new TargetSelector(SelectorType.MULTIPLE_REQUESTS, new ObjectMapper().readTree("{\"requestsIds\":[1,2]}"));
+		com.automata.request.Request first = com.automata.request.Request.of(1L);
+		first.setHost(Host.of(JOB_HOST_ID));
+		com.automata.request.Request second = com.automata.request.Request.of(2L);
+		second.setHost(Host.of(JOB_HOST_ID));
+		when(requestRepo.findAllById(java.util.Set.of(1L, 2L))).thenReturn(List.of(first, second));
+		TargetSelector selector = new TargetSelector(SelectorType.MULTIPLE_REQUESTS, new ObjectMapper().readTree("{\"requestIds\":[1,2]}"));
 
 		TargetSelectionResult result = real.handleTargetSelector(selector);
 

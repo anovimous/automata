@@ -2,12 +2,11 @@ package com.automata.job.domain.model.embedded;
 
 import java.util.Set;
 
+import lombok.Data;
+
+@Data
 public class MultipleRequestsSelector {
 
-	private Set<Long> ids;
-
-	private RequestsHighLevelMatcher highLevelMatcher;
-
-	private RequestsLowLevelMatcher lowLevelMatcher;
+	private Set<Long> requestIds;
 
 }

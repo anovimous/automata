@@ -1,7 +1,13 @@
 package com.automata.job.service;
 
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 
+import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.job.domain.model.embedded.MultipleHostsSelector;
 import com.automata.job.domain.model.embedded.MultipleRequestsSelector;
@@ -81,13 +87,53 @@ public class TargetSelectionService {
 	}
 
 	private TargetSelectionResult handleMultipleRequestsSelector(MultipleRequestsSelector selector) {
-//TODO
-		throw new UnsupportedOperationException("Not implemented yet");
+
+		Set<Long> requestIds = requireIds(selector.getRequestIds(), "requestIds");
+
+		List<Request> requests = requestRepo.findAllById(requestIds);
+
+		requireAllFound(requestIds, requests.stream().map(Request::getId).collect(Collectors.toSet()), "Request");
+
+		requests.forEach(HttpJobUtils::requireJobEligible);
+
+		// the hosts are already loaded together with the requests, so this costs no query
+		Set<Long> hostIds = requests.stream().map(request -> request.getHost().getId()).collect(Collectors.toSet());
+
+		return new TargetSelectionResult.MultipleRequests(requestIds, hostIds);
+
 	}
 
 	private TargetSelectionResult handleMultipleHostsSelector(MultipleHostsSelector selector) {
-//TODO
-		throw new UnsupportedOperationException("Not implemented yet");
+
+		Set<Long> hostIds = requireIds(selector.getHostIds(), "hostIds");
+
+		List<Host> hosts = hostRepo.findAllById(hostIds);
+
+		requireAllFound(hostIds, hosts.stream().map(Host::getId).collect(Collectors.toSet()), "Host");
+
+		Set<Long> programIds = hosts.stream().map(host -> host.getProgram().getId()).collect(Collectors.toSet());
+
+		return new TargetSelectionResult.MultipleHosts(hostIds, programIds);
+
+	}
+
+	private static Set<Long> requireIds(Set<Long> ids, String field) {
+
+		if (ids == null || ids.isEmpty() || ids.contains(null))
+			throw new IllegalArgumentException(field + " must be a non-empty list of ids");
+
+		return ids;
+
+	}
+
+	private static void requireAllFound(Set<Long> wanted, Set<Long> found, String what) {
+
+		Set<Long> missing = new TreeSet<>(wanted);
+		missing.removeAll(found);
+
+		if (!missing.isEmpty())
+			throw new EntityNotFoundException(what + " not found: " + missing);
+
 	}
 
 }
