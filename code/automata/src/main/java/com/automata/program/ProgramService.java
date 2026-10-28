@@ -116,7 +116,7 @@ public class ProgramService {
 
 	public void deleteProgram(Long programId) {
 
-		throw new RuntimeException("Delete operation is not implemented yet");
+		throw new UnsupportedOperationException("Deleting a program is not implemented yet");
 
 	}
 

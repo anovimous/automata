@@ -153,6 +153,8 @@ public class ResponseService {
 
 	public void deleteResponse(Long responseId) {
 
+		throw new UnsupportedOperationException("Deleting a response is not implemented yet");
+
 	}
 
 	@Transactional

@@ -108,7 +108,7 @@ public class RoutineService {
 	@Transactional
 	public void deleteRoutine(Long routineId) {
 
-		throw new RuntimeException("Delete operation not implemented yet");
+		throw new UnsupportedOperationException("Deleting a routine is not implemented yet");
 
 //		Routine routine = routineRepo.findById(routineId)
 //				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));

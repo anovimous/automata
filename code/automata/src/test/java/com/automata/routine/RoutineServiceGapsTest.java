@@ -17,7 +17,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import com.automata.routine.common.enums.ResultContentType;
-import com.automata.testsupport.KnownBug;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;
 
@@ -103,8 +102,8 @@ class RoutineServiceGapsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-003")
 	void deleteSignalsNotImplementedWithUnsupportedOperationException() {
-		assertThrows(UnsupportedOperationException.class, () -> service.deleteRoutine(1L));
+		UnsupportedOperationException e = assertThrows(UnsupportedOperationException.class, () -> service.deleteRoutine(1L));
+		assertEquals("Deleting a routine is not implemented yet", e.getMessage());
 	}
 }

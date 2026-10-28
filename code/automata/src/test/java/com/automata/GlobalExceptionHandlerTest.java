@@ -210,4 +210,13 @@ class GlobalExceptionHandlerTest {
 		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
 		assertEquals("still used", response.getBody());
 	}
+
+	@Test
+	void anUnimplementedDeleteMapsTo501() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleNotImplemented(new UnsupportedOperationException("Deleting a program is not implemented yet"));
+
+		assertEquals(HttpStatus.NOT_IMPLEMENTED, response.getStatusCode());
+		assertEquals("Deleting a program is not implemented yet", response.getBody());
+	}
 }

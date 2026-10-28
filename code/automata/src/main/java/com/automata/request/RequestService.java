@@ -198,7 +198,7 @@ public class RequestService {
 		// check if any unfinished job is tied to it
 		// remove equality set if it becomes empty
 
-		throw new RuntimeException("Delete operation is not implemented yet");
+		throw new UnsupportedOperationException("Deleting a request is not implemented yet");
 
 //		if (narrowJobTargetRequestRepo.existsByTargetRequestId(requestId))
 //			throw new IllegalArgumentException("Deleting a request which is associated with a job is not allowed");
