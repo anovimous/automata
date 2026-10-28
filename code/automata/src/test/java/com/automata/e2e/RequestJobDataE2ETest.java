@@ -293,7 +293,6 @@ class RequestJobDataE2ETest extends RequestE2ETestBase {
 	}
 
 	@Test
-	@KnownBug("BUG-019")
 	void aTrailingSlashIsRebuilt() throws Exception {
 		long id = ingest(get("/api/users/")).requestId();
 		flushAndClear();

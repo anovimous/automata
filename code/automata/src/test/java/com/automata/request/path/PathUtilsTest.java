@@ -141,13 +141,11 @@ class PathUtilsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-019")
 	void theRootPathKeepsItsSlash() {
 		assertEquals("/", PathUtils.parsePath("/").getComputatedPath());
 	}
 
 	@Test
-	@KnownBug("BUG-019")
 	void aTrailingSlashIsKept() {
 		assertEquals("/api/users/", PathUtils.parsePath("/api/users/").getComputatedPath());
 	}
@@ -196,7 +194,6 @@ class PathUtilsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-019")
 	void parseThenComposeKeepsTheTrailingSlashAndTheRoot() {
 		for (String original : List.of("/", "/api/users/", "/api/1/")) {
 			PathParsingResult parsed = PathUtils.parsePath(original);

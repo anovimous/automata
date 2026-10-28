@@ -11,8 +11,8 @@ import com.automata.request.common.RequestFieldLimits;
  * what browsers send unencoded in a query ({@code [ ] { } | ^}) and the
  * malformed escapes that Burp records as they were.
  *
- * @param path  without the query and the fragment; may be empty for an absolute
- *              URL without a path
+ * @param path  without the query and the fragment; "/" for an absolute URL
+ *              without a path
  * @param query without the "?"; null when the target has no "?"
  */
 public record RequestTarget(String path, String query) {
@@ -58,10 +58,12 @@ public record RequestTarget(String path, String query) {
 
 		int question = pathAndQuery.indexOf('?');
 
-		if (question < 0)
-			return new RequestTarget(pathAndQuery, null);
+		String path = question < 0 ? pathAndQuery : pathAndQuery.substring(0, question);
 
-		return new RequestTarget(pathAndQuery.substring(0, question), pathAndQuery.substring(question + 1));
+		String query = question < 0 ? null : pathAndQuery.substring(question + 1);
+
+		// an absolute URL without a path ("http://host") asks for the root
+		return new RequestTarget(path.isEmpty() ? "/" : path, query);
 
 	}
 

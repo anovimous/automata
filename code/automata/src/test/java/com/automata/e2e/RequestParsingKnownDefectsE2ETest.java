@@ -26,24 +26,6 @@ import com.automata.testsupport.KnownBug;
 @RequestE2E
 class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 
-	// ============================================================================================ BUG-019
-
-	@Test
-	@KnownBug("BUG-019")
-	void theRootPathKeepsItsSlash() throws Exception {
-		ingestAndVerify("root", get("/"), Expected.path("/"));
-		ingestAndVerify("root with a query", get("/?x=1"), Expected.path("/").query("x=1"));
-		ingestAndVerify("an absolute url without a path", get("http://h"), Expected.path("/"));
-		ingestAndVerify("an absolute url with only a query", get("http://h?x=1"), Expected.path("/").query("x=1"));
-	}
-
-	@Test
-	@KnownBug("BUG-019")
-	void aTrailingSlashIsKept() throws Exception {
-		ingestAndVerify("trailing slash", get("/api/users/"), Expected.path("/api/users/"));
-		ingestAndVerify("trailing slash after a number", get("/api/users/42/"), Expected.path("/api/users/3@INT/").vars("3:INT=42"));
-	}
-
 	// ============================================================================================ BUG-047
 
 	@Test

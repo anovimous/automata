@@ -183,7 +183,6 @@ class RequestEqualityE2ETest extends RequestE2ETestBase {
 	}
 
 	@Test
-	@KnownBug("BUG-026")
 	void oneParameterIsNotTheSameQueryStringAsTwoWhoseNamesConcatenateToIt() throws Exception {
 		long one = id(ingest(get("/s?ab=1")));
 		long two = id(ingest(get("/s?a=1&b=2")));
