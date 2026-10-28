@@ -24,6 +24,7 @@ import com.automata.job.repository.NarrowHttpJobRepository;
 import com.automata.routine.common.enums.Duration;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Decides which of the sorted candidate jobs fit the program and host rate
@@ -32,6 +33,7 @@ import lombok.RequiredArgsConstructor;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class JobDispatchPlanner {
 
 	private final NarrowHttpJobRepository narrowJobRepo;
@@ -71,7 +73,7 @@ public class JobDispatchPlanner {
 				if (abidesToProgramRateLimit)
 					wideJobAbidesToEachHostRateLimit = checkAbidesToEachHostRateLimit(firstJob, programRate,
 							acceptedNarrowJobs);
-				else
+				else if (couldFitTheProgramLimit(firstJob, programRate))
 					sortedToQueueJobsDeque.removeIf((job) -> job.scope().equals(HttpJobScope.WIDE)
 							&& job.programId().equals(firstJob.programId()));
 
@@ -80,7 +82,7 @@ public class JobDispatchPlanner {
 				if (abidesToProgramRateLimit)
 					narrowJobAbidesToTargetHostRateLimit = checkAbidesToHostRateLimit(firstJob, programRate,
 							acceptedNarrowJobs);
-				else
+				else if (couldFitTheProgramLimit(firstJob, programRate))
 					sortedToQueueJobsDeque.removeIf((job) -> job.scope().equals(HttpJobScope.NARROW)
 							&& job.hostId().equals(firstJob.hostId()) && job.duration().equals(firstJob.duration()));
 
@@ -99,6 +101,21 @@ public class JobDispatchPlanner {
 		}
 
 		return acceptedJobs;
+
+	}
+
+	// A job which does not fit the program because the program is busy keeps the jobs behind it waiting,
+	// so a lower priority job never overtakes it. One which is above the limit on its own never fits, so
+	// it is skipped and does not hold back the others.
+	private boolean couldFitTheProgramLimit(HttpJobInternalDto job, ProgramSummaryRatesDto programRate) {
+
+		if (job.rate() <= programRate.rateLimit())
+			return true;
+
+		log.warn("Job {} has a rate of {}, above the rate limit of {} of its program, so it can never be queued", job.id(),
+				job.rate(), programRate.rateLimit());
+
+		return false;
 
 	}
 

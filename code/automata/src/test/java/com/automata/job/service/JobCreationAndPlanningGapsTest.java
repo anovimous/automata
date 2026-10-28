@@ -97,8 +97,11 @@ class JobCreationAndPlanningGapsTest {
 		lenient().when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
 		Host host = Host.of(JOB_HOST_ID);
 		host.setHostRateLimit(10);
+		host.setShortRateLimit(10);
+		host.setLongRateLimit(10);
 		Program program = new Program();
 		program.setId(1L);
+		program.setProgramRateLimit(100);
 		host.setProgram(program);
 		lenient().when(hostRepo.findById(JOB_HOST_ID)).thenReturn(Optional.of(host));
 		lenient().when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -173,7 +176,6 @@ class JobCreationAndPlanningGapsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-043")
 	void aJobAboveTheProgramLimitDoesNotBlockTheSmallJobsBehindIt() {
 		JobDispatchPlanner planner = new JobDispatchPlanner(narrowJobRepo, hostRepo);
 		HttpJobInternalDto oversized = narrow(1, 50, 3, 1);
@@ -190,14 +192,13 @@ class JobCreationAndPlanningGapsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-043")
 	void aUserJobWithARateAboveTheLimitOfItsHostIsRefusedAtCreation() {
 		givenEverythingElseIsValid();
 		GenericHttpJobDetailsDto generic = new GenericHttpJobDetailsDto(ResultsVerbosity.NORMAL, 2, 500, 1L, null,
 				new TargetSelector(SelectorType.SINGLE_HOST, null), List.of(), null);
 
 		// the host accepts 10 requests per second: this job could never be queued
-		assertThrows(IllegalArgumentException.class,
+		assertThrows(com.automata.job.domain.exception.IneligibleJobTargetException.class,
 				() -> creationService.createDraftNarrowJob(generic, new NarrowHttpJobDetailsDto(Duration.SHORT, JOB_HOST_ID, null)));
 	}
 }
