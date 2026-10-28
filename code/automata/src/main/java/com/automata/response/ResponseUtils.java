@@ -22,6 +22,7 @@ import com.automata.common.utils.HttpMessageUtils;
 import com.automata.common.utils.ValidationResult;
 import com.automata.host.Host;
 import com.automata.request.Request;
+import com.automata.request.RequestUtils;
 import com.automata.request.body.BodyParseResult;
 import com.automata.request.common.RequestFieldLimits;
 import com.automata.request.body.BodyUtils;
@@ -109,10 +110,10 @@ public abstract class ResponseUtils {
 
 		}
 
-		ValidationResult lengths = validateFieldLengths(headers, bodyParseResult);
+		ValidationResult storable = validateStoredTexts(headers, bodyParseResult);
 
-		if (!lengths.isValid())
-			return ResponseParseResult.builder().validationResult(lengths).build();
+		if (!storable.isValid())
+			return ResponseParseResult.builder().validationResult(storable).build();
 
 		ResponseParseResult finalParseResult = ResponseParseResult.builder().statusCode(statusCode)
 				.contentLength(contentLength).contentType(customContentType).headers(headers)
@@ -123,8 +124,9 @@ public abstract class ResponseUtils {
 
 	}
 
-	// Each text taken from the response must fit its column, otherwise the response would be lost to a database error
-	static ValidationResult validateFieldLengths(List<Header> headers, BodyParseResult body) {
+	// Each text taken from the response must fit its column and have no NUL character, otherwise the response
+	// would be lost to a database error
+	static ValidationResult validateStoredTexts(List<Header> headers, BodyParseResult body) {
 
 		List<ValidationResult> checks = new ArrayList<>();
 
@@ -132,9 +134,7 @@ public abstract class ResponseUtils {
 				"The name of the header '" + RequestFieldLimits.preview(header.getPrimaryKey().getHeader()) + "'",
 				header.getPrimaryKey().getHeader(), RequestFieldLimits.MAX_HEADER_NAME)));
 
-		body.getBodyProperties().forEach(property -> checks.add(RequestFieldLimits.checkLength(
-				"The path of the body property '" + RequestFieldLimits.preview(property.getFullPath()) + "'",
-				property.getFullPath(), RequestFieldLimits.MAX_BODY_PROPERTY_PATH)));
+		body.getBodyProperties().forEach(property -> RequestUtils.addBodyPropertyChecks(checks, property));
 
 		return checks.stream().filter(check -> !check.isValid()).findFirst().orElse(ValidationResult.valid());
 

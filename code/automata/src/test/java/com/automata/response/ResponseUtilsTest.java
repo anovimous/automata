@@ -144,6 +144,15 @@ class ResponseUtilsTest {
 	}
 
 	@Test
+	void aNulCharacterInAJsonValueIsRefused() {
+		ResponseParseResult result = ResponseUtils
+				.parseResponse(response("Content-Type: application/json\r\n", "{\"a\":\"x\\u0000y\"}"));
+
+		assertFalse(result.validationResult().isValid());
+		assertTrue(result.validationResult().getMessage().contains("The value of the body property 'a' contains a NUL"));
+	}
+
+	@Test
 	void aHeaderNameAtTheLimitIsAccepted() {
 		assertTrue(ResponseUtils.parseResponse(response("X-" + "h".repeat(1998) + ": 1\r\n", "")).validationResult()
 				.isValid());

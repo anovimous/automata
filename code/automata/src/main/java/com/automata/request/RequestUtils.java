@@ -2,7 +2,6 @@ package com.automata.request;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -151,21 +150,22 @@ public abstract class RequestUtils {
 					.build();
 		}
 
-		// URI Creation:
-		URI uri = URI.create(request.getPath());
+		// Request target: the raw path and query are kept, since decoding them first
+		// would break "%20", "%25" and "%26" (the query values are decoded once, as
+		// parameters), and java.net.URI would refuse the characters which browsers
+		// send unencoded, such as [ ] { } |
+		RequestTarget target;
+		try {
+			target = RequestTarget.parse(request.getPath());
+		} catch (IllegalArgumentException e) {
+			return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
+		}
 
-		// Path Parsing: the raw path and query are kept, since decoding them first
-		// would break "%20", "%25" and "%26" (they are decoded once, as parameters)
-		String path = uri.getRawPath();
-
-		if (path == null)
-			return RequestParseResult.builder()
-					.validationResult(ValidationResult.invalid("The request target has no path")).build();
-
-		PathParsingResult pathParseResult = PathUtils.parsePath(path);
+		// Path Parsing:
+		PathParsingResult pathParseResult = PathUtils.parsePath(target.path());
 
 		// QueryString Parsing:
-		String queryString = uri.getRawQuery();
+		String queryString = target.query();
 		QueryStringParseResult queryStringParseResult;
 
 		if (queryString != null)
@@ -210,11 +210,11 @@ public abstract class RequestUtils {
 
 		}
 
-		ValidationResult lengths = validateFieldLengths(pathParseResult, queryStringParseResult, headers,
+		ValidationResult storable = validateStoredTexts(pathParseResult, queryStringParseResult, headers,
 				bodyParseResult);
 
-		if (!lengths.isValid())
-			return RequestParseResult.builder().validationResult(lengths).build();
+		if (!storable.isValid())
+			return RequestParseResult.builder().validationResult(storable).build();
 
 		// Final result construction
 
@@ -228,8 +228,9 @@ public abstract class RequestUtils {
 
 	}
 
-	// Each text taken from the request must fit its column, otherwise the request would be lost to a database error
-	static ValidationResult validateFieldLengths(PathParsingResult path, QueryStringParseResult query,
+	// Each text taken from the request must fit its column and have no NUL character, otherwise the request
+	// would be lost to a database error
+	static ValidationResult validateStoredTexts(PathParsingResult path, QueryStringParseResult query,
 			List<Header> headers, BodyParseResult body) {
 
 		List<ValidationResult> checks = new ArrayList<>();
@@ -250,17 +251,32 @@ public abstract class RequestUtils {
 			checks.add(RequestFieldLimits.checkLength(
 					"The value of the query parameter '" + RequestFieldLimits.preview(parameter.getParameter()) + "'",
 					parameter.getValue(), RequestFieldLimits.MAX_PARAMETER_VALUE));
+			checks.add(RequestFieldLimits.checkNoNul(
+					"The name of the query parameter '" + RequestFieldLimits.preview(parameter.getParameter()) + "'",
+					parameter.getParameter()));
+			checks.add(RequestFieldLimits.checkNoNul(
+					"The value of the query parameter '" + RequestFieldLimits.preview(parameter.getParameter()) + "'",
+					parameter.getValue()));
 		});
 
 		headers.forEach(header -> checks.add(RequestFieldLimits.checkLength(
 				"The name of the header '" + RequestFieldLimits.preview(header.getPrimaryKey().getHeader()) + "'",
 				header.getPrimaryKey().getHeader(), RequestFieldLimits.MAX_HEADER_NAME)));
 
-		body.getBodyProperties().forEach(property -> checks.add(RequestFieldLimits.checkLength(
-				"The path of the body property '" + RequestFieldLimits.preview(property.getFullPath()) + "'",
-				property.getFullPath(), RequestFieldLimits.MAX_BODY_PROPERTY_PATH)));
+		body.getBodyProperties().forEach(property -> addBodyPropertyChecks(checks, property));
 
 		return checks.stream().filter(check -> !check.isValid()).findFirst().orElse(ValidationResult.valid());
+
+	}
+
+	public static void addBodyPropertyChecks(List<ValidationResult> checks, com.automata.request.body.BodyProperty property) {
+
+		String what = "the body property '" + RequestFieldLimits.preview(property.getFullPath()) + "'";
+
+		checks.add(RequestFieldLimits.checkLength("The path of " + what, property.getFullPath(),
+				RequestFieldLimits.MAX_BODY_PROPERTY_PATH));
+		checks.add(RequestFieldLimits.checkNoNul("The path of " + what, property.getFullPath()));
+		checks.add(RequestFieldLimits.checkNoNul("The value of " + what, property.getValue()));
 
 	}
 
@@ -281,7 +297,8 @@ public abstract class RequestUtils {
 		else
 			uri = stringUriBuilder.toString();
 
-		ClassicHttpRequest apacheRequest = new BasicClassicHttpRequest(method, URI.create(uri));
+		// the path is written as it was stored: parsing it as a URI would refuse what the sender sent
+		ClassicHttpRequest apacheRequest = new BasicClassicHttpRequest(method, uri);
 
 		apacheRequest.setAuthority(new URIAuthority(host));
 

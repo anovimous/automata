@@ -252,6 +252,26 @@ class RequestIngestionIntegrationTest {
 				.map(p -> p.getParameter() + "=" + p.getValue()).collect(java.util.stream.Collectors.toSet()));
 	}
 
+	@Test
+	void aRequestWithUnencodedSpecialCharactersIsStoredAsSent() {
+		Request saved = requestService.addRawRequest(dto(get("/a[b]/c|d?filter[name]=x|y&ids={1}", ""), null, null));
+		fx.clear();
+
+		assertEquals("/a[b]/c|d", requestRepo.findById(saved.getId()).orElseThrow().getComputatedPath());
+		assertEquals(java.util.Set.of("filter[name]=x|y", "ids={1}"), parameterRepo.findAll().stream()
+				.map(p -> p.getParameter() + "=" + p.getValue()).collect(java.util.stream.Collectors.toSet()));
+	}
+
+	@Test
+	void aNulCharacterInAQueryValueIsRefusedWithAClearMessageAndNothingIsStored() {
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> requestService.addRawRequest(dto(get("/a?x=%00", ""), null, null)));
+
+		assertEquals("The value of the query parameter 'x' contains a NUL character (%00), which cannot be stored",
+				e.getMessage());
+		assertEquals(0, requestRepo.count());
+	}
+
 	@Autowired
 	ResponseService responseService;
 

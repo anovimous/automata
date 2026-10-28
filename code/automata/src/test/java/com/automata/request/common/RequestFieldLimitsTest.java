@@ -41,6 +41,21 @@ class RequestFieldLimitsTest {
 	}
 
 	@Test
+	void aTextWithoutNulCharacterIsValid() {
+		assertTrue(RequestFieldLimits.checkNoNul("The value", "abc%00\\u0000").isValid());
+		assertTrue(RequestFieldLimits.checkNoNul("The value", "").isValid());
+		assertTrue(RequestFieldLimits.checkNoNul("The value", null).isValid());
+	}
+
+	@Test
+	void aTextWithANulCharacterIsInvalidWithAMessage() {
+		ValidationResult result = RequestFieldLimits.checkNoNul("The value of 'x'", "a\u0000b");
+
+		assertFalse(result.isValid());
+		assertEquals("The value of 'x' contains a NUL character (%00), which cannot be stored", result.getMessage());
+	}
+
+	@Test
 	void aShortTextIsNotCutInAPreview() {
 		assertEquals("token", RequestFieldLimits.preview("token"));
 		assertEquals("a".repeat(40), RequestFieldLimits.preview("a".repeat(40)));
