@@ -59,6 +59,11 @@ public abstract class ResponseUtils {
 			return ResponseParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
 		}
 
+		// nothing but empty lines: the parser finds no status line and gives no response
+		if (response == null)
+			return ResponseParseResult.builder()
+					.validationResult(ValidationResult.invalid("The response is empty: it has no status line")).build();
+
 		// status code
 
 		int statusCode = response.getCode();

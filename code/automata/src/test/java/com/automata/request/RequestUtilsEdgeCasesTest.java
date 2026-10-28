@@ -265,9 +265,28 @@ class RequestUtilsEdgeCasesTest {
 	}
 
 	@Test
-	@KnownBug("BUG-025")
 	void emptyInputIsInvalid() {
-		assertFalse(RequestUtils.parseRawRequest(new byte[0]).getValidationResult().isValid());
+		RequestParseResult result = RequestUtils.parseRawRequest(new byte[0]);
+
+		assertFalse(result.getValidationResult().isValid());
+		assertEquals("The request is empty: it has no request line", result.getValidationResult().getMessage());
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "\r\n", "\n", "\r\n\r\n", "\n\n\n", "\r\n\r\nGET /a HTTP/1.1\r\nHost: h\r\n\r\n" })
+	void emptyLinesWithoutARequestLineAreInvalid(String input) {
+		RequestParseResult result = RequestUtils.parseRawRequest(input.getBytes(StandardCharsets.ISO_8859_1));
+
+		assertFalse(result.getValidationResult().isValid());
+		assertEquals("The request is empty: it has no request line", result.getValidationResult().getMessage());
+	}
+
+	@Test
+	void oneEmptyLineBeforeTheRequestLineIsSkipped() {
+		RequestParseResult result = RequestUtils.parseRawRequest("\r\nGET /a HTTP/1.1\r\nHost: h\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1));
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("/a", result.getPathParseResult().getComputatedPath());
 	}
 
 	// ---- validateRequestFilter ----

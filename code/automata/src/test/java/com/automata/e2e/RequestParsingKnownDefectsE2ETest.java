@@ -64,24 +64,6 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 		ingestAndVerify("trailing slash after a number", get("/api/users/42/"), Expected.path("/api/users/3@INT/").vars("3:INT=42"));
 	}
 
-	// ============================================================================================ BUG-025
-
-	@Test
-	@KnownBug("BUG-025")
-	void anEmptyRequestIsRefusedWithAClearMessage() throws Exception {
-		MvcResult result = send(new byte[0], null, null);
-
-		assertEquals(400, result.getResponse().getStatus(), result.getResponse().getContentAsString());
-	}
-
-	@Test
-	@KnownBug("BUG-025")
-	void aRequestOfOnlyNewlinesIsRefusedWithAClearMessage() throws Exception {
-		MvcResult result = send("\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1), null, null);
-
-		assertEquals(400, result.getResponse().getStatus(), result.getResponse().getContentAsString());
-	}
-
 	// ============================================================================================ BUG-047
 
 	@Test

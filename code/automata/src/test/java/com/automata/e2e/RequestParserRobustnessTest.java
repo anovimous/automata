@@ -16,8 +16,6 @@ import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.Test;
 
-import com.automata.testsupport.KnownBug;
-
 import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.request.RequestParseResult;
 import com.automata.request.RequestUtils;
@@ -69,20 +67,7 @@ class RequestParserRobustnessTest {
 
 	// ============================================================================================ no surprises
 
-	/**
-	 * A head of only empty lines gives the parser no request at all and it fails with a NullPointerException that
-	 * names "request" (BUG-025, an empty request is a 500). Those are the only failures that may be tolerated, and
-	 * only by the tests that are not about it.
-	 */
-	private static boolean isTheEmptyRequestBug(Throwable t) {
-		return t instanceof NullPointerException && t.getMessage() != null && t.getMessage().contains("\"request\" is null");
-	}
-
 	private void assertParses(String label, byte[] raw) {
-		assertParses(label, raw, true);
-	}
-
-	private void assertParses(String label, byte[] raw, boolean tolerateTheEmptyRequestBug) {
 		RequestParseResult result;
 		try {
 			result = RequestUtils.parseRawRequest(raw);
@@ -90,8 +75,6 @@ class RequestParserRobustnessTest {
 			assertNotNull(e.getMessage(), label + ": a refusal explains itself <- " + show(raw));
 			return;
 		} catch (Throwable t) {
-			if (tolerateTheEmptyRequestBug && isTheEmptyRequestBug(t))
-				return;
 			fail(label + ": unexpected " + t + " <- " + show(raw), t);
 			return;
 		}
@@ -153,7 +136,6 @@ class RequestParserRobustnessTest {
 	}
 
 	@Test
-	@KnownBug("BUG-025")
 	void textWithoutARequestLineIsRefusedAndNeverAnException() {
 		Random random = new Random(7L);
 		String[] tokens = { "\r\n", "\n", " ", "GET", "HTTP/1.1", "a", "\"", "{", "Host: h", ":" };
@@ -162,7 +144,7 @@ class RequestParserRobustnessTest {
 			int count = 1 + random.nextInt(12);
 			for (int j = 0; j < count; j++)
 				raw.append(pick(random, tokens));
-			assertParses("blank lines first #" + i, raw.toString().getBytes(StandardCharsets.ISO_8859_1), false);
+			assertParses("blank lines first #" + i, raw.toString().getBytes(StandardCharsets.ISO_8859_1));
 		}
 	}
 

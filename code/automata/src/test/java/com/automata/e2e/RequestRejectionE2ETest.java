@@ -72,6 +72,11 @@ class RequestRejectionE2ETest extends RequestE2ETestBase {
 
 	static Stream<Arguments> requestLines() {
 		return Stream.of(
+				r("an empty request", "", "The request is empty: it has no request line"),
+				r("a request of one empty line", "\r\n", "The request is empty: it has no request line"),
+				r("a request of empty lines", "\r\n\r\n\r\n", "The request is empty: it has no request line"),
+				r("a request of bare line feeds", "\n\n", "The request is empty: it has no request line"),
+				r("two empty lines before the request line", "\r\n\r\nGET /a HTTP/1.1\r\nHost: h\r\n\r\n", "The request is empty: it has no request line"),
 				r("OPTIONS", RawHttp.of("OPTIONS", "/a"), "Unsupported HTTP method 'OPTIONS'"),
 				r("TRACE", RawHttp.of("TRACE", "/a"), "Unsupported HTTP method 'TRACE'"),
 				r("CONNECT", RawHttp.of("CONNECT", "example.com:443"), "Unsupported HTTP method 'CONNECT'"),
