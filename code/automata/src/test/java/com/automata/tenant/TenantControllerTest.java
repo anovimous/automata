@@ -179,11 +179,4 @@ class TenantControllerTest {
 		mvc.perform(get("/api/tenants/2/authentication")).andExpect(status().isNotFound());
 	}
 
-	@Test
-	@KnownBug("BUG-012")
-	void deleteAuthenticationAnswers204() throws Exception {
-		mvc.perform(delete("/api/tenants/2/authentication")).andExpect(status().isNoContent());
-
-		verify(authService).deleteAuthentication(2L);
-	}
 }

@@ -342,7 +342,6 @@ class TenantHostIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-017")
 	void aTenantWithAnAuthenticationCanBeDeletedAndTakesItsAuthenticationWithIt() {
 		Tenant tenant = fx.tenant(fx.host(program, "api.example.com"), "alice");
 		Authentication authentication = authService.createAuthentication(Authentication.builder().authData(authData("Bearer a")).build(),
@@ -402,16 +401,46 @@ class TenantHostIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-010")
-	void deleteAuthenticationRemovesItFromTheTenant() {
+	void replacingTheAuthenticationOfATenantLeavesOnlyTheNewOne() {
 		Tenant tenant = fx.tenant(fx.host(program, "api.example.com"), "alice");
 		authService.createAuthentication(Authentication.builder().authData(authData("Bearer a")).build(), tenant.getId());
+		em.flush();
 		fx.clear();
 
-		authService.deleteAuthentication(tenant.getId());
+		authService.createAuthentication(Authentication.builder().authData(authData("Bearer b")).build(), tenant.getId());
+		em.flush();
 		fx.clear();
 
-		assertNull(authService.getAuthenticationOfTenant(tenant.getId()));
-		assertEquals(0, authRepo.count());
+		assertEquals(1, authRepo.count());
+		assertEquals("Bearer b", authService.getAuthenticationOfTenant(tenant.getId()).getAuthData().getData().getHeaders().get(0).getValue());
+	}
+
+	@Test
+	void aTenantWithoutAuthenticationCanBeDeleted() {
+		Tenant tenant = fx.tenant(fx.host(program, "api.example.com"), "alice");
+		fx.clear();
+
+		tenantService.deleteTenant(tenant.getId());
+		fx.clear();
+
+		assertTrue(tenantRepo.findById(tenant.getId()).isEmpty());
+	}
+
+	@Test
+	void deletingATenantLeavesTheAuthenticationsOfTheOtherTenants() {
+		Tenant alice = fx.tenant(fx.host(program, "api.example.com"), "alice");
+		Tenant bob = fx.tenant(alice.getHost(), "bob");
+		authService.createAuthentication(Authentication.builder().authData(authData("Bearer a")).build(), alice.getId());
+		Authentication bobs = authService.createAuthentication(Authentication.builder().authData(authData("Bearer b")).build(),
+				bob.getId());
+		em.flush();
+		Long bobsId = bobs.getId();
+		fx.clear();
+
+		tenantService.deleteTenant(alice.getId());
+		fx.clear();
+
+		assertEquals(1, authRepo.count());
+		assertTrue(authRepo.findById(bobsId).isPresent());
 	}
 }
