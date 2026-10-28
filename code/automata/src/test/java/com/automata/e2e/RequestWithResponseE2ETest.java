@@ -277,15 +277,45 @@ class RequestWithResponseE2ETest extends RequestE2ETestBase {
 	}
 
 	@Test
-	@KnownBug("BUG-031")
-	void aSecondResponseForTheSameRequestIsRefusedOrReplacesTheFirstWithoutAServerError() throws Exception {
+	void aSecondResponseForTheSameRequestIsRefusedWithAConflictAndTheFirstOneStays() throws Exception {
 		long requestId = ingestWith(get("/a"), jsonResponse(200, "OK", "{}"));
 		flushAndClear();
+		long firstResponseId = metadata(requestId).responseId();
 
 		String body = "{\"responseBase64\":\"" + Base64.getEncoder().encodeToString(jsonResponse(500, "Oops", "{}")) + "\"}";
 		MvcResult result = mvc.perform(MockMvcRequestBuilders.post("/api/requests/{id}/response", requestId).contentType(MediaType.APPLICATION_JSON).content(body)).andReturn();
 
-		assertTrue(result.getResponse().getStatus() < 500, "status " + result.getResponse().getStatus());
+		assertEquals(409, result.getResponse().getStatus(), result.getResponse().getContentAsString());
+		assertEquals("Request " + requestId + " already has a response (id " + firstResponseId + "), so another one can't be added.",
+				result.getResponse().getContentAsString());
+		flushAndClear();
+		assertEquals(firstResponseId, metadata(requestId).responseId());
+		assertEquals(200, responseMetadata(firstResponseId).statusCode());
+		assertEquals(1, em.getEntityManager().createQuery("select count(r) from Response r", Long.class).getSingleResult());
+	}
+
+	@Test
+	void aSecondResponseIsRefusedBeforeItIsParsedSoItsOwnErrorsDoNotMatter() throws Exception {
+		long requestId = ingestWith(get("/a"), jsonResponse(200, "OK", "{}"));
+		flushAndClear();
+
+		String body = "{\"responseBase64\":\"" + Base64.getEncoder().encodeToString("garbage".getBytes(StandardCharsets.ISO_8859_1)) + "\"}";
+		MvcResult result = mvc.perform(MockMvcRequestBuilders.post("/api/requests/{id}/response", requestId).contentType(MediaType.APPLICATION_JSON).content(body)).andReturn();
+
+		assertEquals(409, result.getResponse().getStatus());
+	}
+
+	@Test
+	void aRequestWithoutAResponseStillTakesOne() throws Exception {
+		long requestId = ingest(get("/a")).requestId();
+		flushAndClear();
+
+		String body = "{\"responseBase64\":\"" + Base64.getEncoder().encodeToString(jsonResponse(200, "OK", "{}")) + "\"}";
+		MvcResult first = mvc.perform(MockMvcRequestBuilders.post("/api/requests/{id}/response", requestId).contentType(MediaType.APPLICATION_JSON).content(body)).andReturn();
+		MvcResult second = mvc.perform(MockMvcRequestBuilders.post("/api/requests/{id}/response", requestId).contentType(MediaType.APPLICATION_JSON).content(body)).andReturn();
+
+		assertEquals(200, first.getResponse().getStatus());
+		assertEquals(409, second.getResponse().getStatus());
 	}
 
 }
