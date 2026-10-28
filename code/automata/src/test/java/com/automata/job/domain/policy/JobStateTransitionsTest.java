@@ -78,6 +78,11 @@ class JobStateTransitionsTest {
 		assertEquals(new ToApplyJobStateChange(JobState.CANCELED, null), JobStateTransitions.cancel(JobState.TOQUEUE, null));
 	}
 
+	@Test
+	void aDraftJobIsCanceledAtOnce() {
+		assertEquals(new ToApplyJobStateChange(JobState.CANCELED, null), JobStateTransitions.cancel(JobState.DRAFT, null));
+	}
+
 	@ParameterizedTest
 	@EnumSource(value = JobState.class, names = { "QUEUED", "RUNNING", "PAUSED" })
 	void aJobHeldByAWorkerIsOnlyRequestedToCancel(JobState current) {
@@ -90,12 +95,12 @@ class JobStateTransitionsTest {
 	}
 
 	@ParameterizedTest
-	@EnumSource(value = JobState.class, names = { "TOQUEUE", "SCHEDULED", "QUEUED", "RUNNING", "PAUSED" }, mode = EnumSource.Mode.EXCLUDE)
+	@EnumSource(value = JobState.class, names = { "DRAFT", "TOQUEUE", "SCHEDULED", "QUEUED", "RUNNING", "PAUSED" }, mode = EnumSource.Mode.EXCLUDE)
 	void otherJobsCannotBeCanceled(JobState current) {
 		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
 				() -> JobStateTransitions.cancel(current, null));
 		assertEquals(
-				"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,RUNNING,PAUSED] states in order to cancel it, but it is "
+				"The job must be in the [DRAFT,TOQUEUE,SCHEDULED,QUEUED,RUNNING,PAUSED] states in order to cancel it, but it is "
 						+ current,
 				ex.getMessage());
 	}

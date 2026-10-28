@@ -14,7 +14,7 @@ import com.automata.job.domain.model.enums.JobState;
  * pending wish of the user that the worker reads when it polls.
  * <ul>
  * <li>A user changes the current state directly only while no worker holds the
- * job (prepare, and canceling a job which is still to be queued). Otherwise the
+ * job (prepare, and canceling a job which is still a draft or to be queued). Otherwise the
  * user only sets the requested state.</li>
  * <li>A worker reports the current state, which clears the requested one, and
  * only as a move the table of what a worker may report allows. Pausing,
@@ -34,8 +34,8 @@ public final class JobStateTransitions {
 	// the jobs which a worker has started and so is expected to keep in touch about
 	private static final List<JobState> HELD_BY_WORKER_LONG_TERM = List.of(JobState.RUNNING, JobState.PAUSED);
 
-	private static final List<JobState> CANCELABLE = List.of(JobState.TOQUEUE, JobState.SCHEDULED, JobState.QUEUED,
-			JobState.RUNNING, JobState.PAUSED);
+	private static final List<JobState> CANCELABLE = List.of(JobState.DRAFT, JobState.TOQUEUE, JobState.SCHEDULED,
+			JobState.QUEUED, JobState.RUNNING, JobState.PAUSED);
 
 	// The worker holds these jobs, so canceling them is only requested
 	private static final List<JobState> CANCELABLE_BY_REQUEST = List.of(JobState.QUEUED, JobState.RUNNING, JobState.PAUSED);
@@ -93,7 +93,7 @@ public final class JobStateTransitions {
 
 		if (!CANCELABLE.contains(current))
 			throw new InvalidJobStateException(
-					"The job must be in the [TOQUEUE,SCHEDULED,QUEUED,RUNNING,PAUSED] states in order to cancel it, but it is "
+					"The job must be in the [DRAFT,TOQUEUE,SCHEDULED,QUEUED,RUNNING,PAUSED] states in order to cancel it, but it is "
 							+ current);
 
 		if (CANCELABLE_BY_REQUEST.contains(current))

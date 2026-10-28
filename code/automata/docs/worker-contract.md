@@ -184,7 +184,7 @@ Anything not in the table is answered 409. The states `DRAFT`, `TOQUEUE`, `SCHED
 
 ### 5.2 What the user and the core do
 
-The user only changes `currentState` while no worker holds the job (prepare, cancel before queueing); otherwise the user sets `requestedState` and the worker carries it out the next time it polls. `-` means the field becomes empty. Endpoints are under `/api/jobs/http`.
+The user only changes `currentState` while no worker holds the job (prepare, cancel of a draft or before queueing); otherwise the user sets `requestedState` and the worker carries it out the next time it polls. `-` means the field becomes empty. Endpoints are under `/api/jobs/http`.
 
 <!-- actions:start -->
 | Action | From | Current becomes | Requested becomes |
@@ -192,6 +192,7 @@ The user only changes `currentState` while no worker holds the job (prepare, can
 | prepare | DRAFT | TOQUEUE | - |
 | pause | RUNNING | RUNNING | PAUSED |
 | resume | PAUSED | PAUSED | RUNNING |
+| cancel | DRAFT | CANCELED | - |
 | cancel | TOQUEUE | CANCELED | - |
 | cancel | QUEUED | QUEUED | CANCELED |
 | cancel | RUNNING | RUNNING | CANCELED |
