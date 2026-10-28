@@ -84,14 +84,19 @@ class HttpJobCreationServiceAiJobTest {
 	void setUp() {
 		TransactionSynchronizationManager.initSynchronization();
 		host = Host.of(4L);
-		host.setProgram(new Program());
+		Program program = new Program();
+		program.setProgramRateLimit(60);
+		host.setProgram(program);
 		host.setHostRateLimit(50);
+		host.setShortRateLimit(40);
+		host.setLongRateLimit(30);
 		routine = RoutineFixtures.usableRoutine();
 		routine.setId(1L);
 		routine.setKey("fuzz");
 		request = Request.of(5L);
 		request.setHost(host);
-		context = AgentContext.builder().host(host).allowedRoutines(List.of(routine)).maxRate(100).build();
+		context = AgentContext.builder().host(host).allowedRoutines(List.of(routine)).maxRate(100)
+				.defaultJobRate(35).build();
 		context.setId(9L);
 	}
 
@@ -221,11 +226,24 @@ class HttpJobCreationServiceAiJobTest {
 	}
 
 	@Test
-	void rateIsCappedByTheContextMaxRate() {
-		context.setMaxRate(10);
+	void anExplicitRateWithinTheLimitsIsKept() {
 		givenJobCanBeCreated(List.of(target(true)));
 
-		assertEquals(10, createAndCapture(aiRequest(Duration.SHORT, 30, null, null)).getGenericDetails().getRate());
+		assertEquals(40, createAndCapture(aiRequest(Duration.SHORT, 40, null, null)).getGenericDetails().getRate());
+	}
+
+	@Test
+	void anExplicitRateAboveTheContextMaxRateIsRefused() {
+		context.setMaxRate(10);
+		givenOnlyTheTargetsAreResolved(List.of(target(true)));
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(routine));
+
+		com.automata.job.domain.exception.IneligibleJobTargetException e = assertThrows(
+				com.automata.job.domain.exception.IneligibleJobTargetException.class,
+				() -> service.createDraftAiNarrowJob(CONTEXT_UUID, aiRequest(Duration.SHORT, 30, null, null)));
+
+		assertTrue(e.getMessage().contains("maxRate of the agent context"));
+		verify(jobRepo, never()).save(any());
 	}
 
 	@Test
@@ -365,12 +383,10 @@ class HttpJobCreationServiceAiJobTest {
 	}
 
 	@Test
-	void withoutARequestedRateTheHostRateLimitCappedByTheContextIsTheRate() {
-		host.setHostRateLimit(50);
-		context.setMaxRate(20);
+	void withoutARequestedRateTheDefaultJobRateOfTheContextIsTheRate() {
 		givenJobCanBeCreated(List.of(target(true)));
 
-		assertEquals(20, createAndCapture(aiRequest(Duration.SHORT, null, null, null)).getGenericDetails().getRate());
+		assertEquals(35, createAndCapture(aiRequest(Duration.SHORT, null, null, null)).getGenericDetails().getRate());
 	}
 
 	@Test
@@ -461,31 +477,94 @@ class HttpJobCreationServiceAiJobTest {
 				() -> service.resolvedTargetOfContext(context, 77L));
 	}
 
-	// ---- cappedRate
+	// ---- aiRate
 
-	@Test
-	void requestedRateIsKeptWhenBelowTheLimits() {
-		assertEquals(5, service.cappedRate(5, 50, 20));
+	private static final Duration SHORT = Duration.SHORT;
+
+	private com.automata.job.domain.exception.IneligibleJobTargetException refusedRate(Integer requested,
+			Duration duration) {
+		return assertThrows(com.automata.job.domain.exception.IneligibleJobTargetException.class,
+				() -> service.aiRate(requested, host, duration, context));
 	}
 
 	@Test
-	void requestedRateIsCappedByTheHostRateLimit() {
-		assertEquals(50, service.cappedRate(80, 50, 100));
+	void anExplicitRateAtTheLimitsIsKept() {
+		assertEquals(40, service.aiRate(40, host, SHORT, context));
+		assertEquals(30, service.aiRate(30, host, Duration.LONG, context));
 	}
 
 	@Test
-	void requestedRateIsCappedByTheContextMaxRate() {
-		assertEquals(20, service.cappedRate(80, 100, 20));
+	void anExplicitRateAboveTheHostRateLimitIsRefused() {
+		assertTrue(refusedRate(51, SHORT).getMessage().contains("rate limit of the host"));
 	}
 
 	@Test
-	void withoutARequestedRateTheHostRateLimitIsUsed() {
-		assertEquals(50, service.cappedRate(null, 50, 100));
+	void anExplicitRateAboveTheProgramRateLimitIsRefused() {
+		host.setHostRateLimit(100);
+		host.setShortRateLimit(100);
+
+		assertTrue(refusedRate(61, SHORT).getMessage().contains("rate limit of the program"));
 	}
 
 	@Test
-	void withoutARequestedRateTheContextMaxRateCapsTheHostRateLimit() {
-		assertEquals(20, service.cappedRate(null, 50, 20));
+	void anExplicitRateAboveTheShortRateLimitIsRefusedForAShortJobOnly() {
+		assertTrue(refusedRate(41, SHORT).getMessage().contains("short rate limit"));
+		assertEquals(41, service.aiRate(41, host, Duration.LONG, withLongLimit(50)));
+	}
+
+	@Test
+	void anExplicitRateAboveTheLongRateLimitIsRefusedForALongJobOnly() {
+		assertTrue(refusedRate(31, Duration.LONG).getMessage().contains("long rate limit"));
+		assertEquals(31, service.aiRate(31, host, SHORT, context));
+	}
+
+	private AgentContext withLongLimit(int longLimit) {
+		host.setLongRateLimit(longLimit);
+		return context;
+	}
+
+	@Test
+	void withoutARateTheDefaultJobRateIsUsedWhenTheLimitsAllowIt() {
+		assertEquals(35, service.aiRate(null, host, SHORT, context));
+	}
+
+	@Test
+	void withoutARateTheDefaultJobRateIsLoweredByTheHostRateLimit() {
+		host.setHostRateLimit(20);
+
+		assertEquals(20, service.aiRate(null, host, SHORT, context));
+	}
+
+	@Test
+	void withoutARateTheDefaultJobRateIsLoweredByTheProgramRateLimit() {
+		host.getProgram().setProgramRateLimit(15);
+
+		assertEquals(15, service.aiRate(null, host, SHORT, context));
+	}
+
+	@Test
+	void withoutARateTheDefaultJobRateIsLoweredByTheLimitOfTheDuration() {
+		assertEquals(30, service.aiRate(null, host, Duration.LONG, context));
+		host.setShortRateLimit(12);
+		assertEquals(12, service.aiRate(null, host, SHORT, context));
+	}
+
+	@Test
+	void withoutARateTheMaxRateOfTheContextDoesNotMatter() {
+		context.setMaxRate(35);
+
+		assertEquals(35, service.aiRate(null, host, SHORT, context));
+	}
+
+	@Test
+	void withoutARateALimitOfZeroRefusesTheJob() {
+		host.setShortRateLimit(0);
+
+		com.automata.job.domain.exception.IneligibleJobTargetException e = assertThrows(
+				com.automata.job.domain.exception.IneligibleJobTargetException.class,
+				() -> service.aiRate(null, host, SHORT, context));
+
+		assertTrue(e.getMessage().contains("short rate limit of the host is 0"));
 	}
 
 	// ---- requireHostAcceptsJobs

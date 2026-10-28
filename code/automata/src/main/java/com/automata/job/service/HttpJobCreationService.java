@@ -1,6 +1,7 @@
 package com.automata.job.service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -99,6 +100,8 @@ public class HttpJobCreationService {
 
 		requireHostAcceptsJobs(host);
 
+		requireRateWithinLimits(genericDto.rate(), narrowRateLimits(host, narrowDto.duration()));
+
 		builder.host(host);
 
 		builder.program(host.getProgram());
@@ -159,6 +162,9 @@ public class HttpJobCreationService {
 
 		Program program = programRepo.findById(wideDto.programId())
 				.orElseThrow(() -> new EntityNotFoundException("Program not found"));
+
+		requireRateWithinLimits(genericDto.rate(),
+				List.of(new RateLimit("rate limit of the program", program.getProgramRateLimit())));
 
 		builder.program(program);
 
@@ -227,7 +233,7 @@ public class HttpJobCreationService {
 				ResultsVerbosity.SUMMARIZED);
 		int priority = firstNonNull(aiRequest.priority(), context.getDefaultPriority(), 1);
 		requirePriority(priority);
-		int rate = cappedRate(aiRequest.rate(), host.getHostRateLimit(), context.getMaxRate());
+		int rate = aiRate(aiRequest.rate(), host, duration, context);
 
 		TargetSelector targetSelector = new TargetSelector();
 		targetSelector.setSelectorType(com.automata.job.domain.model.enums.SelectorType.SINGLE_REQUEST);
@@ -300,11 +306,44 @@ public class HttpJobCreationService {
 				.orElseThrow(() -> new EntityNotFoundException("Request not found in the agent context"));
 	}
 
-	// the rate is the requested one, or the host rate limit when none is requested, and it is
-	// capped by the host rate limit and the context max rate (both are at least 1 here)
-	int cappedRate(Integer requested, int hostRateLimit, int contextMaxRate) {
-		int rate = requested != null ? requested : hostRateLimit;
-		return Math.min(rate, Math.min(hostRateLimit, contextMaxRate));
+	// A rate which is asked for is used as it is, or refused when it is above a limit. Without one the
+	// default of the context is used, lowered to what the limits of the host, the program and the duration allow.
+	int aiRate(Integer requested, Host host, Duration duration, AgentContext context) {
+
+		List<RateLimit> limits = narrowRateLimits(host, duration);
+
+		if (requested != null) {
+			List<RateLimit> allLimits = new ArrayList<>(limits);
+			allLimits.add(new RateLimit("maxRate of the agent context", context.getMaxRate()));
+			requireRateWithinLimits(requested, allLimits);
+			return requested;
+		}
+
+		RateLimit tightest = limits.stream().min(Comparator.comparingInt(RateLimit::value)).orElseThrow();
+		if (tightest.value() < HttpJob.MIN_RATE)
+			throw IneligibleJobTargetException.forClosedLimit(tightest.name());
+
+		return Math.min(context.getDefaultJobRate(), tightest.value());
+
+	}
+
+	private record RateLimit(String name, int value) {
+	}
+
+	// the limits a narrow job of this duration on the host has to abide by
+	private List<RateLimit> narrowRateLimits(Host host, Duration duration) {
+		RateLimit ofDuration = duration == Duration.SHORT
+				? new RateLimit("short rate limit of the host", host.getShortRateLimit())
+				: new RateLimit("long rate limit of the host", host.getLongRateLimit());
+		return List.of(new RateLimit("rate limit of the host", host.getHostRateLimit()),
+				new RateLimit("rate limit of the program", host.getProgram().getProgramRateLimit()), ofDuration);
+	}
+
+	// A job above a limit could never be queued, and the ones behind it would wait for it
+	private void requireRateWithinLimits(int rate, List<RateLimit> limits) {
+		for (RateLimit limit : limits)
+			if (rate > limit.value())
+				throw IneligibleJobTargetException.forRateAboveLimit(rate, limit.name(), limit.value());
 	}
 
 	private static <T> T firstNonNull(T first, T second, T fallback) {
