@@ -15,6 +15,6 @@ public record AgentContextDetailedResponse(Long id, UUID uuid, String name, Stri
 		boolean defaultAutoApproval, RepresentativeStrategy representativeStrategy, List<Long> allowedRoutineIds,
 		List<Long> tenantIds,
 		Duration defaultDuration, ResultsVerbosity defaultVerbosity, Integer defaultPriority, Integer maxRate,
-		Instant creationDate, List<AgentContextItemResponse> items) {
+		Integer defaultJobRate, Instant creationDate, List<AgentContextItemResponse> items) {
 
 }

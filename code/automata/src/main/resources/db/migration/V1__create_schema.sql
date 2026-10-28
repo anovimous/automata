@@ -274,6 +274,7 @@ CREATE TABLE agent_context (
     creation_date timestamp(6) with time zone NOT NULL,
     default_auto_approval boolean NOT NULL,
     default_duration varchar(255),
+    default_job_rate integer NOT NULL,
     default_priority integer,
     default_verbosity varchar(255),
     description varchar(255),
@@ -285,6 +286,7 @@ CREATE TABLE agent_context (
     CONSTRAINT agent_context_pkey PRIMARY KEY (id),
     CONSTRAINT uk_agent_context_uuid UNIQUE (uuid),
     CONSTRAINT agent_context_default_duration_check CHECK (default_duration IN ('SHORT', 'LONG')),
+    CONSTRAINT agent_context_default_job_rate_check CHECK (default_job_rate >= 1 AND default_job_rate <= max_rate),
     CONSTRAINT agent_context_default_verbosity_check CHECK (default_verbosity IN ('SUMMARIZED', 'NORMAL', 'VERBOSE')),
     CONSTRAINT agent_context_representative_strategy_check CHECK (representative_strategy IN ('LATEST', 'AI_JUDGEMENT'))
 );

@@ -330,7 +330,7 @@ class TenantHostIntegrationTest {
 	void deleteOfATenantInAnAgentContextIsRefused() {
 		Host host = fx.host(program, "api.example.com");
 		Tenant tenant = fx.tenant(host, "alice");
-		AgentContext context = AgentContext.builder().host(host).name("ctx").maxRate(5)
+		AgentContext context = AgentContext.builder().host(host).name("ctx").maxRate(5).defaultJobRate(5)
 				.representativeStrategy(com.automata.agentcontext.common.enums.RepresentativeStrategy.LATEST).build();
 		context.getTenants().add(tenant);
 		fx.persist(context);

@@ -44,7 +44,7 @@ class AgentContextMapperTest {
 		AgentContext ctx = AgentContext.builder().id(1L).uuid(uuid).name("ctx-name").description("desc")
 				.host(host(7L)).defaultAutoApproval(true).representativeStrategy(RepresentativeStrategy.LATEST)
 				.allowedRoutines(List.of(routine)).defaultDuration(Duration.SHORT)
-				.defaultVerbosity(ResultsVerbosity.VERBOSE).defaultPriority(3).maxRate(100)
+				.defaultVerbosity(ResultsVerbosity.VERBOSE).defaultPriority(3).maxRate(100).defaultJobRate(40)
 				.creationDate(now).items(List.of(item)).build();
 
 		AgentContextDetailedResponse response = AgentContextMapper.toDetailedResponse(ctx);
@@ -61,6 +61,7 @@ class AgentContextMapperTest {
 		assertEquals(ResultsVerbosity.VERBOSE, response.defaultVerbosity());
 		assertEquals(3, response.defaultPriority());
 		assertEquals(100, response.maxRate());
+		assertEquals(40, response.defaultJobRate());
 		assertEquals(now, response.creationDate());
 		assertEquals(1, response.items().size());
 		assertEquals(AgentContextItemType.REQUEST, response.items().get(0).itemType());

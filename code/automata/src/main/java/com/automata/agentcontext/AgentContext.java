@@ -80,6 +80,10 @@ public class AgentContext {
 
 	private Integer defaultPriority;
 
+	// the rate of the jobs of the agent which do not ask for one, never above maxRate
+	@Column(nullable = false)
+	private Integer defaultJobRate;
+
 	@Column(nullable = false)
 	private Integer maxRate;
 
