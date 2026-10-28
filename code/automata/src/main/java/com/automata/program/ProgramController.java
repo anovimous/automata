@@ -23,6 +23,7 @@ import com.automata.program.common.dto.ProgramDetailedResponse;
 import com.automata.program.common.dto.ProgramSummaryResponse;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/programs")
@@ -56,7 +57,7 @@ public class ProgramController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Void> createProgram(@RequestBody Program program) {
+	public ResponseEntity<Void> createProgram(@Valid @RequestBody Program program) {
 
 		Program createdProgram = programService.createProgram(program);
 

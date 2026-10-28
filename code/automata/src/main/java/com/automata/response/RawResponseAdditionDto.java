@@ -1,5 +1,7 @@
 package com.automata.response;
 
-public record RawResponseAdditionDto(String responseBase64) {
+import jakarta.validation.constraints.NotNull;
+
+public record RawResponseAdditionDto(@NotNull String responseBase64) {
 
 }

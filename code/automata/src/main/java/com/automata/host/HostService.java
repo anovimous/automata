@@ -47,6 +47,12 @@ public class HostService {
 	@Transactional
 	public Host createHost(HostCreationRequest request, Host host) {
 
+		if (host.getHost() == null || host.getHost().isBlank())
+			throw new IllegalArgumentException("host is required");
+
+		if (host.getScope() == null)
+			throw new IllegalArgumentException("scope is required");
+
 		this.applyRateLimitsOfNewHost(request, host);
 
 		Long programId = request.programId();

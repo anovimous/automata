@@ -8,8 +8,11 @@ import com.automata.routine.common.enums.ResultContentType;
 import com.automata.routine.common.enums.TargetCardinalityPair;
 import com.fasterxml.jackson.databind.JsonNode;
 
-public record RoutineCreationRequest(String key, String description, Boolean isAvailableAtConsumer, Boolean wordlistRequired, Overhead overhead,
-		Protocol protocol, Set<TargetCardinalityPair> allowedTargets, Long vulnerabilityId, JsonNode configSchema,
-		ResultContentType resultContentType) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record RoutineCreationRequest(@NotBlank String key, String description, Boolean isAvailableAtConsumer, Boolean wordlistRequired, Overhead overhead,
+		@NotNull Protocol protocol, @NotNull Set<TargetCardinalityPair> allowedTargets, Long vulnerabilityId, JsonNode configSchema,
+		@NotNull ResultContentType resultContentType) {
 
 }

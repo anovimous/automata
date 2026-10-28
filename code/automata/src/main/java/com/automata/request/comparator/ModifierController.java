@@ -26,6 +26,7 @@ import com.automata.request.comparator.common.enums.Schema;
 import com.automata.request.comparator.hash.HashTarget;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/modifiers")
@@ -60,7 +61,7 @@ public class ModifierController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Void> createModifier(@RequestBody ModifierCreationRequest req) {
+	public ResponseEntity<Void> createModifier(@Valid @RequestBody ModifierCreationRequest req) {
 
 		Modifier toCreateModifier = ModifierMapper.toModifier(req);
 

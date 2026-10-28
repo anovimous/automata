@@ -40,7 +40,6 @@ import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.comparator.Comparator;
 import com.automata.routine.Routine;
 import com.automata.routine.common.enums.Duration;
-import com.automata.testsupport.KnownBug;
 import com.automata.vulnerability.Vulnerability;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -210,7 +209,6 @@ class FindingIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-037")
 	void reviewWithoutAVerdictIsRefused() {
 		Finding created = service.createFinding(creation(request, null, 5, FindingStatus.SUGGESTED, null));
 
@@ -218,7 +216,6 @@ class FindingIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-016")
 	void aFindingWithoutEvidenceIsRefusedAsABadRequest() {
 		FindingCreationRequest noEvidence = new FindingCreationRequest(request.getId(), null, vulnerability.getId(), 1, FindingStatus.SUGGESTED, 1,
 				null, null, FindingCreator.USER, null);
@@ -227,7 +224,6 @@ class FindingIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-016")
 	void aFindingWithoutStatusOrCreatorIsRefusedAsABadRequest() {
 		FindingCreationRequest noStatus = new FindingCreationRequest(request.getId(), null, vulnerability.getId(), 1, null, 1, "e", null,
 				FindingCreator.USER, null);

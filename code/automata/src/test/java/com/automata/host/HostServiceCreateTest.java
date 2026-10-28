@@ -39,6 +39,7 @@ class HostServiceCreateTest {
 	private Host toBeCreated() {
 		Host host = new Host();
 		host.setHost("api.example.com");
+		host.setScope(com.automata.host.common.enums.Scope.FQDN);
 		return host;
 	}
 
@@ -106,6 +107,7 @@ class HostServiceCreateTest {
 		when(hostRepo.existsByHost("api.example.com")).thenReturn(true);
 		Host upperCase = new Host();
 		upperCase.setHost("API.Example.COM");
+		upperCase.setScope(com.automata.host.common.enums.Scope.FQDN);
 
 		assertThrows(com.automata.common.exception.AlreadyExistsException.class,
 				() -> service.createHost(request(10, 5, 5), upperCase));
@@ -120,6 +122,28 @@ class HostServiceCreateTest {
 		when(hostRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		assertEquals("api.example.com", service.createHost(request(10, 5, 5), toBeCreated()).getHost());
+	}
+
+	@Test
+	void aHostWithoutANameIsRefusedAndNothingIsSaved() {
+		Host noName = new Host();
+		noName.setScope(com.automata.host.common.enums.Scope.FQDN);
+		Host blank = new Host();
+		blank.setHost("  ");
+		blank.setScope(com.automata.host.common.enums.Scope.FQDN);
+
+		assertEquals("host is required", assertThrows(IllegalArgumentException.class, () -> service.createHost(request(10, 5, 5), noName)).getMessage());
+		assertEquals("host is required", assertThrows(IllegalArgumentException.class, () -> service.createHost(request(10, 5, 5), blank)).getMessage());
+		verify(hostRepo, never()).save(any());
+	}
+
+	@Test
+	void aHostWithoutAScopeIsRefusedAndNothingIsSaved() {
+		Host noScope = new Host();
+		noScope.setHost("api.example.com");
+
+		assertEquals("scope is required", assertThrows(IllegalArgumentException.class, () -> service.createHost(request(10, 5, 5), noScope)).getMessage());
+		verify(hostRepo, never()).save(any());
 	}
 
 	@Test

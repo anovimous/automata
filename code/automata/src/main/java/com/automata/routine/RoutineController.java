@@ -25,6 +25,7 @@ import com.automata.routine.common.dto.RoutineSummaryResponseDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/routines")
@@ -63,7 +64,7 @@ public class RoutineController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Void> createRoutine(@RequestBody RoutineCreationRequest request) {
+	public ResponseEntity<Void> createRoutine(@Valid @RequestBody RoutineCreationRequest request) {
 
 		Routine toBeCreatedRoutine = mapper.convertValue(request, Routine.class);
 

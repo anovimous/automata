@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -35,6 +37,7 @@ import com.automata.wordlist.common.exception.WordlistAlreadyExistsException;
 import com.automata.wordlist.common.exception.WordlistInUseException;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.persistence.OptimisticLockException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -102,6 +105,29 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(MissingServletRequestParameterException.class)
 	public ResponseEntity<String> handleMissingParameter(MissingServletRequestParameterException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+	}
+
+	// a body with a missing or blank required field: every violation is named
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<String> handleInvalidBody(MethodArgumentNotValidException ex) {
+		// a value which cannot be converted (a text for a number) is not a constraint of the body
+		if (ex.getBindingResult().getFieldErrors().stream().anyMatch(FieldError::isBindingFailure))
+			return handleBindingFailure(ex);
+
+		String violations = ex.getBindingResult().getAllErrors().stream()
+				.map(error -> (error instanceof FieldError field ? field.getField() : error.getObjectName()) + " "
+						+ error.getDefaultMessage())
+				.sorted().collect(Collectors.joining("; "));
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(violations);
+	}
+
+	// a constraint of an entity that the validation of the body did not catch
+	@ExceptionHandler(ConstraintViolationException.class)
+	public ResponseEntity<String> handleConstraintViolation(ConstraintViolationException ex) {
+		String violations = ex.getConstraintViolations().stream()
+				.map(violation -> violation.getPropertyPath() + " " + violation.getMessage()).sorted()
+				.collect(Collectors.joining("; "));
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(violations);
 	}
 
 	// a filter (@ModelAttribute) that cannot be bound, for instance an unknown state in a query

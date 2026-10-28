@@ -12,6 +12,7 @@ import com.automata.request.RequestMapper;
 import com.automata.request.common.dto.RequestSummaryResponse;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/external/ai/requests")
@@ -23,7 +24,7 @@ public class AiRequestIngestionController {
 	// No Location header: the agent cannot read the request back unless it is in one
 	// of its contexts
 	@PostMapping("")
-	public ResponseEntity<RequestSummaryResponse> addRawRequest(@RequestBody AiRequestAdditionDto dto) {
+	public ResponseEntity<RequestSummaryResponse> addRawRequest(@Valid @RequestBody AiRequestAdditionDto dto) {
 
 		Request request = ingestionService.addRawRequest(dto);
 

@@ -25,6 +25,7 @@ import com.automata.host.common.dto.PatchHostRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/hosts")
@@ -66,7 +67,7 @@ public class HostController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Void> createHost(@RequestBody HostCreationRequest request) {
+	public ResponseEntity<Void> createHost(@Valid @RequestBody HostCreationRequest request) {
 
 		Host toBeCreatedHost = mapper.convertValue(request, Host.class);
 

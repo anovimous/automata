@@ -83,7 +83,7 @@ class FindingControllerTest {
 		when(findingService.createFinding(any(FindingCreationRequest.class)))
 				.thenThrow(new IllegalArgumentException("Severity must be between 0.0 and 10.0"));
 
-		mvc.perform(post("/api/findings").contentType(MediaType.APPLICATION_JSON).content("{\"severity\":11}"))
+		mvc.perform(post("/api/findings").contentType(MediaType.APPLICATION_JSON).content("{\"requestId\":4,\"vulnerabilityId\":1,\"status\":\"SUGGESTED\",\"evidence\":\"e\",\"createdBy\":\"USER\",\"severity\":11}"))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -91,7 +91,7 @@ class FindingControllerTest {
 	void createWithAnUnknownRequestAnswers404() throws Exception {
 		when(findingService.createFinding(any(FindingCreationRequest.class))).thenThrow(new EntityNotFoundException("Request not found"));
 
-		mvc.perform(post("/api/findings").contentType(MediaType.APPLICATION_JSON).content("{\"requestId\":99}"))
+		mvc.perform(post("/api/findings").contentType(MediaType.APPLICATION_JSON).content("{\"requestId\":99,\"vulnerabilityId\":1,\"status\":\"SUGGESTED\",\"evidence\":\"e\",\"createdBy\":\"USER\"}"))
 				.andExpect(status().isNotFound());
 	}
 

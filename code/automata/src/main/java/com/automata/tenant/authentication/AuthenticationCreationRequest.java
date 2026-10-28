@@ -1,5 +1,7 @@
 package com.automata.tenant.authentication;
 
-public record AuthenticationCreationRequest(StaticAuthData authData) {
+import jakarta.validation.constraints.NotNull;
+
+public record AuthenticationCreationRequest(@NotNull StaticAuthData authData) {
 
 }

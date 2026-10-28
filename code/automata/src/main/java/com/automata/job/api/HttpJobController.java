@@ -38,6 +38,7 @@ import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobStateService;
 import io.awspring.cloud.s3.S3Resource;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/jobs/http")
@@ -100,10 +101,16 @@ public class HttpJobController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Void> createNewJob(@RequestBody HttpJobCreationRequest request) {
+	public ResponseEntity<Void> createNewJob(@Valid @RequestBody HttpJobCreationRequest request) {
 
 		if (request.httpJobScope() == null)
 			throw new IllegalArgumentException("httpJobScope is required");
+
+		if (request.httpJobScope() == HttpJobScope.NARROW && request.narrowJobDetails() == null)
+			throw new IllegalArgumentException("narrowJobDetails is required for a NARROW job");
+
+		if (request.httpJobScope() == HttpJobScope.WIDE && request.wideJobDetails() == null)
+			throw new IllegalArgumentException("wideJobDetails is required for a WIDE job");
 
 		HttpJob newlyCreatedJob = switch (request.httpJobScope()) {
 

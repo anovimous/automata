@@ -2,12 +2,15 @@ package com.automata.job.api.dto;
 
 import com.automata.job.domain.model.enums.HttpJobScope;
 
-public record HttpJobCreationRequest(GenericHttpJobDetailsDto genericDetails,
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
-		HttpJobScope httpJobScope,
+public record HttpJobCreationRequest(@NotNull @Valid GenericHttpJobDetailsDto genericDetails,
 
-		NarrowHttpJobDetailsDto narrowJobDetails,
+		@NotNull HttpJobScope httpJobScope,
 
-		WideHttpJobDetailsDto wideJobDetails) {
+		@Valid NarrowHttpJobDetailsDto narrowJobDetails,
+
+		@Valid WideHttpJobDetailsDto wideJobDetails) {
 
 }

@@ -40,7 +40,6 @@ import com.automata.tenant.authentication.AuthenticationRepository;
 import com.automata.tenant.authentication.AuthenticationService;
 import com.automata.tenant.authentication.StaticAuthData;
 import com.automata.tenant.authentication.StaticData;
-import com.automata.testsupport.KnownBug;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -177,14 +176,12 @@ class TenantHostIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-016")
 	void createHostWithoutAHostNameIsRefusedAsABadRequest() {
 		assertThrows(IllegalArgumentException.class,
 				() -> hostService.createHost(creation(null, program.getId()), newHost(null, Scope.FQDN)));
 	}
 
 	@Test
-	@KnownBug("BUG-016")
 	void createHostWithoutAScopeIsRefusedAsABadRequest() {
 		assertThrows(IllegalArgumentException.class,
 				() -> hostService.createHost(creation("api.example.com", program.getId()), newHost("api.example.com", null)));

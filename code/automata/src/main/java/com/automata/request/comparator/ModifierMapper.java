@@ -23,7 +23,7 @@ public abstract class ModifierMapper {
 
 	public static Modifier toModifier(ModifierCreationRequest req) {
 		return Modifier.builder().target(req.target()).schema(req.schema()).priority(req.priority())
-				.description(req.description()).isAvailable(req.isAvailable()).build();
+				.description(req.description()).isAvailable(Boolean.TRUE.equals(req.isAvailable())).build();
 	}
 
 }

@@ -29,6 +29,7 @@ import com.automata.finding.common.enums.FindingStatus;
 import com.automata.finding.common.enums.HumanVerdict;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/findings")
@@ -38,7 +39,7 @@ public class FindingController {
 	private final FindingService findingService;
 
 	@PostMapping("")
-	public ResponseEntity<Void> createFinding(@RequestBody FindingCreationRequest request) {
+	public ResponseEntity<Void> createFinding(@Valid @RequestBody FindingCreationRequest request) {
 
 		Finding finding = findingService.createFinding(request);
 
@@ -85,7 +86,7 @@ public class FindingController {
 
 	@PostMapping("/{findingId}/review")
 	public ResponseEntity<Void> reviewFinding(@PathVariable Long findingId,
-			@RequestBody FindingReviewRequest request) {
+			@Valid @RequestBody FindingReviewRequest request) {
 
 		findingService.reviewFinding(findingId, request);
 

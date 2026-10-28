@@ -4,6 +4,9 @@ import java.util.Set;
 
 import com.automata.request.comparator.common.enums.Schema;
 
-public record ComparatorCreationRequest(String name, Schema schema, Set<Long> modifierIds) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+
+public record ComparatorCreationRequest(@NotBlank String name, Schema schema, @NotEmpty Set<Long> modifierIds) {
 
 }

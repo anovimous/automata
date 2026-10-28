@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.automata.request.common.dto.BurpRequestAdditionDto;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/external/requests")
@@ -18,7 +19,7 @@ public class RequestBurpIntegrationController {
 	private final BurpAdapterService adapter;
 
 	@PostMapping("")
-	public ResponseEntity<Void> addRawRequest(@RequestBody BurpRequestAdditionDto dto) {
+	public ResponseEntity<Void> addRawRequest(@Valid @RequestBody BurpRequestAdditionDto dto) {
 
 		adapter.addRawRequest(dto.requestBase64(), dto.host(), dto.base64Response());
 

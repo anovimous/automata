@@ -127,7 +127,7 @@ class HostControllerTest {
 	void createRejectedByTheServiceAnswers400() throws Exception {
 		when(hostService.createHost(any(), any())).thenThrow(new IllegalArgumentException("Host is of invalid format"));
 
-		mvc.perform(post("/api/hosts").contentType(MediaType.APPLICATION_JSON).content("{\"host\":\"nope\"}"))
+		mvc.perform(post("/api/hosts").contentType(MediaType.APPLICATION_JSON).content("{\"host\":\"nope\",\"scope\":\"FQDN\",\"hostRateLimit\":10,\"shortRateLimit\":5,\"longRateLimit\":5,\"programId\":1}"))
 				.andExpect(status().isBadRequest());
 	}
 

@@ -1,5 +1,7 @@
 package com.automata.agentcontext.common.dto;
 
-public record AgentContextTenantAddRequest(Long tenantId) {
+import jakarta.validation.constraints.NotNull;
+
+public record AgentContextTenantAddRequest(@NotNull Long tenantId) {
 
 }

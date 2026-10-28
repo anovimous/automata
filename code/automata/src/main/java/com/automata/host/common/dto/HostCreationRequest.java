@@ -2,6 +2,10 @@ package com.automata.host.common.dto;
 
 import com.automata.host.common.enums.Scope;
 
-public record HostCreationRequest(String host, Scope scope, Integer hostRateLimit, Integer shortRateLimit, Integer longRateLimit, Long programId) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record HostCreationRequest(@NotBlank String host, @NotNull Scope scope, @NotNull Integer hostRateLimit,
+		@NotNull Integer shortRateLimit, @NotNull Integer longRateLimit, @NotNull Long programId) {
 
 }

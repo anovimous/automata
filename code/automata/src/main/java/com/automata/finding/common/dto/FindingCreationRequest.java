@@ -3,8 +3,11 @@ package com.automata.finding.common.dto;
 import com.automata.finding.common.enums.FindingCreator;
 import com.automata.finding.common.enums.FindingStatus;
 
-public record FindingCreationRequest(Long requestId, Long jobId, Long vulnerabilityId, double severity,
-		FindingStatus status, double confidence, String evidence, String pocReproductionSteps,
-		FindingCreator createdBy, String aiDescription) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record FindingCreationRequest(@NotNull Long requestId, Long jobId, @NotNull Long vulnerabilityId, double severity,
+		@NotNull FindingStatus status, double confidence, @NotBlank String evidence, String pocReproductionSteps,
+		@NotNull FindingCreator createdBy, String aiDescription) {
 
 }

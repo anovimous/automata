@@ -1,5 +1,7 @@
 package com.automata.request.common.dto;
 
-public record RequestsEqualizationDto(Long hostId, Long comparatorId, boolean autoEqualize) {
+import jakarta.validation.constraints.NotNull;
+
+public record RequestsEqualizationDto(@NotNull Long hostId, @NotNull Long comparatorId, boolean autoEqualize) {
 
 }

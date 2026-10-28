@@ -1,5 +1,8 @@
 package com.automata.tenant;
 
-public record TenantCreationRequest(String name, String email, Long hostId) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record TenantCreationRequest(@NotBlank String name, @NotBlank String email, @NotNull Long hostId) {
 
 }

@@ -35,6 +35,9 @@ public class TargetSelectionService {
 
 	public TargetSelectionResult handleTargetSelector(TargetSelector selector) {
 
+		if (selector == null || selector.getSelectorType() == null || selector.getSelector() == null)
+			throw new IllegalArgumentException("targetSelector with a selectorType and a selector is required");
+
 		ObjectMapper mapper = new ObjectMapper();
 
 		TargetSelectionResult result;
