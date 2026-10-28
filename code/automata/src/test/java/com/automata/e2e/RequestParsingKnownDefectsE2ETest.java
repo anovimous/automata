@@ -1,0 +1,199 @@
+package com.automata.e2e;
+
+import static com.automata.e2e.RawHttp.get;
+import static com.automata.e2e.RawHttp.post;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.MvcResult;
+
+import com.automata.common.dto.HeaderEntry;
+import com.automata.request.common.dto.RequestMetadataResponse;
+import com.automata.request.common.enums.Method;
+import com.automata.request.common.enums.RequestContentType;
+import com.automata.testsupport.KnownBug;
+
+/**
+ * What the parsing of a request must do and does not do yet. Every test states the correct behaviour and is
+ * disabled with the bug that breaks it (see .claude/functionality-bugs.md); when a bug is fixed, its tests
+ * lose the annotation and guard the fix. To see them all fail, run the tests with
+ * {@code -Djunit.jupiter.conditions.deactivate='org.junit.*DisabledCondition'}.
+ */
+@RequestE2E
+class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
+
+	// ============================================================================================ BUG-018
+
+	@Test
+	@KnownBug("BUG-018")
+	void theExtensionOfTheLastSegmentIsDetected() throws Exception {
+		ingestAndVerify("json", get("/api/users.json"), Expected.path("/api/users.json").extension(".json"));
+		ingestAndVerify("pdf in a directory", get("/files/2024/report.pdf"), Expected.path("/files/2024/report.pdf").extension(".pdf"));
+		ingestAndVerify("min js", get("/static/app.min.js"), Expected.path("/static/app.min.js").extension(".js"));
+		ingestAndVerify("with a query", get("/page.html?x=1"), Expected.path("/page.html").extension(".html").query("x=1"));
+	}
+
+	@Test
+	@KnownBug("BUG-018")
+	void aDotInAnEarlierSegmentIsNotTheExtension() throws Exception {
+		ingestAndVerify("version in the path", get("/v1.2/users"), Expected.path("/v1.2/users"));
+		ingestAndVerify("dot segments", get("/a/../b/./c"), Expected.path("/a/../b/./c"));
+		ingestAndVerify("a hidden directory", get("/.git/config"), Expected.path("/.git/config"));
+		ingestAndVerify("a decimal segment", get("/a/5.5/b"), Expected.path("/a/5.5/b"));
+	}
+
+	// ============================================================================================ BUG-019
+
+	@Test
+	@KnownBug("BUG-019")
+	void theRootPathKeepsItsSlash() throws Exception {
+		ingestAndVerify("root", get("/"), Expected.path("/"));
+		ingestAndVerify("root with a query", get("/?x=1"), Expected.path("/").query("x=1"));
+		ingestAndVerify("an absolute url without a path", get("http://h"), Expected.path("/"));
+		ingestAndVerify("an absolute url with only a query", get("http://h?x=1"), Expected.path("/").query("x=1"));
+	}
+
+	@Test
+	@KnownBug("BUG-019")
+	void aTrailingSlashIsKept() throws Exception {
+		ingestAndVerify("trailing slash", get("/api/users/"), Expected.path("/api/users/"));
+		ingestAndVerify("trailing slash after a number", get("/api/users/42/"), Expected.path("/api/users/3@INT/").vars("3:INT=42"));
+	}
+
+	// ============================================================================================ BUG-025
+
+	@Test
+	@KnownBug("BUG-025")
+	void anEmptyRequestIsRefusedWithAClearMessage() throws Exception {
+		MvcResult result = send(new byte[0], null, null);
+
+		assertEquals(400, result.getResponse().getStatus(), result.getResponse().getContentAsString());
+	}
+
+	@Test
+	@KnownBug("BUG-025")
+	void aRequestOfOnlyNewlinesIsRefusedWithAClearMessage() throws Exception {
+		MvcResult result = send("\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1), null, null);
+
+		assertEquals(400, result.getResponse().getStatus(), result.getResponse().getContentAsString());
+	}
+
+	// ============================================================================================ BUG-046
+
+	@Test
+	@KnownBug("BUG-046")
+	void aTargetThatStartsWithTwoSlashesKeepsItsPath() throws Exception {
+		ingestAndVerify("double slash", get("//admin"), Expected.path("//admin"));
+		ingestAndVerify("double slashes inside", get("//a//b"), Expected.path("//a//b"));
+		ingestAndVerify("triple slash", get("///a"), Expected.path("///a"));
+		ingestAndVerify("double slash with a query", get("//admin?x=1"), Expected.path("//admin").query("x=1"));
+	}
+
+	@Test
+	@KnownBug("BUG-046")
+	void aTargetThatIsNeitherAPathNorAnAbsoluteUrlIsRefused() throws Exception {
+		for (String target : new String[] { "example.com:443", "?x=1", "host:80/path", "//" }) {
+			MvcResult result = send(get(target));
+
+			assertEquals(400, result.getResponse().getStatus(), target + ": " + result.getResponse().getContentAsString());
+		}
+	}
+
+	// ============================================================================================ BUG-047
+
+	@Test
+	@KnownBug("BUG-047")
+	void theVersionOfAnHttp10RequestIsKept() throws Exception {
+		ingestAndVerify("http 1.0", get("/a").version("HTTP/1.0"), Expected.path("/a").version("HTTP/1.0"));
+		ingestAndVerify("http 1.0 with a body", post("/a").version("HTTP/1.0").json("{\"a\":1}"),
+				Expected.path("/a").method(Method.POST).version("HTTP/1.0").inline(RequestContentType.JSON).props("a=1:INT"));
+	}
+
+	// ============================================================================================ BUG-048
+
+	@Test
+	@KnownBug("BUG-048")
+	void aJsonNumberBeyondTheRangeOfALongIsStored() throws Exception {
+		MvcResult result = send(post("/a").json("{\"n\":123456789012345678901234567890}"));
+
+		assertEquals(201, result.getResponse().getStatus(), result.getResponse().getContentAsString());
+	}
+
+	@Test
+	@KnownBug("BUG-048")
+	void aJsonNumberBeyondTheRangeOfADoubleIsStored() throws Exception {
+		MvcResult result = send(post("/a").json("{\"n\":1.5e300,\"m\":1e999}"));
+
+		assertEquals(201, result.getResponse().getStatus(), result.getResponse().getContentAsString());
+	}
+
+	@Test
+	@KnownBug("BUG-048")
+	void aDecimalKeepsAllItsDigits() throws Exception {
+		var summary = ingest(post("/a").json("{\"n\":0.1234567890123456789012345}"));
+		flushAndClear();
+
+		assertEquals(java.util.List.of("n=0.1234567890123456789012345:DOUBLE"), storedProperties(summary.requestId()));
+	}
+
+	// ============================================================================================ BUG-049
+
+	@Test
+	@KnownBug("BUG-049")
+	void aChunkedBodyIsDecodedBeforeItIsParsed() throws Exception {
+		var summary = ingest(post("/a").header("Transfer-Encoding", "chunked").contentType("application/json")
+				.body("7\r\n{\"a\":1}\r\n0\r\n\r\n"));
+		flushAndClear();
+
+		assertEquals(java.util.List.of("a=1:INT"), storedProperties(summary.requestId()));
+	}
+
+	@Test
+	@KnownBug("BUG-049")
+	void aChunkedFormBodyIsDecodedBeforeItIsParsed() throws Exception {
+		var summary = ingest(post("/a").header("Transfer-Encoding", "chunked").contentType("application/x-www-form-urlencoded")
+				.body("7\r\na=1&b=2\r\n0\r\n\r\n"));
+		flushAndClear();
+
+		assertEquals(java.util.List.of("a=1:STRING", "b=2:STRING"), storedProperties(summary.requestId()));
+	}
+
+	// ============================================================================================ BUG-050
+
+	@Test
+	@KnownBug("BUG-050")
+	void nonAsciiBytesInThePathAreDecodedAsUtf8() throws Exception {
+		ingestAndVerify("utf-8 path", get("/café/€"), Expected.path("/café/€"));
+	}
+
+	@Test
+	@KnownBug("BUG-050")
+	void nonAsciiHeaderValuesAreShownAsUtf8() throws Exception {
+		var summary = ingest(get("/a").header("X-Name", "é€"));
+		flushAndClear();
+
+		RequestMetadataResponse metadata = metadata(summary.requestId());
+
+		assertEquals(new HeaderEntry("X-Name", "é€"), metadata.headers().get(1));
+	}
+
+	@Test
+	@KnownBug("BUG-050")
+	void nonAsciiHeaderNamesAreStoredAsUtf8() throws Exception {
+		ingest(get("/a").header("X-é", "1"));
+		flushAndClear();
+
+		assertTrue(storedHeaderNames().contains("X-é"), storedHeaderNames().toString());
+	}
+
+	// helper kept private to the class: the base64 of a text
+	@SuppressWarnings("unused")
+	private static String b64(String text) {
+		return Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8));
+	}
+
+}
