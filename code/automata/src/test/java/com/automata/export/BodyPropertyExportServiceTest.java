@@ -98,17 +98,23 @@ class BodyPropertyExportServiceTest {
 	}
 
 	@Test
-	@KnownBug("BUG-034")
 	void theFilenameSeparatesTheIdFromTheTimestamp() {
 		when(repo.findDistinctFullPathsByRequestHostId(5L)).thenReturn(List.of());
 		when(repo.findDistinctFullPathsByResponseHostId(5L)).thenReturn(List.of());
 
 		// today: body-properties-host-52026-10-27T10:15:30.123Z.txt, host 5 and year 2026 run together
-		assertTrue(service.export(5L, null).filename().matches("body-properties-host-5[-_.].*"));
+		assertTrue(service.export(5L, null).filename().matches("body-properties-host-5-\\d{8}T\\d{6}Z\\.txt"));
 	}
 
 	@Test
-	@KnownBug("BUG-034")
+	void theProgramFilenameHasTheSameFormat() {
+		when(repo.findDistinctFullPathsByRequestProgramId(7L)).thenReturn(List.of());
+		when(repo.findDistinctFullPathsByResponseProgramId(7L)).thenReturn(List.of());
+
+		assertTrue(service.export(null, 7L).filename().matches("body-properties-program-7-\\d{8}T\\d{6}Z\\.txt"));
+	}
+
+	@Test
 	void theFilenameHasNoColons() {
 		when(repo.findDistinctFullPathsByRequestHostId(5L)).thenReturn(List.of());
 		when(repo.findDistinctFullPathsByResponseHostId(5L)).thenReturn(List.of());

@@ -1,6 +1,8 @@
 package com.automata.export;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -16,6 +18,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BodyPropertyExportService {
 
+	private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'")
+			.withZone(ZoneOffset.UTC);
+
 	private final BodyPropertyRepository bodyPropertyRepo;
 
 	@Transactional(readOnly = true)
@@ -27,7 +32,7 @@ public class BodyPropertyExportService {
 		List<String> names = mergeAndExtractNames(requestPaths, responsePaths);
 
 		String filename = new StringBuilder().append("body-properties-host-").append(hostId)
-				.append(Instant.now().toString()).append(".txt").toString();
+				.append("-").append(timestamp()).append(".txt").toString();
 
 		return new BodyPropertyExportResult(names, filename);
 
@@ -42,7 +47,7 @@ public class BodyPropertyExportService {
 		List<String> names = mergeAndExtractNames(requestPaths, responsePaths);
 
 		String filename = new StringBuilder().append("body-properties-program-").append(programId)
-				.append(Instant.now().toString()).append(".txt").toString();
+				.append("-").append(timestamp()).append(".txt").toString();
 
 		return new BodyPropertyExportResult(names, filename);
 
@@ -80,6 +85,11 @@ public class BodyPropertyExportService {
 			return bracketIndex >= 0 ? segment.substring(0, bracketIndex) : segment;
 		}).filter(segment -> !segment.isBlank()).distinct().collect(Collectors.toList());
 
+	}
+
+	// no colon: it is not allowed in a file name on every system
+	private static String timestamp() {
+		return TIMESTAMP.format(Instant.now());
 	}
 
 }
