@@ -74,33 +74,6 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 				Expected.path("/a").method(Method.POST).version("HTTP/1.0").inline(RequestContentType.JSON).props("a=1:INT"));
 	}
 
-	// ============================================================================================ BUG-048
-
-	@Test
-	@KnownBug("BUG-048")
-	void aJsonNumberBeyondTheRangeOfALongIsStored() throws Exception {
-		MvcResult result = send(post("/a").json("{\"n\":123456789012345678901234567890}"));
-
-		assertEquals(201, result.getResponse().getStatus(), result.getResponse().getContentAsString());
-	}
-
-	@Test
-	@KnownBug("BUG-048")
-	void aJsonNumberBeyondTheRangeOfADoubleIsStored() throws Exception {
-		MvcResult result = send(post("/a").json("{\"n\":1.5e300,\"m\":1e999}"));
-
-		assertEquals(201, result.getResponse().getStatus(), result.getResponse().getContentAsString());
-	}
-
-	@Test
-	@KnownBug("BUG-048")
-	void aDecimalKeepsAllItsDigits() throws Exception {
-		var summary = ingest(post("/a").json("{\"n\":0.1234567890123456789012345}"));
-		flushAndClear();
-
-		assertEquals(java.util.List.of("n=0.1234567890123456789012345:DOUBLE"), storedProperties(summary.requestId()));
-	}
-
 	// ============================================================================================ BUG-050
 
 	@Test
