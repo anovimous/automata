@@ -87,4 +87,55 @@ class JobDispatchPlannerTest {
 		assertEquals(List.of(tooBig), candidates);
 		assertEquals(100, programRates.get(PROGRAM).rateLimit());
 	}
+
+	private static HttpJobInternalDto wide(long id, int rate) {
+		return new HttpJobInternalDto(id, Instant.EPOCH, HttpJobScope.WIDE, null, 1, rate, PROGRAM, null);
+	}
+
+	private static Map<Long, ProgramSummaryRatesDto> busyRates(int rateLimit, long currentRate) {
+		return Map.of(PROGRAM, ProgramSummaryRatesDto.builder().rateLimit(rateLimit).currentRate(currentRate)
+				.currentWideRate(0L).build());
+	}
+
+	@Test
+	void aNarrowJobAboveTheProgramLimitOnItsOwnDoesNotHoldBackTheOthersOfItsHost() {
+		HttpJobInternalDto oversized = narrow(1, 150, 10);
+		HttpJobInternalDto small = narrow(2, 5, 10);
+		when(hostRepo.findRateLimitsAllDtoById(10L)).thenReturn(new HostAllRateLimitsInternalDto(10L, 1000, 1000, 1000));
+
+		assertEquals(List.of(small), planner.plan(List.of(oversized, small), rates(100)));
+	}
+
+	@Test
+	void aNarrowJobWhichDoesNotFitBecauseTheProgramIsBusyStillHoldsBackTheOthersOfItsHostAndDuration() {
+		HttpJobInternalDto waiting = narrow(1, 30, 10);
+		HttpJobInternalDto behindIt = narrow(2, 5, 10);
+
+		assertTrue(planner.plan(List.of(waiting, behindIt), busyRates(100, 80)).isEmpty());
+	}
+
+	@Test
+	void aNarrowJobWhichDoesNotFitBecauseTheProgramIsBusyDoesNotHoldBackAnotherHost() {
+		HttpJobInternalDto waiting = narrow(1, 30, 10);
+		HttpJobInternalDto otherHost = narrow(2, 5, 11);
+		when(hostRepo.findRateLimitsAllDtoById(11L)).thenReturn(new HostAllRateLimitsInternalDto(11L, 1000, 1000, 1000));
+
+		assertEquals(List.of(otherHost), planner.plan(List.of(waiting, otherHost), busyRates(100, 80)));
+	}
+
+	@Test
+	void aWideJobAboveTheProgramLimitOnItsOwnDoesNotHoldBackTheOtherWideJobs() {
+		HttpJobInternalDto oversized = wide(1, 150);
+		HttpJobInternalDto small = wide(2, 5);
+
+		assertEquals(List.of(small), planner.plan(List.of(oversized, small), rates(100)));
+	}
+
+	@Test
+	void aWideJobWhichDoesNotFitBecauseTheProgramIsBusyStillHoldsBackTheOtherWideJobs() {
+		HttpJobInternalDto waiting = wide(1, 5);
+		HttpJobInternalDto behindIt = wide(2, 1);
+
+		assertTrue(planner.plan(List.of(waiting, behindIt), busyRates(100, 98)).isEmpty());
+	}
 }

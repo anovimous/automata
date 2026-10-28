@@ -13,6 +13,6 @@ public record AgentContextPatchRequest(Optional<String> name, Optional<String> d
 		Optional<Duration> defaultDuration, boolean setDefaultDurationNull,
 		Optional<ResultsVerbosity> defaultVerbosity, boolean setDefaultVerbosityNull,
 		Optional<Integer> defaultPriority, boolean setDefaultPriorityNull, Optional<Integer> maxRate,
-		boolean setMaxRateNull) {
+		boolean setMaxRateNull, Optional<Integer> defaultJobRate, boolean setDefaultJobRateNull) {
 
 }

@@ -80,7 +80,7 @@ class AgentContextIntegrationTest {
 
 	private AgentContext context(RepresentativeStrategy strategy, boolean autoApproval) {
 		AgentContextCreationRequest request = new AgentContextCreationRequest("ctx", "d", host.getId(), autoApproval, strategy, null, null, null,
-				null, 5, null);
+				null, 5, 5, null);
 		AgentContext created = service.createContext(request);
 		fx.clear();
 		return created;
@@ -95,7 +95,7 @@ class AgentContextIntegrationTest {
 		Routine routine = fx.routine("fuzz");
 		Tenant tenant = fx.tenant(host, "alice");
 		AgentContextCreationRequest request = new AgentContextCreationRequest("ctx", "desc", host.getId(), true, RepresentativeStrategy.LATEST,
-				List.of(routine.getId()), Duration.LONG, null, 3, 7, List.of(tenant.getId()));
+				List.of(routine.getId()), Duration.LONG, null, 3, 7, 4, List.of(tenant.getId()));
 
 		AgentContext created = service.createContext(request);
 		fx.clear();
@@ -106,6 +106,7 @@ class AgentContextIntegrationTest {
 		assertEquals(Duration.LONG, loaded.getDefaultDuration());
 		assertEquals(3, loaded.getDefaultPriority());
 		assertEquals(7, loaded.getMaxRate());
+		assertEquals(4, loaded.getDefaultJobRate());
 		assertEquals(1, loaded.getAllowedRoutines().size());
 		assertEquals(1, loaded.getTenants().size());
 		assertEquals(loaded, service.getContextByUuid(loaded.getUuid()));
@@ -116,7 +117,7 @@ class AgentContextIntegrationTest {
 		Host other = fx.host(program, "www.example.com");
 		context(RepresentativeStrategy.LATEST, false);
 		service.createContext(new AgentContextCreationRequest("other", null, other.getId(), false, RepresentativeStrategy.LATEST, null, null, null,
-				null, 2, null));
+				null, 2, 2, null));
 		fx.clear();
 
 		assertEquals(1, service.getContextsByHost(host.getId(), PageRequest.of(0, 10)).getTotalElements());
@@ -265,12 +266,12 @@ class AgentContextIntegrationTest {
 	@Test
 	void patchPersistsAndClearsTheOptionalDefaults() {
 		AgentContext context = service.createContext(new AgentContextCreationRequest("ctx", "d", host.getId(), false, RepresentativeStrategy.LATEST,
-				null, Duration.LONG, null, 3, 5, null));
+				null, Duration.LONG, null, 3, 5, 5, null));
 		fx.clear();
 
 		service.patchContext(context.getId(), new AgentContextPatchRequest(java.util.Optional.of("renamed"), java.util.Optional.empty(), true,
 				java.util.Optional.empty(), java.util.Optional.empty(), null, java.util.Optional.empty(), true, java.util.Optional.empty(), false,
-				java.util.Optional.empty(), true, java.util.Optional.of(9), false));
+				java.util.Optional.empty(), true, java.util.Optional.of(9), false, java.util.Optional.empty(), false));
 		fx.clear();
 
 		AgentContext loaded = service.getContext(context.getId());

@@ -25,6 +25,7 @@ public abstract class AgentContextMapper {
 				.tenantIds(context.getTenants().stream().map(Tenant::getId).toList())
 				.defaultDuration(context.getDefaultDuration()).defaultVerbosity(context.getDefaultVerbosity())
 				.defaultPriority(context.getDefaultPriority()).maxRate(context.getMaxRate())
+				.defaultJobRate(context.getDefaultJobRate())
 				.creationDate(context.getCreationDate()).items(context.getItems().stream()
 						.map(AgentContextMapper::toItemResponse).toList())
 				.build();

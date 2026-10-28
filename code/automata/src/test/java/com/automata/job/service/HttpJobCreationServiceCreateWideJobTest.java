@@ -92,9 +92,15 @@ class HttpJobCreationServiceCreateWideJobTest {
 				new TargetSelector(selectorType, null), List.of(), null);
 	}
 
+	private static Program programWithLimit(int limit) {
+		Program program = new Program();
+		program.setProgramRateLimit(limit);
+		return program;
+	}
+
 	private void givenWideJobCanBeCreated() {
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
-		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
+		when(programRepo.findById(2L)).thenReturn(Optional.of(programWithLimit(100)));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any()))
 				.thenReturn(new TargetSelectionResult.MultipleHosts(Set.of(5L), Set.of(2L)));
@@ -149,7 +155,7 @@ class HttpJobCreationServiceCreateWideJobTest {
 	@Test
 	void selectorWhichCanNotTargetAWideJobIsRejectedWithoutCreatingFiles() {
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
-		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
+		when(programRepo.findById(2L)).thenReturn(Optional.of(programWithLimit(100)));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any())).thenReturn(new TargetSelectionResult.SingleHost(5L));
 
@@ -163,7 +169,7 @@ class HttpJobCreationServiceCreateWideJobTest {
 	@Test
 	void hostsOfAnotherProgramAreRefusedWithoutConfiguringTargets() {
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
-		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
+		when(programRepo.findById(2L)).thenReturn(Optional.of(programWithLimit(100)));
 		when(jobRepo.save(any(HttpJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any()))
 				.thenReturn(new TargetSelectionResult.MultipleHosts(Set.of(5L, 6L), Set.of(2L, 3L)));
@@ -173,6 +179,31 @@ class HttpJobCreationServiceCreateWideJobTest {
 
 		verifyNoInteractions(targetConfigService);
 		assertEquals(0, TransactionSynchronizationManager.getSynchronizations().size());
+	}
+
+	@Test
+	void aRateAboveTheProgramRateLimitIsRefusedBeforeAnythingIsSaved() {
+		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
+		when(programRepo.findById(2L)).thenReturn(Optional.of(programWithLimit(9)));
+
+		com.automata.job.domain.exception.IneligibleJobTargetException e = assertThrows(
+				com.automata.job.domain.exception.IneligibleJobTargetException.class, () -> service
+						.createDraftWideJob(genericDto(SelectorType.MULTIPLE_HOSTS), new WideHttpJobDetailsDto(2L)));
+
+		assertEquals(true, e.getMessage().contains("rate limit of the program"));
+		verify(jobRepo, never()).save(any());
+		verifyNoInteractions(targetSelectionService);
+	}
+
+	@Test
+	void aRateEqualToTheProgramRateLimitIsAccepted() {
+		givenWideJobCanBeCreated();
+		when(programRepo.findById(2L)).thenReturn(Optional.of(programWithLimit(10)));
+
+		WideHttpJob job = service.createDraftWideJob(genericDto(SelectorType.MULTIPLE_HOSTS),
+				new WideHttpJobDetailsDto(2L));
+
+		assertEquals(10, job.getGenericDetails().getRate());
 	}
 
 }

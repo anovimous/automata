@@ -327,10 +327,20 @@ class HttpJobCreationServiceRulesTest {
 		verify(jobRepo, never()).save(any());
 	}
 
+	private static Program programWithLimit(int limit) {
+		Program program = new Program();
+		program.setProgramRateLimit(limit);
+		return program;
+	}
+
 	private Host hostWithProgram() {
 		Host host = Host.of(4L);
 		host.setHostRateLimit(10);
-		host.setProgram(new Program());
+		host.setShortRateLimit(10);
+		host.setLongRateLimit(10);
+		Program program = new Program();
+		program.setProgramRateLimit(100);
+		host.setProgram(program);
 		return host;
 	}
 
@@ -373,7 +383,7 @@ class HttpJobCreationServiceRulesTest {
 	@Test
 	void wideJobTargetingAHostWithARateLimitOfZeroIsRefused() {
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
-		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
+		when(programRepo.findById(2L)).thenReturn(Optional.of(programWithLimit(100)));
 		when(jobRepo.save(any(com.automata.job.domain.model.HttpJob.class))).thenAnswer(inv -> inv.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any()))
 				.thenReturn(new com.automata.job.domain.valueobject.TargetSelectionResult.MultipleHosts(Set.of(5L, 6L), Set.of(2L)));
@@ -401,7 +411,7 @@ class HttpJobCreationServiceRulesTest {
 	@Test
 	void wideJobWithAnUnknownWordlistIsNotFoundAndNotSaved() {
 		when(routineRepo.findById(1L)).thenReturn(Optional.of(RoutineFixtures.usableRoutine()));
-		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
+		when(programRepo.findById(2L)).thenReturn(Optional.of(programWithLimit(100)));
 		when(wordlistRepo.findAllById(Set.of(3L))).thenReturn(List.of());
 
 		assertThrows(EntityNotFoundException.class, () -> service.createDraftWideJob(
