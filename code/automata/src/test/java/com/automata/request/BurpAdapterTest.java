@@ -25,7 +25,6 @@ import com.automata.host.Host;
 import com.automata.host.HostRepository;
 import com.automata.request.common.dto.RawRequestAdditionDto;
 import com.automata.request.common.enums.Source;
-import com.automata.testsupport.KnownBug;
 import com.automata.testsupport.Mvc;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -74,13 +73,20 @@ class BurpAdapterTest {
 	}
 
 	@Test
-	@KnownBug("BUG-044")
 	void theHostNameIsMatchedIgnoringCase() {
 		// hosts are stored lower-cased, a Burp host header may not be
-		when(hostRepo.findByHost("API.Example.com")).thenReturn(Optional.empty());
 		when(hostRepo.findByHost("api.example.com")).thenReturn(Optional.of(Host.of(4L)));
 
 		adapter.addRawRequest("cmVx", "API.Example.com", null);
+
+		verify(requestService).addRawRequestWithResponse(any());
+	}
+
+	@Test
+	void theHostNameIsTrimmedBeforeTheLookup() {
+		when(hostRepo.findByHost("api.example.com")).thenReturn(Optional.of(Host.of(4L)));
+
+		adapter.addRawRequest("cmVx", "  API.example.com ", null);
 
 		verify(requestService).addRawRequestWithResponse(any());
 	}

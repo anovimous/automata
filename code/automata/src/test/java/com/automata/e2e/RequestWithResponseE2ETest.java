@@ -22,7 +22,6 @@ import com.automata.request.common.dto.RequestMetadataResponse;
 import com.automata.request.common.dto.RequestSummaryResponse;
 import com.automata.request.common.dto.BurpRequestAdditionDto;
 import com.automata.response.ResponseMetadataDto;
-import com.automata.testsupport.KnownBug;
 
 /**
  * The entries of a request: the route of the Burp extension, a response that comes with the request or is added
@@ -105,7 +104,6 @@ class RequestWithResponseE2ETest extends RequestE2ETestBase {
 	}
 
 	@Test
-	@KnownBug("BUG-044")
 	void theBurpRouteMatchesTheHostIgnoringCase() throws Exception {
 		MvcResult result = burp("API.Example.COM", get("/a").bytes(), null);
 
