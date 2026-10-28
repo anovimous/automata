@@ -1,24 +1,12 @@
 import * as React from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { ArrowLeft, Save, Trash2 } from "lucide-react";
-import {
-  useDeleteWordlist,
-  usePatchWordlist,
-  useVulnerabilities,
-  useWordlist,
-} from "@/hooks/useResources";
+import { useDeleteWordlist, usePatchWordlist, useWordlist } from "@/hooks/useResources";
 import { useSetTopBar } from "@/components/layout/top-bar";
 import { PageContainer, PageHeader } from "@/components/layout/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
@@ -29,24 +17,19 @@ export function WordlistDetailRoute() {
   const { toast } = useToast();
 
   const wlQ = useWordlist(id);
-  const vulns = useVulnerabilities({ page: 0, size: 200 });
   const patchMut = usePatchWordlist();
   const deleteMut = useDeleteWordlist();
 
   const [name, setName] = React.useState("");
   const [path, setPath] = React.useState("");
-  const [vulnId, setVulnId] = React.useState("");
+  const [lines, setLines] = React.useState("");
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (wlQ.data) {
-      setName(wlQ.data.name);
+      setName(wlQ.data.name ?? "");
       setPath(wlQ.data.path);
-      setVulnId(
-        wlQ.data.vulnerabilityId !== null && wlQ.data.vulnerabilityId !== undefined
-          ? String(wlQ.data.vulnerabilityId)
-          : "",
-      );
+      setLines(wlQ.data.numberOfLines?.toString() ?? "");
     }
   }, [wlQ.data]);
 
@@ -71,7 +54,7 @@ export function WordlistDetailRoute() {
         Back
       </Button>
       <PageHeader
-        title={<span className="font-mono">{wlQ.data?.name ?? `Wordlist #${id}`}</span>}
+        title={<span className="font-mono">{wlQ.data?.name || `Wordlist #${id}`}</span>}
         actions={
           <>
             <Button
@@ -81,8 +64,10 @@ export function WordlistDetailRoute() {
                     id,
                     req: {
                       name: name.trim() || undefined,
+                      setNameNull: !name.trim() && !!wlQ.data?.name,
                       path: path.trim() || undefined,
-                      vulnerabilityId: vulnId ? Number(vulnId) : undefined,
+                      numberOfLines: lines ? Number(lines) : undefined,
+                      setNumberOfLinesNull: !lines && wlQ.data?.numberOfLines != null,
                     },
                   });
                   toast({ title: "Saved", variant: "success" });
@@ -125,19 +110,12 @@ export function WordlistDetailRoute() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Vulnerability</Label>
-            <Select value={vulnId} onValueChange={setVulnId}>
-              <SelectTrigger>
-                <SelectValue placeholder="—" />
-              </SelectTrigger>
-              <SelectContent>
-                {vulns.data?.content.map((v) => (
-                  <SelectItem key={v.id} value={String(v.id)}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Number of lines</Label>
+            <Input type="number" value={lines} onChange={(e) => setLines(e.target.value)} />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            The vulnerabilities a wordlist is linked to are set when it is created; the API
+            doesn't return them.
           </div>
         </CardContent>
       </Card>

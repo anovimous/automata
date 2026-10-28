@@ -1,6 +1,14 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
-import type { HttpJobScope, HttpJobState, HttpMethod } from "@/types/domain";
+import type {
+  ConfigFileStatus,
+  FindingStatus,
+  HttpJobScope,
+  HttpJobState,
+  HttpMethod,
+  HumanVerdict,
+  JobCreator,
+} from "@/types/domain";
 
 // =============================================================================
 // Job state pill
@@ -51,10 +59,15 @@ const STATE_STYLES: Record<HttpJobState, { className: string; dot?: string; labe
     dot: "bg-destructive",
     label: "Failed",
   },
-  TERMINATED: {
+  SELFTERMINATED: {
+    className: "border-warning/30 bg-warning/10 text-warning",
+    dot: "bg-warning",
+    label: "Self-terminated",
+  },
+  LOSTCONTACT: {
     className: "border-destructive/30 bg-destructive/10 text-destructive",
     dot: "bg-destructive",
-    label: "Terminated",
+    label: "Lost contact",
   },
 };
 
@@ -92,7 +105,6 @@ export function JobStatePill({
 const SCOPE_STYLES: Record<HttpJobScope, string> = {
   NARROW: "border-border bg-muted text-foreground",
   WIDE: "border-foreground/15 bg-foreground/5 text-foreground",
-  GLOBAL: "border-foreground/25 bg-foreground/10 text-foreground",
 };
 
 export function JobScopePill({ scope }: { scope: HttpJobScope }) {
@@ -149,6 +161,82 @@ export function StatusCodePill({ code }: { code: number | null | undefined }) {
       )}
     >
       {code}
+    </span>
+  );
+}
+
+// =============================================================================
+// Who created a job / finding, and whether an AI job is approved
+// =============================================================================
+export function CreatorPill({ creator }: { creator: JobCreator }) {
+  return (
+    <Badge variant={creator === "AI" ? "accent" : "muted"} className="uppercase">
+      {creator}
+    </Badge>
+  );
+}
+
+export function ApprovalPill({ approved }: { approved: boolean }) {
+  return approved ? (
+    <Badge variant="success">Approved</Badge>
+  ) : (
+    <Badge variant="warning">Needs approval</Badge>
+  );
+}
+
+const CONFIG_STYLES: Record<ConfigFileStatus, string> = {
+  PREPARING: "border-warning/30 bg-warning/10 text-warning",
+  READY: "border-success/30 bg-success/10 text-success",
+  FAILED: "border-destructive/30 bg-destructive/10 text-destructive",
+};
+
+export function ConfigFileStatusPill({ status }: { status: ConfigFileStatus }) {
+  return (
+    <Badge className={cn(CONFIG_STYLES[status], "uppercase")}>Files {status.toLowerCase()}</Badge>
+  );
+}
+
+// =============================================================================
+// Findings
+// =============================================================================
+export function FindingStatusPill({ status }: { status: FindingStatus }) {
+  return status === "CONFIRMED" ? (
+    <Badge variant="destructive">Confirmed</Badge>
+  ) : (
+    <Badge variant="warning">Suggested</Badge>
+  );
+}
+
+export function VerdictPill({ verdict }: { verdict: HumanVerdict | null | undefined }) {
+  if (!verdict) return <span className="text-muted-foreground">Unreviewed</span>;
+  return verdict === "TRUE_POSITIVE" ? (
+    <Badge variant="success">True positive</Badge>
+  ) : (
+    <Badge variant="muted">False positive</Badge>
+  );
+}
+
+/** CVSS-style severity bands (0-10). */
+export function SeverityPill({ severity }: { severity: number }) {
+  const band =
+    severity >= 9
+      ? { label: "Critical", cls: "border-destructive/40 bg-destructive/15 text-destructive" }
+      : severity >= 7
+        ? { label: "High", cls: "border-destructive/30 bg-destructive/10 text-destructive" }
+        : severity >= 4
+          ? { label: "Medium", cls: "border-warning/30 bg-warning/10 text-warning" }
+          : severity > 0
+            ? { label: "Low", cls: "border-foreground/15 bg-foreground/5 text-foreground" }
+            : { label: "None", cls: "border-border bg-muted text-muted-foreground" };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide leading-none",
+        band.cls,
+      )}
+    >
+      <span className="font-mono tabular-nums">{severity.toFixed(1)}</span>
+      {band.label}
     </span>
   );
 }

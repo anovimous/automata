@@ -11,6 +11,8 @@ import {
   FileText,
   Settings,
   Triangle,
+  ShieldAlert,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -28,6 +30,10 @@ const NAV: NavItem[][] = [
   [
     { to: "/programs", label: "Programs", icon: Layers, matchPrefix: "/programs" },
     { to: "/jobs", label: "Jobs", icon: Cpu, matchPrefix: "/jobs" },
+  ],
+  [
+    { to: "/findings", label: "Findings", icon: ShieldAlert, matchPrefix: "/findings" },
+    { to: "/agent-contexts", label: "Agent contexts", icon: Bot, matchPrefix: "/agent-contexts" },
   ],
   [
     { to: "/routines", label: "Routines", icon: ListTree, matchPrefix: "/routines" },

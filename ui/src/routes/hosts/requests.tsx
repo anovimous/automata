@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { Play, Plus, Shuffle, Trash2, Search, X } from "lucide-react";
+import { Bot, Play, Plus, Shuffle, Trash2, Search, X } from "lucide-react";
 import { useHost } from "@/hooks/useHosts";
 import { useProgram } from "@/hooks/usePrograms";
 import { useRequests, useDeleteRequest } from "@/hooks/useRequests";
@@ -24,6 +24,10 @@ import { AddRawRequestDialog } from "@/components/request/add-raw-request-dialog
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
+import { formatBytes } from "@/lib/http";
+import { RequestContentType, RequestSource, HttpMethod } from "@/types/enums";
+import { AddToContextDialog } from "@/components/agentcontext/add-to-context-dialog";
+import { DELETE_REQUEST_BACKEND_READY, MULTI_REQUESTS_BACKEND_READY } from "@/config/features";
 import type { RequestFilter } from "@/types/domain";
 
 export function HostRequestsRoute() {
@@ -52,6 +56,7 @@ export function HostRequestsRoute() {
   const [selected, setSelected] = React.useState<Set<string | number>>(new Set());
   const [pendingDelete, setPendingDelete] = React.useState<number | null>(null);
   const [batchDeleteOpen, setBatchDeleteOpen] = React.useState(false);
+  const [contextOpen, setContextOpen] = React.useState(false);
 
   // Local mirror for path-search (debounced into URL)
   const [pathSearch, setPathSearch] = React.useState(search.path ?? "");
@@ -120,12 +125,12 @@ export function HostRequestsRoute() {
         actions={
           <>
             <Link
-              to="/programs/$programId/hosts/$hostId/equalize"
+              to="/programs/$programId/hosts/$hostId/equality-sets"
               params={{ programId, hostId }}
             >
               <Button variant="outline">
                 <Shuffle className="h-3.5 w-3.5" />
-                Equalize
+                Equalizations
               </Button>
             </Link>
             <Button onClick={() => setAddOpen(true)}>
@@ -152,19 +157,19 @@ export function HostRequestsRoute() {
           value={search.method}
           onChange={(v) => updateSearch({ method: v, page: 0 })}
           placeholder="Method"
-          options={["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"]}
+          options={[...HttpMethod.options]}
         />
         <FilterSelect
           value={search.contentType}
           onChange={(v) => updateSearch({ contentType: v, page: 0 })}
           placeholder="Content type"
-          options={["JSON", "MULTIPART", "FORM", "UNSUPPORTED"]}
+          options={[...RequestContentType.options]}
         />
         <FilterSelect
           value={search.source}
           onChange={(v) => updateSearch({ source: v, page: 0 })}
           placeholder="Source"
-          options={["MANUAL", "WAYBACK", "BURP"]}
+          options={[...RequestSource.options]}
         />
         <Input
           value={search.extension ?? ""}
@@ -217,6 +222,12 @@ export function HostRequestsRoute() {
           <div className="flex-1" />
           <Button
             size="sm"
+            disabled={selected.size > 1 && !MULTI_REQUESTS_BACKEND_READY}
+            title={
+              selected.size > 1 && !MULTI_REQUESTS_BACKEND_READY
+                ? "The backend can't create jobs for several requests yet"
+                : undefined
+            }
             onClick={() =>
               navigate({
                 to: "/programs/$programId/hosts/$hostId/run-job",
@@ -232,20 +243,16 @@ export function HostRequestsRoute() {
             <Play className="h-3.5 w-3.5" />
             Run job on {selected.size} request{selected.size === 1 ? "" : "s"}
           </Button>
-          <Link
-            to="/programs/$programId/hosts/$hostId/equalize"
-            params={{ programId, hostId }}
-            search={{ requestIds: selectedRequestIds.join(",") }}
-          >
-            <Button variant="outline" size="sm">
-              <Shuffle className="h-3.5 w-3.5" />
-              Equalize
-            </Button>
-          </Link>
-          <Button variant="outline" size="sm" onClick={() => setBatchDeleteOpen(true)}>
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
+          <Button variant="outline" size="sm" onClick={() => setContextOpen(true)}>
+            <Bot className="h-3.5 w-3.5" />
+            Add to agent context
           </Button>
+          {DELETE_REQUEST_BACKEND_READY && (
+            <Button variant="outline" size="sm" onClick={() => setBatchDeleteOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
             Clear
           </Button>
@@ -313,6 +320,17 @@ export function HostRequestsRoute() {
               ),
             },
             {
+              key: "size",
+              header: "Body",
+              align: "right",
+              cell: (r) => (
+                <span className="font-mono tabular-nums text-xs text-muted-foreground">
+                  {r.bodySizeBytes > 0 ? formatBytes(r.bodySizeBytes) : "—"}
+                  {r.bodyStoredAsFile ? " ·file" : ""}
+                </span>
+              ),
+            },
+            {
               key: "resp",
               header: "Resp",
               cell: (r) =>
@@ -336,7 +354,8 @@ export function HostRequestsRoute() {
               key: "actions",
               header: "",
               align: "right",
-              cell: (r) => (
+              cell: (r) =>
+                !DELETE_REQUEST_BACKEND_READY ? null : (
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -367,6 +386,13 @@ export function HostRequestsRoute() {
         hostId={hostId}
         programId={programId}
         hostName={hostQ.data?.host}
+      />
+
+      <AddToContextDialog
+        open={contextOpen}
+        onOpenChange={setContextOpen}
+        hostId={hostId}
+        requestIds={selectedRequestIds}
       />
 
       <ConfirmDialog

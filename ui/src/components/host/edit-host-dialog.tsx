@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -18,6 +18,7 @@ import {
 import { useHost, usePatchHost } from "@/hooks/useHosts";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
+import { HOST_RATE_LIMIT_PATCH_BACKEND_READY } from "@/config/features";
 
 export function EditHostDialog({
   open,
@@ -39,6 +40,9 @@ export function EditHostDialog({
   const [rl, setRl] = React.useState("");
   const [srl, setSrl] = React.useState("");
   const [lrl, setLrl] = React.useState("");
+  const [description, setDescription] = React.useState("");
+  const [technologies, setTechnologies] = React.useState("");
+  const [notes, setNotes] = React.useState("");
 
   React.useEffect(() => {
     if (open && data) {
@@ -47,6 +51,9 @@ export function EditHostDialog({
       setRl(data.hostRateLimit?.toString() ?? "");
       setSrl(data.shortRateLimit?.toString() ?? "");
       setLrl(data.longRateLimit?.toString() ?? "");
+      setDescription(data.description ?? "");
+      setTechnologies((data.technologies ?? []).join(", "));
+      setNotes(data.notes ?? "");
     }
   }, [open, data]);
 
@@ -58,9 +65,19 @@ export function EditHostDialog({
         req: {
           host: host.trim() || undefined,
           scope,
-          hostRateLimit: rl ? Number(rl) : undefined,
-          shortRateLimit: srl ? Number(srl) : undefined,
-          longRateLimit: lrl ? Number(lrl) : undefined,
+          ...(HOST_RATE_LIMIT_PATCH_BACKEND_READY
+            ? {
+                hostRateLimit: rl ? Number(rl) : undefined,
+                shortRateLimit: srl ? Number(srl) : undefined,
+                longRateLimit: lrl ? Number(lrl) : undefined,
+              }
+            : {}),
+          description,
+          technologies: technologies
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+          notes,
         },
       });
       toast({ title: "Host updated", variant: "success" });
@@ -77,7 +94,7 @@ export function EditHostDialog({
         <DialogHeader>
           <DialogTitle>Edit host</DialogTitle>
         </DialogHeader>
-        <div className="px-5 py-4 space-y-3">
+        <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
           <div className="space-y-1.5">
             <Label htmlFor="host">Host</Label>
             <Input
@@ -102,16 +119,65 @@ export function EditHostDialog({
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Rate (req/s)</Label>
-              <Input type="number" value={rl} onChange={(e) => setRl(e.target.value)} />
+              <Input
+                type="number"
+                value={rl}
+                onChange={(e) => setRl(e.target.value)}
+                disabled={!HOST_RATE_LIMIT_PATCH_BACKEND_READY}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Short burst</Label>
-              <Input type="number" value={srl} onChange={(e) => setSrl(e.target.value)} />
+              <Input
+                type="number"
+                value={srl}
+                onChange={(e) => setSrl(e.target.value)}
+                disabled={!HOST_RATE_LIMIT_PATCH_BACKEND_READY}
+              />
             </div>
             <div className="space-y-1.5">
               <Label>Long burst</Label>
-              <Input type="number" value={lrl} onChange={(e) => setLrl(e.target.value)} />
+              <Input
+                type="number"
+                value={lrl}
+                onChange={(e) => setLrl(e.target.value)}
+                disabled={!HOST_RATE_LIMIT_PATCH_BACKEND_READY}
+              />
             </div>
+          </div>
+          {!HOST_RATE_LIMIT_PATCH_BACKEND_READY && (
+            <div className="text-[11px] text-muted-foreground -mt-1">
+              The backend doesn't store changes to the rate limits yet.
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="h-desc">Description</Label>
+            <Textarea
+              id="h-desc"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What this host is, shown to AI agents working on it."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="h-tech">Technologies</Label>
+            <Input
+              id="h-tech"
+              value={technologies}
+              onChange={(e) => setTechnologies(e.target.value)}
+              placeholder="nginx, Spring Boot, PostgreSQL"
+            />
+            <div className="text-[11px] text-muted-foreground">Comma separated.</div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="h-notes">Notes</Label>
+            <Textarea
+              id="h-notes"
+              rows={3}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
         </div>
         <DialogFooter>

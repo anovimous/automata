@@ -18,6 +18,7 @@ import {
 import { Checkbox } from "@/components/ui/primitives";
 import {
   useCreateComparator,
+  useModifierDetails,
   useModifiers,
 } from "@/hooks/useResources";
 import { useToast } from "@/components/ui/toast";
@@ -36,6 +37,7 @@ export function CreateComparatorDialog({
   const [modifierIds, setModifierIds] = React.useState<number[]>([]);
   const createMut = useCreateComparator();
   const modifiers = useModifiers({ pageable: { page: 0, size: 100 } });
+  const details = useModifierDetails((modifiers.data?.content ?? []).map((m) => m.id));
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -105,8 +107,10 @@ export function CreateComparatorDialog({
                     onCheckedChange={() => toggle(m.id)}
                   />
                   <span className="font-mono">{m.target}</span>
-                  {m.description && (
-                    <span className="text-muted-foreground truncate">{m.description}</span>
+                  {details.get(m.id)?.description && (
+                    <span className="text-muted-foreground truncate">
+                      {details.get(m.id)?.description}
+                    </span>
                   )}
                 </label>
               ))}

@@ -1,10 +1,19 @@
 import * as React from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { Plus, Filter } from "lucide-react";
-import { useJobs } from "@/hooks/useJobs";
+import { Filter } from "lucide-react";
+import { useApproveJob, useJobs } from "@/hooks/useJobs";
 import { useSetTopBar } from "@/components/layout/top-bar";
 import { PageContainer, PageHeader } from "@/components/layout/page";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
+import { ApiError } from "@/lib/fetcher";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/primitives";
 import { Checkbox } from "@/components/ui/primitives";
 import {
@@ -15,34 +24,27 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/data-table/data-table";
 import { Pagination } from "@/components/data-table/pagination";
-import { JobScopePill, JobStatePill } from "@/components/job/pills";
+import { ApprovalPill, CreatorPill, JobScopePill, JobStatePill } from "@/components/job/pills";
 import { relativeTime } from "@/lib/utils";
+import { HttpJobState as HttpJobStateEnum } from "@/types/enums";
 import type {
   HttpJobFilter,
   HttpJobScope,
   HttpJobState,
+  JobCreator,
 } from "@/types/domain";
 
-const ALL_STATES: HttpJobState[] = [
-  "DRAFT",
-  "TOQUEUE",
-  "SCHEDULED",
-  "QUEUED",
-  "RUNNING",
-  "PAUSED",
-  "CANCELED",
-  "FINISHED",
-  "FAILED",
-  "TERMINATED",
-];
+const ALL_STATES: HttpJobState[] = [...HttpJobStateEnum.options];
 
 const TAB_STATES: Record<string, HttpJobState[] | undefined> = {
   active: ["RUNNING", "PAUSED", "QUEUED", "TOQUEUE", "SCHEDULED"],
   drafts: ["DRAFT"],
   finished: ["FINISHED"],
-  failed: ["FAILED", "CANCELED", "TERMINATED"],
+  failed: ["FAILED", "CANCELED", "SELFTERMINATED", "LOSTCONTACT"],
   all: undefined,
 };
+
+const ANY_CREATOR = "__any__";
 
 // =============================================================================
 // Top-level jobs page
@@ -57,15 +59,7 @@ export function JobsListRoute() {
     <PageContainer>
       <PageHeader
         title="Jobs"
-        description="All jobs across programs and hosts."
-        actions={
-          <Link to="/jobs/run-global">
-            <Button>
-              <Plus className="h-3.5 w-3.5" />
-              New global job
-            </Button>
-          </Link>
-        }
+        description="All jobs across programs and hosts. Create one from a host or a request."
       />
 
       <JobsListContent
@@ -100,6 +94,12 @@ export function JobsListContent({
   const scope = (searchState.scope as HttpJobScope | undefined) ?? undefined;
   const page = (searchState.page as number) ?? 0;
   const size = (searchState.size as number) ?? 25;
+  const createdBy = (searchState.createdBy as JobCreator | undefined) ?? undefined;
+  const agentContextId = searchState.agentContextId
+    ? Number(searchState.agentContextId)
+    : undefined;
+  const approveMut = useApproveJob();
+  const { toast } = useToast();
 
   // Compose filter: tab states take precedence unless the user has
   // explicit state checkboxes set ("All" tab).
@@ -114,6 +114,8 @@ export function JobsListContent({
     ...(forceFilter ?? {}),
     currentStates,
     scope,
+    createdBy,
+    agentContextId,
   };
 
   const { data, isLoading } = useJobs(filter, { page, size, sort: ["id,desc"] });
@@ -137,6 +139,41 @@ export function JobsListContent({
               <TabsTrigger value="all">All</TabsTrigger>
             </TabsList>
           </Tabs>
+
+          <Select
+            value={createdBy ?? ANY_CREATOR}
+            onValueChange={(v) =>
+              onSearchChange({
+                ...searchState,
+                createdBy: v === ANY_CREATOR ? undefined : v,
+                page: 0,
+              })
+            }
+          >
+            <SelectTrigger className="w-[140px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ANY_CREATOR}>Any creator</SelectItem>
+              <SelectItem value="USER">Created by user</SelectItem>
+              <SelectItem value="AI">Created by AI</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {agentContextId !== undefined && (
+            <Badge variant="accent" className="gap-1">
+              Context #{agentContextId}
+              <button
+                type="button"
+                onClick={() =>
+                  onSearchChange({ ...searchState, agentContextId: undefined, page: 0 })
+                }
+                aria-label="Clear context filter"
+              >
+                ×
+              </button>
+            </Badge>
+          )}
 
           <Popover>
             <PopoverTrigger asChild>
@@ -211,6 +248,18 @@ export function JobsListContent({
               cell: (r) => <JobScopePill scope={r.scope} />,
             },
             {
+              key: "creator",
+              header: "Created by",
+              cell: (r) => (
+                <div className="flex items-center gap-1.5">
+                  <CreatorPill creator={r.createdBy} />
+                  {r.createdBy === "AI" && r.currentState === "DRAFT" && (
+                    <ApprovalPill approved={r.approved} />
+                  )}
+                </div>
+              ),
+            },
+            {
               key: "id",
               header: "Job",
               cell: (r) => (
@@ -248,6 +297,32 @@ export function JobsListContent({
                   {relativeTime(r.creationDate)}
                 </span>
               ),
+            },
+            {
+              key: "actions",
+              header: "",
+              align: "right",
+              cell: (r) =>
+                r.createdBy === "AI" && r.currentState === "DRAFT" && !r.approved ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-stop-row-click
+                    disabled={approveMut.isPending}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await approveMut.mutateAsync({ id: r.id });
+                        toast({ title: `Job #${r.id} approved`, variant: "success" });
+                      } catch (err) {
+                        const msg = err instanceof ApiError ? err.message : "Approve failed";
+                        toast({ title: "Approve failed", description: msg, variant: "destructive" });
+                      }
+                    }}
+                  >
+                    Approve
+                  </Button>
+                ) : null,
             },
           ]}
         />

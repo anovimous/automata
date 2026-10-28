@@ -42,7 +42,7 @@ export function WordlistsListRoute() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const vulns = useVulnerabilities({ page: 0, size: 200 });
+  const vulns = useVulnerabilities({ pageable: { page: 0, size: 200 } });
   const { data, isLoading } = useWordlists({
     query: debounced || undefined,
     vulnId: vulnId ? Number(vulnId) : undefined,
@@ -109,34 +109,19 @@ export function WordlistsListRoute() {
                   params={{ id: r.id }}
                   className="font-mono text-xs font-medium hover:underline"
                 >
-                  {r.name}
+                  {r.name ?? `#${r.id}`}
                 </Link>
               ),
             },
             {
-              key: "path",
-              header: "Path",
+              key: "lines",
+              header: "Lines",
+              align: "right",
               cell: (r) => (
-                <span className="font-mono text-xs text-muted-foreground truncate block max-w-[50ch]">
-                  {r.path}
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {r.numberOfLines ?? "—"}
                 </span>
               ),
-            },
-            {
-              key: "vuln",
-              header: "Vulnerability",
-              cell: (r) =>
-                r.vulnerabilityId ? (
-                  <Link
-                    to="/vulnerabilities/$id"
-                    params={{ id: r.vulnerabilityId }}
-                    className="text-xs hover:underline"
-                  >
-                    #{r.vulnerabilityId}
-                  </Link>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                ),
             },
             {
               key: "actions",

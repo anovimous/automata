@@ -11,7 +11,6 @@ import { PageContainer, PageHeader } from "@/components/layout/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -76,6 +75,7 @@ export function ComparatorDetailRoute() {
                     req: {
                       name: name.trim() || undefined,
                       schema: schema || undefined,
+                      setSchemaNull: !schema && !!compQ.data?.schema,
                     },
                   });
                   toast({ title: "Saved", variant: "success" });
@@ -124,30 +124,15 @@ export function ComparatorDetailRoute() {
         <Card>
           <CardHeader>
             <CardTitle>Modifiers</CardTitle>
-            <Badge variant="muted">{compQ.data?.modifiers?.length ?? 0}</Badge>
           </CardHeader>
-          <CardContent>
-            {compQ.data?.modifiers?.length ? (
-              <ul className="space-y-1">
-                {compQ.data.modifiers.map((m) => (
-                  <li key={m.id} className="text-xs flex items-center gap-2">
-                    <Link
-                      to="/modifiers/$id"
-                      params={{ id: m.id }}
-                      className="font-mono hover:underline"
-                    >
-                      #{m.id}
-                    </Link>
-                    <Badge variant="outline">{m.target}</Badge>
-                    {m.description && (
-                      <span className="text-muted-foreground truncate">{m.description}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="text-xs text-muted-foreground">No modifiers attached.</div>
-            )}
+          <CardContent className="text-xs text-muted-foreground space-y-2">
+            <p>
+              The modifiers of a comparator are chosen when it is created. The API doesn't
+              return them afterwards and has no route to change them.
+            </p>
+            <Link to="/modifiers" className="inline-block hover:underline text-foreground">
+              Browse modifiers
+            </Link>
           </CardContent>
         </Card>
       </div>

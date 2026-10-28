@@ -6,9 +6,10 @@ import type {
   ComparatorCreationRequest,
   ComparatorPatchRequest,
   ComparatorSchema as ComparatorSchemaType,
-  Modifier,
   ModifierCreationRequest,
+  ModifierDetailed,
   ModifierPatchRequest,
+  ModifierSummary,
   ModifierTarget,
   WordlistCreationRequest,
   WordlistDetailed,
@@ -23,16 +24,12 @@ const WL = "/api/wordlists";
 export const comparatorsApi = {
   list: (params?: {
     query?: string;
-    programId?: number;
-    hostId?: number;
     schema?: ComparatorSchemaType;
     pageable?: Pageable;
   }) =>
     apiFetch<PageHolder<Comparator>>(COMP, {
       query: {
         query: params?.query,
-        programId: params?.programId,
-        hostId: params?.hostId,
         schema: params?.schema,
         ...pageableToParams(params?.pageable),
       },
@@ -52,14 +49,14 @@ export const modifiersApi = {
     schema?: ComparatorSchemaType;
     pageable?: Pageable;
   }) =>
-    apiFetch<PageHolder<Modifier>>(MOD, {
+    apiFetch<PageHolder<ModifierSummary>>(MOD, {
       query: {
         target: params?.target,
         schema: params?.schema,
         ...pageableToParams(params?.pageable),
       },
     }),
-  get: (id: number) => apiFetch<Modifier>(`${MOD}/${id}`),
+  get: (id: number) => apiFetch<ModifierDetailed>(`${MOD}/${id}`),
   create: (req: ModifierCreationRequest) =>
     apiFetch<void>(MOD, { method: "POST", body: req, responseType: "void" }),
   patch: (id: number, req: ModifierPatchRequest) =>

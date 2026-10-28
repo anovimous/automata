@@ -44,6 +44,7 @@ import {
   type ValidationError,
 } from "@/lib/routineSpec";
 import type {
+  ConfigFileStatus,
   HttpJobCreationRequest,
   MatchAndReplace,
   RoutineSummary,
@@ -52,13 +53,16 @@ import type {
 } from "@/types/domain";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
+import { jobsApi, requestsApi } from "@/api";
+import { base64ToBytes, bytesToBase64, concatBytes } from "@/lib/http";
 
 type RunJobSearch = {
   kind?: string;
   requestIds?: string;
-  equalitySetIds?: string;
   hostIds?: string;
 };
+
+const NO_TENANT = "__none__";
 
 export function RunJobRoute() {
   const { programId, hostId } = useParams({ strict: false }) as {
@@ -66,14 +70,7 @@ export function RunJobRoute() {
     hostId: number;
   };
   const search = useSearch({ strict: false }) as RunJobSearch;
-  return (
-    <RunJobForm
-      programId={programId}
-      hostId={hostId}
-      search={search}
-      mode="host"
-    />
-  );
+  return <RunJobForm programId={programId} hostId={hostId} search={search} />;
 }
 
 // =============================================================================
@@ -81,30 +78,26 @@ export function RunJobRoute() {
 // =============================================================================
 
 interface RunJobFormProps {
-  programId?: number;
-  hostId?: number;
+  programId: number;
+  hostId: number;
   search: RunJobSearch;
-  mode: "host" | "global";
 }
 
-export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps) {
+export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const programQ = useProgram(programId ?? null);
-  const hostQ = useHost(hostId ?? null);
+  const programQ = useProgram(programId);
+  const hostQ = useHost(hostId);
 
   // ---- Selection ----
   const selection: RunJobSelection = React.useMemo(() => {
-    if (mode === "global") return { kind: "global" };
-
     const requestIds = parseIdsCsv(search.requestIds);
-    const equalitySetIds = parseIdsCsv(search.equalitySetIds);
     const hostIds = parseIdsCsv(search.hostIds);
 
     const hostName = hostQ.data?.host;
-    const pid = programId ?? 0;
-    const hid = hostId ?? 0;
+    const pid = programId;
+    const hid = hostId;
 
     if (search.kind === "single-request" && requestIds.length === 1) {
       return {
@@ -124,24 +117,6 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
         hostName,
       };
     }
-    if (search.kind === "single-equality-set" && equalitySetIds.length === 1) {
-      return {
-        kind: "single-equality-set",
-        programId: pid,
-        hostId: hid,
-        equalitySetId: equalitySetIds[0],
-        hostName,
-      };
-    }
-    if (search.kind === "multiple-equality-sets" || equalitySetIds.length > 1) {
-      return {
-        kind: "multiple-equality-sets",
-        programId: pid,
-        hostId: hid,
-        equalitySetIds,
-        hostName,
-      };
-    }
     if (search.kind === "multiple-hosts" || hostIds.length > 1) {
       return {
         kind: "multiple-hosts",
@@ -156,7 +131,7 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
       hostId: hid,
       hostName,
     };
-  }, [mode, search, programId, hostId, hostQ.data?.host]);
+  }, [search, programId, hostId, hostQ.data?.host]);
 
   const scope = React.useMemo(() => inferScope(selection), [selection]);
   const allowedTarget = React.useMemo(() => allowedTargetForSelection(selection), [selection]);
@@ -229,28 +204,26 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
   const [wordlistIds, setWordlistIds] = React.useState<number[]>([]);
 
   // ---- NARROW-only fields ----
-  const tenantsQ = useTenants(mode === "host" && hostId ? hostId : null);
-  const [tenantId, setTenantId] = React.useState<string>("");
+  const tenantsQ = useTenants(hostId, { page: 0, size: 100 });
+  const [tenantId, setTenantId] = React.useState<string>(NO_TENANT);
   const [duration, setDuration] = React.useState<Duration>("SHORT");
 
   // ---- Top bar ----
   useSetTopBar(
-    mode === "host"
-      ? [
-          { label: "Programs", to: "/programs" },
-          {
-            label: programQ.data?.name ?? `#${programId}`,
-            to: `/programs/${programId}` as string,
-          },
-          {
-            label: hostQ.data?.host ?? `Host #${hostId}`,
-            to: `/programs/${programId}/hosts/${hostId}` as string,
-          },
-          { label: "Run job" },
-        ]
-      : [{ label: "Jobs", to: "/jobs" }, { label: "Run global job" }],
+    [
+      { label: "Programs", to: "/programs" },
+      {
+        label: programQ.data?.name ?? `#${programId}`,
+        to: `/programs/${programId}` as string,
+      },
+      {
+        label: hostQ.data?.host ?? `Host #${hostId}`,
+        to: `/programs/${programId}/hosts/${hostId}` as string,
+      },
+      { label: "Run job" },
+    ],
     null,
-    [programQ.data?.name, hostQ.data?.host, programId, hostId, mode],
+    [programQ.data?.name, hostQ.data?.host, programId, hostId],
   );
 
   // ---- Mutations ----
@@ -270,7 +243,7 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
         rate: rate ? Number(rate) : undefined,
         routineId: routineId ?? undefined,
         wordlistsIds: wordlistIds.length ? wordlistIds : undefined,
-        targetSelector: scope.targetSelector ?? undefined,
+        targetSelector: scope.targetSelector,
         matchAndReplace: mrRules.length ? mrRules : undefined,
         customConfig,
       },
@@ -279,13 +252,11 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
     if (scope.scope === "NARROW") {
       base.narrowJobDetails = {
         duration,
-        hostId: hostId ?? undefined,
-        tenantId: tenantId ? Number(tenantId) : undefined,
+        hostId,
+        tenantId: tenantId !== NO_TENANT ? Number(tenantId) : undefined,
       };
-    } else if (scope.scope === "WIDE") {
-      base.wideJobDetails = { programId: programId ?? undefined };
     } else {
-      base.globalJobDetails = {};
+      base.wideJobDetails = { programId };
     }
 
     return base;
@@ -294,8 +265,7 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
   const canSubmit =
     scope.backendReady &&
     routineId !== null &&
-    (spec ? validationErrors.length === 0 : true) &&
-    (scope.scope !== "NARROW" || tenantId !== "" || !tenantsQ.data?.content?.length);
+    (spec ? validationErrors.length === 0 : true);
 
   async function saveDraft() {
     if (!canSubmit) return;
@@ -324,6 +294,21 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
         hostName: hostQ.data?.host,
       });
       if (id) {
+        // The config files are built after the job is committed; the core only
+        // queues a job whose files are READY.
+        const ready = await waitForConfigFiles(id);
+        if (ready !== "READY") {
+          toast({
+            title: "Draft saved, not queued",
+            description:
+              ready === "FAILED"
+                ? "Preparing the job files failed. Retry the preparation from the job page."
+                : "The job files are still being prepared. Queue it from the job page when ready.",
+            variant: "warning",
+          });
+          navigate({ to: "/jobs/$jobId", params: { jobId: id } });
+          return;
+        }
         await queueMut.mutateAsync({ id, programId, hostId });
         toast({ title: "Job queued", variant: "success" });
         navigate({ to: "/jobs/$jobId", params: { jobId: id } });
@@ -407,9 +392,53 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">
                       This routine has no entry in <code>routine-specs.json</code>. Provide
-                      the custom config as a raw JSON object.
+                      the custom config as a raw JSON object
+                      {routineDetailQ.data?.configSchema
+                        ? "; it is validated against the routine's config schema."
+                        : "."}
                     </p>
                     <MonacoJsonEditor value={rawConfig} onChange={setRawConfig} />
+                    {selection.kind === "single-request" && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              const base64 = await rawRequestBase64(selection.requestId);
+                              const current = safeJsonParse(rawConfig) as Record<string, unknown>;
+                              setRawConfig(
+                                JSON.stringify(
+                                  { ...current, rawRequestBase64: base64 },
+                                  null,
+                                  2,
+                                ),
+                              );
+                            } catch (e) {
+                              const msg = e instanceof ApiError ? e.message : "Could not load the request";
+                              toast({ title: "Failed", description: msg, variant: "destructive" });
+                            }
+                          }}
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          Insert request #{selection.requestId} as rawRequestBase64
+                        </Button>
+                        <span className="text-[11px] text-muted-foreground">
+                          For routines that take the raw request (fuzz).
+                        </span>
+                      </div>
+                    )}
+                    {routineDetailQ.data?.configSchema != null && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-muted-foreground">
+                          Config schema
+                        </summary>
+                        <pre className="mt-1 text-[11px] font-mono bg-muted/40 border border-border rounded-md p-2 overflow-auto max-h-60">
+                          {JSON.stringify(routineDetailQ.data.configSchema, null, 2)}
+                        </pre>
+                      </details>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -462,7 +491,7 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
                           }`}
                         >
                           <FileText className="h-3 w-3" />
-                          <span className="font-mono">{w.name}</span>
+                          <span className="font-mono">{w.name || `#${w.id}`}</span>
                           {sel && <X className="h-3 w-3" />}
                         </button>
                       );
@@ -537,9 +566,10 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
                   <Label>Tenant</Label>
                   <Select value={tenantId} onValueChange={setTenantId}>
                     <SelectTrigger>
-                      <SelectValue placeholder={tenantsQ.data?.content?.length ? "—" : "No tenants"} />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value={NO_TENANT}>No tenant</SelectItem>
                       {tenantsQ.data?.content.map((t) => (
                         <SelectItem key={t.id} value={String(t.id)}>
                           {t.name}
@@ -590,6 +620,30 @@ export function RunJobForm({ programId, hostId, search, mode }: RunJobFormProps)
       </div>
     </PageContainer>
   );
+}
+
+/** The stored request as the raw message bytes (head, then the body), base64. */
+async function rawRequestBase64(requestId: number): Promise<string> {
+  const raw = await requestsApi.raw(requestId);
+  const head = base64ToBytes(raw.rawHeadBase64);
+  let body = base64ToBytes(raw.rawBodyBase64);
+  if (raw.bodyStoredAsFile) {
+    const blob = await requestsApi.bodyBlob(requestId);
+    body = new Uint8Array(await blob.arrayBuffer());
+  }
+  return bytesToBase64(concatBytes(head, body));
+}
+
+/** Poll the job until its config files are READY or FAILED (or give up after ~30s). */
+async function waitForConfigFiles(jobId: number): Promise<ConfigFileStatus | null> {
+  for (let i = 0; i < 30; i++) {
+    const job = await jobsApi.get(jobId);
+    if (job.configFileStatus === "READY" || job.configFileStatus === "FAILED") {
+      return job.configFileStatus;
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return null;
 }
 
 function parseIdsCsv(raw: string | undefined): number[] {

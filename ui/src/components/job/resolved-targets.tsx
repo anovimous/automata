@@ -7,7 +7,7 @@ import { requestsKeys } from "@/hooks/useRequests";
 import { hostsKeys } from "@/hooks/useHosts";
 import { MethodPill } from "@/components/job/pills";
 import { Badge } from "@/components/ui/badge";
-import type { TargetSelector } from "@/types/domain";
+import type { HttpMethod, RequestMetadata, TargetSelector } from "@/types/domain";
 
 const MAX_RESOLVED = 10;
 
@@ -21,16 +21,13 @@ interface ResolvedTargetsProps {
  * Resolves a job's `targetSelector` into clickable rows.
  *
  * Selector shapes (from the backend's embedded selector classes):
- * - SINGLE_HOST            → { hostId }
- * - MULTIPLE_HOSTS         → { hostIds: number[] }                  (WIDE)
- * - SINGLE_REQUEST         → { requestId }
- * - MULTIPLE_REQUESTS      → { requestIds: number[] }
- * - SINGLE_EQUALITY_SET    → { equalitySetId }
- * - MULTIPLE_EQUALITY_SETS → { equalitySetIds: number[] }
+ * - SINGLE_HOST       → { hostId }
+ * - SINGLE_REQUEST    → { requestId }
+ * - MULTIPLE_REQUESTS → { ids: number[], highLevelMatcher?, lowLevelMatcher? }
+ * - MULTIPLE_HOSTS    → {}  (the targets of a WIDE job are not part of the selector)
  *
  * Fetches up to MAX_RESOLVED entities. Anything beyond that is summarised
- * as "and N more". Equality sets cannot be fetched (no backend endpoint),
- * so they only render as clickable links by id.
+ * as "and N more".
  */
 export function ResolvedTargets({ selector, fallbackProgramId }: ResolvedTargetsProps) {
   const ids = extractIds(selector);
@@ -39,8 +36,6 @@ export function ResolvedTargets({ selector, fallbackProgramId }: ResolvedTargets
 
   const kind = selector.selectorType;
 
-  // For request and host kinds we fetch each id. For equality sets we render
-  // links only — no fetch.
   const fetchKind: "request" | "host" | null =
     kind === "SINGLE_REQUEST" || kind === "MULTIPLE_REQUESTS"
       ? "request"
@@ -53,10 +48,10 @@ export function ResolvedTargets({ selector, fallbackProgramId }: ResolvedTargets
       ? visibleIds.map((id) => ({
           queryKey:
             fetchKind === "request"
-              ? requestsKeys.detail(id)
+              ? requestsKeys.metadata(id)
               : hostsKeys.detail(id),
           queryFn: () =>
-            fetchKind === "request" ? requestsApi.get(id) : hostsApi.get(id),
+            fetchKind === "request" ? requestsApi.metadata(id) : hostsApi.get(id),
           staleTime: 60_000,
         }))
       : [],
@@ -84,12 +79,12 @@ export function ResolvedTargets({ selector, fallbackProgramId }: ResolvedTargets
               {fetchKind === "request" ? (
                 <RequestRow
                   id={id}
-                  data={q?.data as RequestData | undefined}
+                  data={toRequestData(q?.data as RequestMetadata | undefined)}
                   isLoading={q?.isLoading}
                   isError={q?.isError}
                   fallbackProgramId={fallbackProgramId}
                 />
-              ) : fetchKind === "host" ? (
+              ) : (
                 <HostRow
                   id={id}
                   data={q?.data as HostData | undefined}
@@ -97,8 +92,6 @@ export function ResolvedTargets({ selector, fallbackProgramId }: ResolvedTargets
                   isError={q?.isError}
                   fallbackProgramId={fallbackProgramId}
                 />
-              ) : (
-                <EqualitySetRow id={id} fallbackProgramId={fallbackProgramId} />
               )}
             </li>
           );
@@ -120,11 +113,21 @@ export function ResolvedTargets({ selector, fallbackProgramId }: ResolvedTargets
 // =============================================================================
 
 type RequestData = {
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD";
+  method: HttpMethod;
   computatedPath?: string | null;
   hostId?: number | null;
   programId?: number | null;
 };
+
+function toRequestData(m: RequestMetadata | undefined): RequestData | undefined {
+  if (!m) return undefined;
+  return {
+    method: m.line.method,
+    computatedPath: m.line.computatedPath,
+    hostId: m.hostId,
+    programId: m.programId,
+  };
+}
 
 function RequestRow({
   id,
@@ -247,34 +250,6 @@ function HostRow({
   );
 }
 
-function EqualitySetRow({
-  id,
-  fallbackProgramId,
-}: {
-  id: number;
-  fallbackProgramId?: number;
-}) {
-  // No public endpoint to resolve an equality set to a host id; we can only
-  // link by id IF we know the program. Otherwise show the id only.
-  const content = (
-    <div className="flex items-center gap-2 min-w-0">
-      <span className="font-mono text-xs truncate">Equality set #{id}</span>
-      <span className="ml-auto text-[10px] text-muted-foreground tabular-nums shrink-0">
-        no preview
-      </span>
-    </div>
-  );
-
-  if (fallbackProgramId === undefined) {
-    return <div>{content}</div>;
-  }
-
-  // We don't know the host id without fetching; render a non-linked row
-  // (clicking through requires the host id which only the job's program
-  // context provides).
-  return <div>{content}</div>;
-}
-
 // =============================================================================
 // Helpers
 // =============================================================================
@@ -285,16 +260,12 @@ function extractIds(selector: TargetSelector): number[] {
   switch (selector.selectorType) {
     case "SINGLE_HOST":
       return typeof s.hostId === "number" ? [s.hostId] : [];
-    case "MULTIPLE_HOSTS":
-      return Array.isArray(s.hostIds) ? (s.hostIds as number[]) : [];
     case "SINGLE_REQUEST":
       return typeof s.requestId === "number" ? [s.requestId] : [];
     case "MULTIPLE_REQUESTS":
-      return Array.isArray(s.requestIds) ? (s.requestIds as number[]) : [];
-    case "SINGLE_EQUALITY_SET":
-      return typeof s.equalitySetId === "number" ? [s.equalitySetId] : [];
-    case "MULTIPLE_EQUALITY_SETS":
-      return Array.isArray(s.equalitySetIds) ? (s.equalitySetIds as number[]) : [];
+      return Array.isArray(s.ids) ? (s.ids as number[]) : [];
+    case "MULTIPLE_HOSTS":
+      return [];
     default:
       return [];
   }
@@ -310,10 +281,6 @@ function labelFor(kind: TargetSelector["selectorType"], count: number): string {
       return "Request";
     case "MULTIPLE_REQUESTS":
       return `Requests (${count})`;
-    case "SINGLE_EQUALITY_SET":
-      return "Equality set";
-    case "MULTIPLE_EQUALITY_SETS":
-      return `Equality sets (${count})`;
     default:
       return "Targets";
   }

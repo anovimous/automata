@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import {
   useCreateVulnerability,
   useDeleteVulnerability,
@@ -37,7 +37,20 @@ export function VulnerabilitiesListRoute() {
   const [page, setPage] = React.useState(0);
   const [size, setSize] = React.useState(25);
 
-  const { data, isLoading } = useVulnerabilities({ page, size });
+  const [query, setQuery] = React.useState("");
+  const [debouncedQuery, setDebouncedQuery] = React.useState("");
+  React.useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(0);
+    }, 200);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const { data, isLoading } = useVulnerabilities({
+    query: debouncedQuery || undefined,
+    pageable: { page, size },
+  });
   const deleteMut = useDeleteVulnerability();
   const [createOpen, setCreateOpen] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState<number | null>(null);
@@ -54,6 +67,18 @@ export function VulnerabilitiesListRoute() {
           </Button>
         }
       />
+
+      <div className="flex items-center gap-2 mb-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search vulnerabilities…"
+            className="pl-8"
+          />
+        </div>
+      </div>
 
       <div className="border border-border rounded-lg overflow-hidden">
         <DataTable
@@ -77,20 +102,12 @@ export function VulnerabilitiesListRoute() {
               ),
             },
             {
-              key: "parent",
-              header: "Parent",
-              cell: (r) =>
-                r.parentId ? (
-                  <Link
-                    to="/vulnerabilities/$id"
-                    params={{ id: r.parentId }}
-                    className="text-xs font-mono text-muted-foreground hover:underline"
-                  >
-                    #{r.parentId}
-                  </Link>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                ),
+              key: "id",
+              header: "ID",
+              width: "w-20",
+              cell: (r) => (
+                <span className="text-xs font-mono text-muted-foreground">#{r.id}</span>
+              ),
             },
             {
               key: "actions",
@@ -151,7 +168,7 @@ function CreateVulnDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
   const [name, setName] = React.useState("");
   const [parentId, setParentId] = React.useState<string>("");
   const createMut = useCreateVulnerability();
-  const vulns = useVulnerabilities({ page: 0, size: 200 });
+  const vulns = useVulnerabilities({ pageable: { page: 0, size: 200 } });
   const { toast } = useToast();
 
   React.useEffect(() => {

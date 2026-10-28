@@ -8,11 +8,13 @@ import {
   Play,
   Plus,
   Layers as LayersIcon,
-  Shuffle,
+  Bot,
+  Download,
+  ShieldAlert,
   Trash2,
   Pencil,
 } from "lucide-react";
-import { useHost, usePatchHost, useDeleteHost } from "@/hooks/useHosts";
+import { useHost, useDeleteHost } from "@/hooks/useHosts";
 import { useProgram } from "@/hooks/usePrograms";
 import { useTenants } from "@/hooks/useTenants";
 import { useRequests } from "@/hooks/useRequests";
@@ -22,7 +24,6 @@ import { PageContainer, PageHeader } from "@/components/layout/page";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/primitives";
 import { ErrorState } from "@/components/common/states";
 import { AddRawRequestDialog } from "@/components/request/add-raw-request-dialog";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -30,6 +31,11 @@ import { EditHostDialog } from "@/components/host/edit-host-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
 import { cn } from "@/lib/cn";
+import { exportApi } from "@/api";
+import { DELETE_HOST_BACKEND_READY } from "@/config/features";
+import { useAgentContexts } from "@/hooks/useAgentContexts";
+import { useFindings } from "@/hooks/useFindings";
+import { useEqualizations } from "@/hooks/useRequests";
 
 export function HostDetailRoute() {
   const { programId, hostId } = useParams({ strict: false }) as {
@@ -41,7 +47,6 @@ export function HostDetailRoute() {
 
   const programQ = useProgram(programId);
   const hostQ = useHost(hostId);
-  const patchMut = usePatchHost();
   const deleteMut = useDeleteHost();
 
   const tenants = useTenants(hostId, { page: 0, size: 1 });
@@ -52,6 +57,9 @@ export function HostDetailRoute() {
     { page: 0, size: 1 },
     { poll: false },
   );
+  const contexts = useAgentContexts(hostId, { page: 0, size: 1 });
+  const findings = useFindings({ hostId }, { page: 0, size: 1 });
+  const equalizations = useEqualizations(hostId);
 
   const [addRequestOpen, setAddRequestOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -79,21 +87,6 @@ export function HostDetailRoute() {
         />
       </PageContainer>
     );
-  }
-
-  async function toggleOutOfScope() {
-    if (!hostQ.data) return;
-    try {
-      await patchMut.mutateAsync({
-        id: hostId,
-        programId,
-        req: { outOfScope: !hostQ.data.outOfScope },
-      });
-      toast({ title: "Host updated", variant: "success" });
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : "Update failed";
-      toast({ title: "Update failed", description: msg, variant: "destructive" });
-    }
   }
 
   return (
@@ -138,17 +131,25 @@ export function HostDetailRoute() {
               <Plus className="h-3.5 w-3.5" />
               Add request
             </Button>
+            <a href={exportApi.bodyPropertiesUrl({ hostId })} download>
+              <Button variant="outline" title="Distinct body property names of this host, one per line">
+                <Download className="h-3.5 w-3.5" />
+                Export properties
+              </Button>
+            </a>
             <Button variant="outline" size="icon" onClick={() => setEditOpen(true)} aria-label="Edit host">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setDeleteOpen(true)}
-              aria-label="Delete host"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            {DELETE_HOST_BACKEND_READY && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setDeleteOpen(true)}
+                aria-label="Delete host"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </>
         }
       />
@@ -159,16 +160,43 @@ export function HostDetailRoute() {
           <KV label="Rate limit" value={hostQ.data?.hostRateLimit ?? "—"} />
           <KV label="Short burst" value={hostQ.data?.shortRateLimit ?? "—"} />
           <KV label="Long burst" value={hostQ.data?.longRateLimit ?? "—"} />
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
-              Out of scope
+          <KV label="Level" value={hostQ.data?.level ?? "—"} />
+          {(hostQ.data?.description ||
+            (hostQ.data?.technologies?.length ?? 0) > 0 ||
+            hostQ.data?.notes) && (
+            <div className="col-span-2 md:col-span-4 space-y-2 border-t border-border pt-3">
+              {hostQ.data?.description && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Description
+                  </div>
+                  <div className="text-sm mt-1 whitespace-pre-wrap">{hostQ.data.description}</div>
+                </div>
+              )}
+              {(hostQ.data?.technologies?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                    Technologies
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {hostQ.data?.technologies?.map((t) => (
+                      <Badge key={t} variant="muted">
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {hostQ.data?.notes && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Notes
+                  </div>
+                  <div className="text-sm mt-1 whitespace-pre-wrap">{hostQ.data.notes}</div>
+                </div>
+              )}
             </div>
-            <Switch
-              checked={!!hostQ.data?.outOfScope}
-              onCheckedChange={() => toggleOutOfScope()}
-              disabled={patchMut.isPending}
-            />
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -186,8 +214,8 @@ export function HostDetailRoute() {
           to="/programs/$programId/hosts/$hostId/equality-sets"
           params={{ programId, hostId }}
           icon={GitMerge}
-          title="Equality sets"
-          count={undefined}
+          title="Equalizations"
+          count={equalizations.data?.length ?? 0}
         />
         <NavCard
           to="/programs/$programId/hosts/$hostId/tenants"
@@ -210,29 +238,44 @@ export function HostDetailRoute() {
         />
       </div>
 
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Link
-          to="/programs/$programId/hosts/$hostId/equalize"
-          params={{ programId, hostId }}
-          className="block"
-        >
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Link to="/agent-contexts" search={{ hostId }} className="block">
           <Card className="hover:bg-accent/30 transition-colors">
             <CardContent className="p-4 flex items-center gap-3">
-              <Shuffle className="h-4 w-4 text-muted-foreground" />
+              <Bot className="h-4 w-4 text-muted-foreground" />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">Equalize requests</div>
+                <div className="text-sm font-medium">
+                  Agent contexts
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                    {contexts.data?.totalElements ?? 0}
+                  </span>
+                </div>
                 <div className="text-xs text-muted-foreground">
-                  Group requests under this host using a comparator.
+                  What an AI agent may test on this host.
                 </div>
               </div>
             </CardContent>
           </Card>
         </Link>
-        <Link
-          to="/programs/$programId"
-          params={{ programId }}
-          className="block"
-        >
+        <Link to="/findings" search={{ hostId }} className="block">
+          <Card className="hover:bg-accent/30 transition-colors">
+            <CardContent className="p-4 flex items-center gap-3">
+              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium">
+                  Findings
+                  <span className="ml-2 font-mono text-xs text-muted-foreground">
+                    {findings.data?.totalElements ?? 0}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Vulnerabilities reported on this host.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link to="/programs/$programId" params={{ programId }} className="block">
           <Card className="hover:bg-accent/30 transition-colors">
             <CardContent className="p-4 flex items-center gap-3">
               <LayersIcon className="h-4 w-4 text-muted-foreground" />

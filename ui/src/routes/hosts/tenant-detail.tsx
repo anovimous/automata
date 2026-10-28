@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
-import { Plus, Save, Trash2, Code, KeyRound } from "lucide-react";
+import { Plus, Save, Trash2, KeyRound } from "lucide-react";
 import { useHost } from "@/hooks/useHosts";
 import { useProgram } from "@/hooks/usePrograms";
 import {
@@ -16,13 +16,14 @@ import { useSetTopBar } from "@/components/layout/top-bar";
 import { PageContainer, PageHeader } from "@/components/layout/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/primitives";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
-import type { AuthNameValuePair } from "@/types/domain";
+import { formatDate } from "@/lib/utils";
+import { DELETE_TENANT_AUTH_BACKEND_READY } from "@/config/features";
+import type { AuthNameValuePair, StaticData } from "@/types/domain";
 
 export function HostTenantDetailRoute() {
   const { programId, hostId, tenantId } = useParams({ strict: false }) as {
@@ -94,8 +95,6 @@ export function HostTenantDetailRoute() {
   }
 
   const hasAuth = !!authQ.data;
-  const initialKind: "static" | "dynamic" =
-    authQ.data?.code?.code ? "dynamic" : "static";
 
   return (
     <PageContainer>
@@ -155,7 +154,7 @@ export function HostTenantDetailRoute() {
                 <Badge variant="muted">Not configured</Badge>
               )}
             </div>
-            {hasAuth && (
+            {hasAuth && DELETE_TENANT_AUTH_BACKEND_READY && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -181,10 +180,9 @@ export function HostTenantDetailRoute() {
               hostId={hostId}
               programId={programId}
               hasAuth={hasAuth}
-              initialKind={initialKind}
               initialStaticData={authQ.data?.authData?.data ?? null}
-              initialLifetime={authQ.data?.authData?.lifeTimeInSeconds ?? ""}
-              initialCode={authQ.data?.code?.code ?? ""}
+              initialExpiry={authQ.data?.authData?.lifeTimeInSeconds ?? null}
+              populatedAt={authQ.data?.authData?.populatedAt ?? null}
               onSaved={() => authQ.refetch()}
               onCreate={(req) => createAuth.mutateAsync({ tenantId, req, hostId, programId })}
               onPatch={(req) => patchAuth.mutateAsync({ tenantId, req, hostId, programId })}
@@ -218,15 +216,25 @@ export function HostTenantDetailRoute() {
 }
 
 // =============================================================================
-// AuthEditor
+// AuthEditor — a tenant has one static auth set: headers, cookies and query
+// parameters that are added to the requests sent on its behalf.
 // =============================================================================
+
+// <input type="datetime-local"> wants "YYYY-MM-DDTHH:mm" in local time.
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function AuthEditor({
   tenantId,
   hasAuth,
-  initialKind,
   initialStaticData,
-  initialLifetime,
-  initialCode,
+  initialExpiry,
+  populatedAt,
   onCreate,
   onPatch,
   onSaved,
@@ -235,17 +243,13 @@ function AuthEditor({
   hostId: number;
   programId: number;
   hasAuth: boolean;
-  initialKind: "static" | "dynamic";
-  initialStaticData: { headers?: AuthNameValuePair[] | null; cookies?: AuthNameValuePair[] | null; queryParameters?: AuthNameValuePair[] | null } | null;
-  initialLifetime: string;
-  initialCode: string;
-  onCreate: (req: { authData?: { data?: typeof initialStaticData; lifeTimeInSeconds?: string }; code?: { code: string } }) => Promise<unknown>;
-  onPatch: (req: { authData?: { data?: typeof initialStaticData; lifeTimeInSeconds?: string }; code?: { code: string } }) => Promise<unknown>;
+  initialStaticData: StaticData | null;
+  initialExpiry: string | null;
+  populatedAt: string | null;
+  onCreate: (req: { authData: { data: StaticData; lifeTimeInSeconds?: string } }) => Promise<unknown>;
+  onPatch: (req: { authData: { data: StaticData; lifeTimeInSeconds?: string } }) => Promise<unknown>;
   onSaved: () => void;
 }) {
-  const [kind, setKind] = React.useState<"static" | "dynamic">(initialKind);
-  React.useEffect(() => setKind(initialKind), [initialKind]);
-
   const [headers, setHeaders] = React.useState<AuthNameValuePair[]>(
     initialStaticData?.headers ?? [],
   );
@@ -255,29 +259,25 @@ function AuthEditor({
   const [queryParameters, setQueryParameters] = React.useState<AuthNameValuePair[]>(
     initialStaticData?.queryParameters ?? [],
   );
-  const [lifetime, setLifetime] = React.useState(initialLifetime ?? "");
-  const [code, setCode] = React.useState(initialCode ?? "");
+  const [expiry, setExpiry] = React.useState(toLocalInput(initialExpiry));
   const { toast } = useToast();
 
   React.useEffect(() => {
     setHeaders(initialStaticData?.headers ?? []);
     setCookies(initialStaticData?.cookies ?? []);
     setQueryParameters(initialStaticData?.queryParameters ?? []);
-    setLifetime(initialLifetime ?? "");
-    setCode(initialCode ?? "");
-  }, [initialStaticData, initialLifetime, initialCode]);
+    setExpiry(toLocalInput(initialExpiry));
+  }, [initialStaticData, initialExpiry]);
 
   async function save() {
     try {
-      const payload =
-        kind === "static"
-          ? {
-              authData: {
-                data: { headers, cookies, queryParameters },
-                lifeTimeInSeconds: lifetime || undefined,
-              },
-            }
-          : { code: { code } };
+      const payload = {
+        authData: {
+          data: { headers, cookies, queryParameters },
+          // the backend names this lifeTimeInSeconds but stores an Instant
+          lifeTimeInSeconds: expiry ? new Date(expiry).toISOString() : undefined,
+        },
+      };
       if (hasAuth) {
         await onPatch(payload);
         toast({ title: "Auth updated", variant: "success" });
@@ -294,44 +294,22 @@ function AuthEditor({
 
   return (
     <div className="space-y-3">
-      <Tabs value={kind} onValueChange={(v) => setKind(v as "static" | "dynamic")}>
-        <TabsList>
-          <TabsTrigger value="static">
-            <KeyRound className="h-3 w-3" />
-            Static
-          </TabsTrigger>
-          <TabsTrigger value="dynamic">
-            <Code className="h-3 w-3" />
-            Dynamic
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="static">
-          <div className="space-y-3">
-            <KvList title="Headers" items={headers} onChange={setHeaders} />
-            <KvList title="Cookies" items={cookies} onChange={setCookies} />
-            <KvList title="Query params" items={queryParameters} onChange={setQueryParameters} />
-            <div className="space-y-1.5">
-              <Label>Lifetime (seconds)</Label>
-              <Input
-                value={lifetime}
-                onChange={(e) => setLifetime(e.target.value)}
-                placeholder="—"
-              />
-            </div>
+      <KvList title="Headers" items={headers} onChange={setHeaders} />
+      <KvList title="Cookies" items={cookies} onChange={setCookies} />
+      <KvList title="Query params" items={queryParameters} onChange={setQueryParameters} />
+      <div className="space-y-1.5">
+        <Label>Valid until</Label>
+        <Input
+          type="datetime-local"
+          value={expiry}
+          onChange={(e) => setExpiry(e.target.value)}
+        />
+        {populatedAt && (
+          <div className="text-[11px] text-muted-foreground">
+            Populated {formatDate(populatedAt)}
           </div>
-        </TabsContent>
-        <TabsContent value="dynamic">
-          <div className="space-y-1.5">
-            <Label>Auth code</Label>
-            <Textarea
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="// JS/Groovy snippet executed to populate auth data"
-              className="min-h-[160px] text-[12px]"
-            />
-          </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
       <div className="flex justify-end">
         <Button onClick={save} size="sm">
           <Save className="h-3.5 w-3.5" />

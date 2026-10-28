@@ -107,11 +107,6 @@ export function RoutinePicker({ value, onChange, allowedTarget }: RoutinePickerP
                 />
                 <div className="flex-1 min-w-0">
                   <div className="font-mono text-xs font-medium truncate">{r.key}</div>
-                  {r.description && (
-                    <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                      {r.description}
-                    </div>
-                  )}
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     {r.overhead && <Badge variant="muted">{r.overhead}</Badge>}
                     {r.protocol && <Badge variant="outline">{r.protocol}</Badge>}

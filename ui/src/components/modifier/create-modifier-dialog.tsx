@@ -57,7 +57,7 @@ export function CreateModifierDialog({
         description: description.trim() || undefined,
         priority: priority ? Number(priority) : undefined,
         schema: schema || undefined,
-        available,
+        isAvailable: available,
       });
       toast({ title: "Modifier created", variant: "success" });
       onOpenChange(false);

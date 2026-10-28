@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   comparatorsApi,
   modifiersApi,
@@ -13,6 +13,7 @@ import type {
   ComparatorPatchRequest,
   ComparatorSchema as ComparatorSchemaType,
   ModifierCreationRequest,
+  ModifierDetailed,
   ModifierPatchRequest,
   ModifierTarget,
   RoutineCreationRequest,
@@ -83,14 +84,17 @@ export function useDeleteRoutine() {
 // ===== Vulnerabilities =====
 export const vulnsKeys = {
   all: ["vulnerabilities"] as const,
-  list: (pageable?: Pageable) => ["vulnerabilities", "list", { pageable }] as const,
+  list: (p: { query?: string; parentVulnId?: number; pageable?: Pageable }) =>
+    ["vulnerabilities", "list", p] as const,
   detail: (id: number) => ["vulnerabilities", "detail", id] as const,
 };
 
-export function useVulnerabilities(pageable?: Pageable) {
+export function useVulnerabilities(
+  p: { query?: string; parentVulnId?: number; pageable?: Pageable } = {},
+) {
   return useQuery({
-    queryKey: vulnsKeys.list(pageable),
-    queryFn: () => vulnerabilitiesApi.list(pageable),
+    queryKey: vulnsKeys.list(p),
+    queryFn: () => vulnerabilitiesApi.list(p),
   });
 }
 
@@ -141,8 +145,6 @@ export const comparatorsKeys = {
   all: ["comparators"] as const,
   list: (p: {
     query?: string;
-    programId?: number;
-    hostId?: number;
     schema?: ComparatorSchemaType;
     pageable?: Pageable;
   }) => ["comparators", "list", p] as const,
@@ -151,8 +153,6 @@ export const comparatorsKeys = {
 
 export function useComparators(p: {
   query?: string;
-  programId?: number;
-  hostId?: number;
   schema?: ComparatorSchemaType;
   pageable?: Pageable;
 } = {}) {
@@ -221,6 +221,25 @@ export function useModifiers(p: {
     queryKey: modifiersKeys.list(p),
     queryFn: () => modifiersApi.list(p),
   });
+}
+
+/**
+ * The modifier list only carries id + target; description, priority, schema and
+ * availability are on the detail route. Fetch the details of the listed ones.
+ */
+export function useModifierDetails(ids: number[]) {
+  const results = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: modifiersKeys.detail(id),
+      queryFn: () => modifiersApi.get(id),
+      staleTime: 60_000,
+    })),
+  });
+  const byId = new Map<number, ModifierDetailed>();
+  results.forEach((r, i) => {
+    if (r.data) byId.set(ids[i], r.data);
+  });
+  return byId;
 }
 
 export function useModifier(id: number | null | undefined) {

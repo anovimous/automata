@@ -9,14 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useCreateWordlist, useVulnerabilities } from "@/hooks/useResources";
+import { VulnerabilityMultiPicker } from "@/components/common/vulnerability-picker";
+import { useCreateWordlist } from "@/hooks/useResources";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
 
@@ -29,16 +23,17 @@ export function CreateWordlistDialog({
 }) {
   const [name, setName] = React.useState("");
   const [path, setPath] = React.useState("");
-  const [vulnId, setVulnId] = React.useState("");
+  const [lines, setLines] = React.useState("");
+  const [vulnIds, setVulnIds] = React.useState<number[]>([]);
   const createMut = useCreateWordlist();
-  const vulns = useVulnerabilities({ page: 0, size: 200 });
   const { toast } = useToast();
 
   React.useEffect(() => {
     if (open) {
       setName("");
       setPath("");
-      setVulnId("");
+      setLines("");
+      setVulnIds([]);
     }
   }, [open]);
 
@@ -48,7 +43,8 @@ export function CreateWordlistDialog({
       await createMut.mutateAsync({
         name: name.trim(),
         path: path.trim(),
-        vulnerabilityId: vulnId ? Number(vulnId) : undefined,
+        numberOfLines: lines ? Number(lines) : undefined,
+        vulnIds: vulnIds.length > 0 ? vulnIds : undefined,
       });
       toast({ title: "Wordlist created", variant: "success" });
       onOpenChange(false);
@@ -88,19 +84,12 @@ export function CreateWordlistDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Vulnerability (optional)</Label>
-            <Select value={vulnId} onValueChange={setVulnId}>
-              <SelectTrigger>
-                <SelectValue placeholder="—" />
-              </SelectTrigger>
-              <SelectContent>
-                {vulns.data?.content.map((v) => (
-                  <SelectItem key={v.id} value={String(v.id)}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Number of lines (optional)</Label>
+            <Input type="number" value={lines} onChange={(e) => setLines(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Vulnerabilities (optional)</Label>
+            <VulnerabilityMultiPicker value={vulnIds} onChange={setVulnIds} />
           </div>
         </div>
         <DialogFooter>

@@ -7,3 +7,6 @@ export { jobsApi } from "./jobs";
 export { routinesApi } from "./routines";
 export { vulnerabilitiesApi } from "./vulnerabilities";
 export { comparatorsApi, modifiersApi, wordlistsApi } from "./other";
+export { findingsApi } from "./findings";
+export { agentContextsApi } from "./agentContexts";
+export { exportApi } from "./export";

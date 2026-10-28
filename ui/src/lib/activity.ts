@@ -27,9 +27,13 @@ export type ActivityKind =
   | "add-request"
   | "delete-request"
   | "associate-response"
-  | "equalize"
+  | "create-equalization"
+  | "run-equalization"
+  | "patch-equality-set"
   | "create-job"
   | "queue-job"
+  | "approve-job"
+  | "retry-job-preparation"
   | "pause-job"
   | "resume-job"
   | "cancel-job"
@@ -48,7 +52,14 @@ export type ActivityKind =
   | "delete-wordlist"
   | "create-vulnerability"
   | "patch-vulnerability"
-  | "delete-vulnerability";
+  | "delete-vulnerability"
+  | "create-finding"
+  | "patch-finding"
+  | "review-finding"
+  | "delete-finding"
+  | "create-agent-context"
+  | "patch-agent-context"
+  | "delete-agent-context";
 
 export interface ActivityEvent {
   ts: number;

@@ -62,7 +62,6 @@ export function HostJobsRoute() {
 
       <JobsListContent
         forceFilter={{ hostId, programId }}
-        hideFilters
         searchState={search}
         onSearchChange={(s) =>
           navigate({

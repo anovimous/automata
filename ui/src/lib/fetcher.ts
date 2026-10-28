@@ -116,6 +116,29 @@ export async function apiFetch<T = unknown>(
 }
 
 /**
+ * POST (or any write) to an endpoint that answers 201 with a `Location` header
+ * naming the created resource (`/api/jobs/http/12`, `/api/findings/3`, ...).
+ * Resolves with the trailing numeric id, or null when the header is missing.
+ */
+export async function apiCreateReturningId(
+  path: string,
+  body: unknown,
+): Promise<number | null> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const { message, body: errBody } = await readError(res);
+    throw new ApiError(res.status, message, errBody);
+  }
+  const loc = res.headers.get("Location");
+  const m = loc?.match(/\/(\d+)\/?$/);
+  return m ? Number(m[1]) : null;
+}
+
+/**
  * Convenience helper: full URL of an API path.
  * Useful for things like `<a href={apiUrl('/api/jobs/http/123/result')}>Download</a>`.
  */

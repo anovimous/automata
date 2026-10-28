@@ -11,9 +11,14 @@ import type {
 const BASE = "/api/vulnerabilities";
 
 export const vulnerabilitiesApi = {
-  list: (pageable?: Pageable) =>
+  /** `parentVulnId` lists the children of one vulnerability instead of every one. */
+  list: (params?: { query?: string; parentVulnId?: number; pageable?: Pageable }) =>
     apiFetch<PageHolder<VulnerabilitySummary>>(BASE, {
-      query: { ...pageableToParams(pageable) },
+      query: {
+        query: params?.query,
+        parentVulnId: params?.parentVulnId,
+        ...pageableToParams(params?.pageable),
+      },
     }),
   get: (id: number) => apiFetch<VulnerabilityDetailed>(`${BASE}/${id}`),
   create: (req: VulnerabilityCreationRequest) =>

@@ -10,6 +10,8 @@ import {
   GitCompare,
   Wrench,
   FileText,
+  Bot,
+  ShieldAlert,
   Settings,
   Plus,
   Play,
@@ -92,7 +94,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           comparatorsApi
             .list({ query: debounced, pageable: { page: 0, size: 5 } })
             .catch(() => null),
-          vulnerabilitiesApi.list({ page: 0, size: 5 }).catch(() => null),
+          vulnerabilitiesApi
+            .list({ query: debounced, pageable: { page: 0, size: 5 } })
+            .catch(() => null),
         ]);
 
         // Hosts only if we have a program context (best-effort) or no
@@ -125,7 +129,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             kind: "routine" as const,
             id: r.id,
             primary: r.key,
-            secondary: r.description ?? undefined,
+            secondary: r.protocol ?? undefined,
           })) ?? []),
           ...(comparators?.content?.map((c) => ({
             kind: "comparator" as const,
@@ -133,13 +137,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             primary: c.name,
             secondary: c.schema ?? undefined,
           })) ?? []),
-          ...((vulns?.content ?? [])
-            .filter((v) => v.name.toLowerCase().includes(debounced.toLowerCase()))
-            .map((v) => ({
-              kind: "vulnerability" as const,
-              id: v.id,
-              primary: v.name,
-            }))),
+          ...(vulns?.content?.map((v) => ({
+            kind: "vulnerability" as const,
+            id: v.id,
+            primary: v.name,
+          })) ?? []),
         ];
 
         if (!cancelled) setEntityResults(results);
@@ -226,9 +228,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             />
             <PaletteItem
               icon={Shuffle}
-              label="Equalize requests"
+              label="Equalizations"
               onSelect={() =>
-                go("/programs/$programId/hosts/$hostId/equalize", {
+                go("/programs/$programId/hosts/$hostId/equality-sets", {
                   programId: ctxProgramId!,
                   hostId: ctxHostId!,
                 })
@@ -270,6 +272,16 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             icon={FileText}
             label="Wordlists"
             onSelect={() => go("/wordlists")}
+          />
+          <PaletteItem
+            icon={ShieldAlert}
+            label="Findings"
+            onSelect={() => go("/findings")}
+          />
+          <PaletteItem
+            icon={Bot}
+            label="Agent contexts"
+            onSelect={() => go("/agent-contexts")}
           />
           <PaletteItem icon={Settings} label="Settings" onSelect={() => go("/settings")} />
         </Command.Group>
@@ -321,11 +333,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             icon={Plus}
             label="New program"
             onSelect={() => go("/programs")}
-          />
-          <PaletteItem
-            icon={Play}
-            label="Run global job"
-            onSelect={() => go("/jobs/run-global")}
           />
           <PaletteItem
             icon={RefreshCw}
