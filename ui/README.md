@@ -14,16 +14,32 @@ This app is ran using the docker compose file found at the central service at `g
 The data model maps directly to the backend:
 
 - **Programs** are the top-level scope (BugCrowd, HackerOne, Intigriti, or
-  custom). Each program has hosts.
-- **Hosts** belong to one program. They can be FQDNs or wildcards and carry
-  per-host rate limits.
-- **Tenants** are auth-bearing identities scoped to a host. Each tenant has
-  optional Static (`headers`, `cookies`, `queryParameters`) or Dynamic
-  (JS/Groovy `code`) auth data.
-- **Requests** belong to a host. They store parsed method/path/contentType
-  plus the original raw bytes (added MANUAL or WAYBACK).
-- **Equality sets** are groups of requests that a comparator considers
-  equivalent. They are produced by running `equalize`.
+  custom). Each program has hosts and a list of out-of-scope vulnerabilities.
+- **Hosts** belong to one program. They can be FQDNs or wildcards, carry
+  rate limits, and a description, technologies and notes (shown to AI agents).
+- **Tenants** are auth-bearing identities scoped to a host. Each tenant has an
+  optional static auth set (`headers`, `cookies`, `queryParameters`).
+- **Requests** belong to a host. They store the parsed request line and headers
+  plus the raw bytes; bodies are read through the metadata / raw / body-stream
+  routes whether stored inline or as a file. The UI shows each request with its
+  response (headers, raw message, body preview and download).
+- **Equalizations** apply a comparator to the requests of a host and group the
+  equivalent ones into **equality sets**.
+- **Jobs** run a routine on a host or request. A user creates a draft, the job
+  files are prepared, and the job is queued. Jobs created by an AI agent need a
+  human approval first.
+- **Findings** are vulnerabilities reported by a user or by an AI agent, with a
+  human true/false-positive review.
+- **Agent contexts** scope an AI agent to one host: the requests / equality sets
+  it may work on, the routines it may run and the tenants it may use.
+
+The routes that only the AI agent calls (`/api/agent-contexts/uuid/...`,
+`/api/external/ai/...`, `POST /api/jobs/http/{id}/ai-result`) and the ones for
+Burp and the workers (`/api/external/...`) have no UI on purpose.
+
+`docs/rest-api-review.md` maps every REST route to its screen and lists the
+backend problems found while wiring them; `src/config/features.ts` turns off the
+controls whose backend support is missing.
 
 ### Custom configs and `public/routine-specs.json`
 
@@ -62,5 +78,12 @@ To add a routine spec:
 
 ## Things not in v1
 
-- Job scheduling UI (the backend endpoints are commented out)
-- Per-member listing of an equality set (backend does not expose this endpoint)
+See `docs/rest-api-review.md` (section "Not possible with the current API") for the
+full list. The main ones:
+
+- Job scheduling, WIDE (multi-host) jobs and jobs on several requests: the backend
+  answers 501 for them.
+- Browsing the equality sets of a host: the API has no route that lists them, so a
+  set is opened by id.
+- Deleting programs, hosts, requests, routines, jobs and responses: not implemented
+  by the backend.
