@@ -2,9 +2,11 @@ package com.automata.job.api.dto;
 
 import com.automata.routine.common.enums.Duration;
 
-public record NarrowHttpJobDetailsDto(Duration duration,
+import jakarta.validation.constraints.NotNull;
 
-		Long hostId,
+public record NarrowHttpJobDetailsDto(@NotNull Duration duration,
+
+		@NotNull Long hostId,
 
 		Long tenantId) {
 

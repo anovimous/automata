@@ -27,6 +27,7 @@ import com.automata.tenant.authentication.AuthenticationService;
 import com.automata.tenant.common.dto.TenantSummaryResponseDto;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/tenants")
@@ -63,7 +64,7 @@ public class TenantController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Void> createTenant(@RequestBody TenantCreationRequest request) {
+	public ResponseEntity<Void> createTenant(@Valid @RequestBody TenantCreationRequest request) {
 
 		Tenant toBeCreatedTenant = TenantMapper.toTenant(request);
 
@@ -109,7 +110,7 @@ public class TenantController {
 
 	@PostMapping("/{tenantId}/authentication")
 	public ResponseEntity<Void> createAuthentication(@PathVariable Long tenantId,
-			@RequestBody AuthenticationCreationRequest request) {
+			@Valid @RequestBody AuthenticationCreationRequest request) {
 
 		Authentication toBeCreatedAuthentication = AuthenticationMapper.toAuthentication(request);
 

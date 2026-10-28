@@ -44,7 +44,6 @@ import com.automata.routine.RoutineRepository;
 import com.automata.routine.common.enums.Duration;
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
-import com.automata.testsupport.KnownBug;
 import com.automata.wordlist.WordlistRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -155,7 +154,6 @@ class JobCreationAndPlanningGapsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-016")
 	void aJobWithoutATargetSelectorIsRefusedAsABadRequest() {
 		TargetSelectionService real = new TargetSelectionService(hostRepo, requestRepo);
 

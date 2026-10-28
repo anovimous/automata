@@ -24,6 +24,7 @@ import com.automata.request.comparator.common.dto.ComparatorResponse;
 import com.automata.request.comparator.common.enums.Schema;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/comparators")
@@ -55,7 +56,7 @@ public class ComparatorController {
 	}
 
 	@PostMapping("")
-	public ResponseEntity<Void> createComparator(@RequestBody ComparatorCreationRequest req) {
+	public ResponseEntity<Void> createComparator(@Valid @RequestBody ComparatorCreationRequest req) {
 
 		Comparator toCreateComparator = ComparatorMapper.toComparator(req);
 

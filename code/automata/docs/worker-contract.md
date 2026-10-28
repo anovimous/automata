@@ -118,7 +118,7 @@ Worker: the first poll before starting decides what to do (`QUEUED` → start, `
 
 ### 4.2 Report: `POST /update/{jobId}`
 
-Body (sample `update-request.json`): `{"jobId": 42, "newState": "FAILED", "message": "...", "failureCategory": "INVALID_CONFIG"}`. The job is the one in the path; `jobId` in the body is ignored. `message` is kept (cut to 500 characters) as the failure message, and `failureCategory` as the failure category, only for `FAILED` and `SELFTERMINATED`, and only the first time. `failureCategory` is optional: it is sent with a failure only and left out of every other report (the worker omits it when empty).
+Body (sample `update-request.json`): `{"jobId": 42, "newState": "FAILED", "message": "...", "failureCategory": "INVALID_CONFIG"}`. The job is the one in the path; `jobId` in the body is ignored. `newState` is required: a body without it is answered with a 400 (`newState must not be null`). `message` is kept (cut to 500 characters) as the failure message, and `failureCategory` as the failure category, only for `FAILED` and `SELFTERMINATED`, and only the first time. `failureCategory` is optional: it is sent with a failure only and left out of every other report (the worker omits it when empty).
 
 `failureCategory` says what kind of failure it was, so a reader knows what to do next; the message says what happened. The core reads a name it does not know, or a failure reported without a category, as `UNKNOWN` (stored and returned as `failureCategory` of the job responses; a job that did not fail has none).
 

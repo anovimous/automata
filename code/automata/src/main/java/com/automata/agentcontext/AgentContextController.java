@@ -30,6 +30,7 @@ import com.automata.agentcontext.common.dto.ResolvedTarget;
 import com.automata.common.dto.response.PageHolderResponse;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/agent-contexts")
@@ -39,7 +40,7 @@ public class AgentContextController {
 	private final AgentContextService contextService;
 
 	@PostMapping("")
-	public ResponseEntity<Void> createContext(@RequestBody AgentContextCreationRequest request) {
+	public ResponseEntity<Void> createContext(@Valid @RequestBody AgentContextCreationRequest request) {
 
 		AgentContext context = contextService.createContext(request);
 
@@ -99,7 +100,7 @@ public class AgentContextController {
 
 	@PostMapping("/{contextId}/items")
 	public ResponseEntity<AgentContextItemResponse> addItem(@PathVariable Long contextId,
-			@RequestBody AgentContextItemAddRequest request) {
+			@Valid @RequestBody AgentContextItemAddRequest request) {
 
 		AgentContextItem item = contextService.addItem(contextId, request);
 
@@ -118,7 +119,7 @@ public class AgentContextController {
 
 	@PostMapping("/{contextId}/tenants")
 	public ResponseEntity<Void> addTenant(@PathVariable Long contextId,
-			@RequestBody AgentContextTenantAddRequest request) {
+			@Valid @RequestBody AgentContextTenantAddRequest request) {
 
 		contextService.addTenant(contextId, request.tenantId());
 

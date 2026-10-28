@@ -39,6 +39,7 @@ import com.automata.storage.StoredBody;
 import com.automata.response.ResponseService;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/requests")
@@ -107,7 +108,7 @@ public class RequestController {
 	}
 
 	@PostMapping("/raw")
-	public ResponseEntity<RequestSummaryResponse> addRawRequestWithResponse(@RequestBody RawRequestAdditionDto dto) {
+	public ResponseEntity<RequestSummaryResponse> addRawRequestWithResponse(@Valid @RequestBody RawRequestAdditionDto dto) {
 
 		Request request = requestService.addRawRequestWithResponse(dto);
 
@@ -118,7 +119,7 @@ public class RequestController {
 
 	@PostMapping("/{requestId}/response")
 	public ResponseEntity<RequestSummaryResponse> associateExistingRequestToNewRawResponse(@PathVariable Long requestId,
-			@RequestBody RawResponseAdditionDto dto) {
+			@Valid @RequestBody RawResponseAdditionDto dto) {
 
 		Request request = requestService.getRequestById(requestId);
 
@@ -143,7 +144,7 @@ public class RequestController {
 	}
 
 	@PostMapping("/equalizations")
-	public ResponseEntity<Void> createEqualizationObject(@RequestBody RequestsEqualizationDto dto) {
+	public ResponseEntity<Void> createEqualizationObject(@Valid @RequestBody RequestsEqualizationDto dto) {
 
 		requestEqualityService.createEqualizationTask(dto);
 

@@ -18,6 +18,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.ManyToMany;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -37,11 +39,13 @@ public class Program {
 	private LocalDate insertionDate;
 	
 	@Column(nullable = false)
+	@NotBlank
 	private String name;
 	
 	@Nullable
 	private String link;
 	
+	@PositiveOrZero
 	private int programRateLimit;
 	
 	@Nullable

@@ -1,5 +1,7 @@
 package com.automata.job.api.dto;
 
-public record WideHttpJobDetailsDto(Long programId) {
+import jakarta.validation.constraints.NotNull;
+
+public record WideHttpJobDetailsDto(@NotNull Long programId) {
 
 }

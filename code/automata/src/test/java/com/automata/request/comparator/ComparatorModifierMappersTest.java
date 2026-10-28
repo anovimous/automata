@@ -65,7 +65,6 @@ class ComparatorModifierMappersTest {
 	}
 
 	@Test
-	@KnownBug("BUG-028")
 	void toModifierWithoutTheAvailabilityFlagDoesNotCrash() {
 		Modifier modifier = ModifierMapper.toModifier(new ModifierCreationRequest(HashTarget.METHOD, "d", 2L, null, null));
 

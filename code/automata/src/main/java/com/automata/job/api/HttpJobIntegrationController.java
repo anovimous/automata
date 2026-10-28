@@ -17,6 +17,7 @@ import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobStateService;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/external/jobs/http")
@@ -44,7 +45,7 @@ public class HttpJobIntegrationController {
 	}
 
 	@PostMapping("/update/{jobId}")
-	public ResponseEntity<Void> updateJob(@PathVariable Long jobId, @RequestBody JobStateUpdateRequest req) {
+	public ResponseEntity<Void> updateJob(@PathVariable Long jobId, @Valid @RequestBody JobStateUpdateRequest req) {
 
 		stateService.updateCurrentJobState(jobId, req.newState(), req.message(),
 				req.failureCategory() == null ? null : FailureCategory.fromReported(req.failureCategory()));
