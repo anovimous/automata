@@ -31,7 +31,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.automata.testsupport.Mvc;
 import com.automata.program.common.dto.PatchProgramRequest;
 import com.automata.program.common.enums.Platform;
-import com.automata.testsupport.KnownBug;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -147,7 +146,6 @@ class ProgramControllerTest {
 	// ---- BUG-004: the web layer answers 500 for caller mistakes ----
 
 	@Test
-	@KnownBug("BUG-004")
 	void aNonNumericIdAnswers400() throws Exception {
 		mvc.perform(get("/api/programs/abc")).andExpect(status().isBadRequest());
 	}

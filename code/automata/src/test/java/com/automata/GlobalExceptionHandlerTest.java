@@ -140,6 +140,15 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Test
+	void anUnknownUrlMapsTo404() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleNoResource(new org.springframework.web.servlet.resource.NoResourceFoundException(org.springframework.http.HttpMethod.GET, "api/nothing"));
+
+		assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+		assertEquals("No resource found for GET /api/nothing", response.getBody());
+	}
+
+	@Test
 	void aProgramInUseMapsTo409() {
 		ResponseEntity<String> response = new GlobalExceptionHandler()
 				.handleProgramInUse(new com.automata.program.common.exception.ProgramInUseException("busy"));
@@ -155,5 +164,41 @@ class GlobalExceptionHandlerTest {
 
 		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
 		assertEquals("Host 'x' already exists", response.getBody());
+	}
+
+	@Test
+	void aResponseStatusExceptionWithoutReasonKeepsItsStatus() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleResponseStatus(new org.springframework.web.server.ResponseStatusException(HttpStatus.FORBIDDEN));
+
+		assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+	}
+
+	@Test
+	void aMissingParameterMapsTo400() {
+		ResponseEntity<String> response = new GlobalExceptionHandler().handleMissingParameter(
+				new org.springframework.web.bind.MissingServletRequestParameterException("hostId", "Long"));
+
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+	}
+
+	@Test
+	void aDatabaseRefusalWithoutAnySqlStateMapsTo409() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleDataIntegrityViolation(new org.springframework.dao.DataIntegrityViolationException("x"));
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("The change conflicts with the current data", response.getBody());
+	}
+
+	@Test
+	void theSqlStateIsFoundDeepInTheCauseChain() {
+		Exception deep = new RuntimeException("a", new RuntimeException("b", new java.sql.SQLException("c", "23505")));
+
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleDataIntegrityViolation(new org.springframework.dao.DataIntegrityViolationException("x", deep));
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("A record with the same unique value already exists", response.getBody());
 	}
 }
