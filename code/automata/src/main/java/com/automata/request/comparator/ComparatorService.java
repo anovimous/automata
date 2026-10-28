@@ -1,6 +1,8 @@
 package com.automata.request.comparator;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.TreeSet;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -41,7 +43,24 @@ public class ComparatorService {
 	@Transactional
 	public Comparator createComparator(Comparator comparator, Set<Long> modifierIds) {
 
+		if (modifierIds == null || modifierIds.isEmpty())
+			throw new IllegalArgumentException("A comparator needs at least one modifier");
+
 		List<Modifier> modifiers = modifierRepo.findAllById(modifierIds);
+
+		Set<Long> found = modifiers.stream().map(Modifier::getId).collect(Collectors.toSet());
+		Set<Long> missing = new TreeSet<>(modifierIds);
+		missing.removeAll(found);
+
+		if (!missing.isEmpty())
+			throw new EntityNotFoundException("Modifier not found: " + missing);
+
+		// a modifier which is not available can't hash a request, and equalizing with it would fail
+		Set<Long> unavailable = modifiers.stream().filter(modifier -> !modifier.isAvailable()).map(Modifier::getId)
+				.collect(Collectors.toCollection(TreeSet::new));
+
+		if (!unavailable.isEmpty())
+			throw new IllegalArgumentException("Modifier not available: " + unavailable);
 
 		comparator.setModifiers(modifiers);
 
