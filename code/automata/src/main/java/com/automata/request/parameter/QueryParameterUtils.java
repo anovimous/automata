@@ -18,10 +18,12 @@ public abstract class QueryParameterUtils {
 		if (queryString.startsWith("?"))
 			queryString = queryString.substring(1);
 
+		// "?debug" has no value: the column is NOT NULL, so it is stored as "?debug=" (an empty value)
 		List<NameValuePair> pairs = WWWFormCodec.parse(queryString, StandardCharsets.UTF_8);
 
 		List<QueryParameter> queryParameters = pairs.stream()
-				.map((pair) -> QueryParameter.of(pair.getName(), pair.getValue())).collect(Collectors.toList());
+				.map((pair) -> QueryParameter.of(pair.getName(), pair.getValue() == null ? "" : pair.getValue()))
+				.collect(Collectors.toList());
 
 		QueryStringParseResult parseResult = new QueryStringParseResult();
 

@@ -30,6 +30,7 @@ import com.automata.common.utils.ValidationResult;
 import com.automata.job.domain.valueobject.RequestInternalDto;
 import com.automata.request.body.BodyParseResult;
 import com.automata.request.body.BodyUtils;
+import com.automata.request.common.RequestFieldLimits;
 import com.automata.request.common.dto.RequestFilter;
 import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.RequestContentType;
@@ -140,17 +141,31 @@ public abstract class RequestUtils {
 		// Here starts construction of RequestParseResult components:
 
 		// Method
-		Method customMethod = Method.valueOf(request.getMethod().toUpperCase());
+		Method customMethod;
+		try {
+			customMethod = Method.valueOf(request.getMethod().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			return RequestParseResult.builder().validationResult(ValidationResult.invalid(String
+					.format("Unsupported HTTP method '%s', the supported ones are %s",
+							RequestFieldLimits.preview(request.getMethod()), Arrays.toString(Method.values()))))
+					.build();
+		}
 
 		// URI Creation:
 		URI uri = URI.create(request.getPath());
 
-		// Path Parsing:
-		String path = uri.getPath();
+		// Path Parsing: the raw path and query are kept, since decoding them first
+		// would break "%20", "%25" and "%26" (they are decoded once, as parameters)
+		String path = uri.getRawPath();
+
+		if (path == null)
+			return RequestParseResult.builder()
+					.validationResult(ValidationResult.invalid("The request target has no path")).build();
+
 		PathParsingResult pathParseResult = PathUtils.parsePath(path);
 
 		// QueryString Parsing:
-		String queryString = uri.getQuery();
+		String queryString = uri.getRawQuery();
 		QueryStringParseResult queryStringParseResult;
 
 		if (queryString != null)

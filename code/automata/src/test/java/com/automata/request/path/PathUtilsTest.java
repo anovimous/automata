@@ -73,6 +73,20 @@ class PathUtilsTest {
 	}
 
 	@Test
+	void aPercentEncodedPathIsNotDecoded() {
+		PathParsingResult result = PathUtils.parsePath("/my%20files/42/a%2Fb/100%25");
+
+		assertEquals("/my%20files/2@INT/a%2Fb/100%25", result.getComputatedPath());
+		assertEquals("42", result.getPathVariables().get(0).getValue());
+	}
+
+	@Test
+	void aFragmentIsNotPartOfTheComputedPath() {
+		assertEquals("/api/users/3@INT", PathUtils.parsePath("/api/users/5#top").getComputatedPath());
+		assertEquals("/api/users/3@INT", PathUtils.parsePath("/api/users/5?x=1#top").getComputatedPath());
+	}
+
+	@Test
 	@KnownBug("BUG-018")
 	void theExtensionOfTheLastSegmentIsDetected() {
 		assertEquals(".json", PathUtils.parsePath("/api/users.json").getExtension());

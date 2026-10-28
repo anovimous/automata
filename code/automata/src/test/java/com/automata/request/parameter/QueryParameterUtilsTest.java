@@ -1,7 +1,6 @@
 package com.automata.request.parameter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -10,7 +9,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import com.automata.request.common.dto.QueryParameterInternalDto;
-import com.automata.testsupport.KnownBug;
 
 class QueryParameterUtilsTest {
 
@@ -49,12 +47,25 @@ class QueryParameterUtilsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-021")
 	void aParameterWithoutValueIsStoredWithAnEmptyValue() {
 		// the column query_parameter.value is NOT NULL, a null value cannot be saved
 		QueryStringParseResult result = QueryParameterUtils.parseQueryString("debug&a=1");
 
-		assertNotNull(result.getQueryParameters().get(0).getValue());
+		assertEquals("", result.getQueryParameters().get(0).getValue());
+		assertEquals(List.of("debug=", "a=1"), pairs(result));
+	}
+
+	@Test
+	void everyParameterWithoutValueGetsAnEmptyValue() {
+		assertEquals(List.of("a=", "b=", "c=3"), pairs(QueryParameterUtils.parseQueryString("a&b&c=3")));
+	}
+
+	@Test
+	void aParameterWithoutValueIsComposedWithAnEqualsSign() {
+		assertEquals("debug=&a=1", QueryParameterUtils
+				.composeRawQueryString(List.of(new QueryParameterInternalDto("debug", "", 1L),
+						new QueryParameterInternalDto("a", "1", 1L)))
+				.orElseThrow());
 	}
 
 	@Test

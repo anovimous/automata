@@ -15,9 +15,21 @@ import com.automata.request.common.enums.PathVariableValueType;
 
 public abstract class PathUtils {
 
+	/**
+	 * @param path the path as it was sent, still percent-encoded: decoding it
+	 *             would make "%20", "%25" or "%3F" ambiguous or illegal
+	 */
 	public static PathParsingResult parsePath(String path) {
 
-		String cleanedPath = URI.create(path).getPath();
+		// a query string or a fragment which came with it is not part of the path
+		int pathEnd = path.length();
+		for (char separator : new char[] { '?', '#' }) {
+			int index = path.indexOf(separator);
+			if (index >= 0 && index < pathEnd)
+				pathEnd = index;
+		}
+
+		String cleanedPath = path.substring(0, pathEnd);
 
 		int lastSlashIndex = cleanedPath.lastIndexOf("/");
 

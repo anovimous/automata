@@ -190,7 +190,6 @@ class RequestIngestionIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-021")
 	void aQueryParameterWithoutValueIsStored() {
 		requestService.addRawRequest(dto(get("/a?debug&x=1", ""), null, null));
 		fx.clear();
