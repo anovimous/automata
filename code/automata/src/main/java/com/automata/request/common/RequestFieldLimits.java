@@ -3,9 +3,10 @@ package com.automata.request.common;
 import com.automata.common.utils.ValidationResult;
 
 /**
- * The size of the columns which hold text taken from a request or a response.
- * A value above its limit is refused with a clear message instead of ending in
- * a database error, which would lose the whole message.
+ * What the columns which hold text taken from a request or a response can
+ * store: a limited number of characters, and no NUL character. A value which
+ * does not fit is refused with a clear message instead of ending in a database
+ * error, which would lose the whole message.
  */
 public final class RequestFieldLimits {
 
@@ -46,6 +47,22 @@ public final class RequestFieldLimits {
 
 		return ValidationResult
 				.invalid(String.format("%s is too long: %d characters, the limit is %d", what, length, max));
+
+	}
+
+	/**
+	 * PostgreSQL cannot store a NUL character in a text, and one reaches the
+	 * parsed copy when a "%00" or a "\u0000" is decoded.
+	 *
+	 * @param what  what the value is, for the message
+	 * @param value null has no NUL character
+	 */
+	public static ValidationResult checkNoNul(String what, String value) {
+
+		if (value == null || value.indexOf('\u0000') < 0)
+			return ValidationResult.valid();
+
+		return ValidationResult.invalid(what + " contains a NUL character (%00), which cannot be stored");
 
 	}
 

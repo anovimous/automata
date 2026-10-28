@@ -445,4 +445,45 @@ class RequestUtilsEdgeCasesTest {
 
 		assertTrue(result.getValidationResult().isValid());
 	}
+
+	// ---- NUL characters ----
+
+	@Test
+	void aNulCharacterInAQueryValueIsRefusedBecauseTheDatabaseCannotStoreIt() {
+		assertEquals("The value of the query parameter 'x' contains a NUL character (%00), which cannot be stored",
+				invalidMessage(parse("GET /a?x=%00 HTTP/1.1")));
+	}
+
+	@Test
+	void aNulCharacterInAQueryParameterNameIsRefused() {
+		assertEquals("The name of the query parameter 'a\u0000b' contains a NUL character (%00), which cannot be stored",
+				invalidMessage(parse("GET /a?a%00b=1 HTTP/1.1")));
+	}
+
+	@Test
+	void aNulCharacterInAFormFieldIsRefused() {
+		String body = "user=a%00b";
+		RequestParseResult result = RequestUtils.parseRawRequest(raw("POST /a HTTP/1.1",
+				"Content-Type: application/x-www-form-urlencoded\r\nContent-Length: " + body.length() + "\r\n", body));
+
+		assertTrue(invalidMessage(result).contains("The value of the body property 'user' contains a NUL character"));
+	}
+
+	@Test
+	void aNulCharacterInAJsonValueIsRefused() {
+		String body = "{\"a\":\"x\\u0000y\"}";
+		RequestParseResult result = RequestUtils.parseRawRequest(raw("POST /a HTTP/1.1",
+				"Content-Type: application/json\r\nContent-Length: " + body.length() + "\r\n", body));
+
+		assertTrue(invalidMessage(result).contains("The value of the body property 'a' contains a NUL character"));
+	}
+
+	@Test
+	void anEncodedNulCharacterInThePathIsKeptAsText() {
+		// the path is not decoded, so %00 stays three characters and can be stored
+		RequestParseResult result = parse("GET /a%00b HTTP/1.1");
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("/a%00b", result.getPathParseResult().getComputatedPath());
+	}
 }
