@@ -23,6 +23,7 @@ import com.automata.common.utils.ValidationResult;
 import com.automata.host.Host;
 import com.automata.request.Request;
 import com.automata.request.body.BodyParseResult;
+import com.automata.request.common.RequestFieldLimits;
 import com.automata.request.body.BodyUtils;
 import com.automata.request.common.dto.BodyPropertyInternalDto;
 import com.automata.request.header.Header;
@@ -108,12 +109,34 @@ public abstract class ResponseUtils {
 
 		}
 
+		ValidationResult lengths = validateFieldLengths(headers, bodyParseResult);
+
+		if (!lengths.isValid())
+			return ResponseParseResult.builder().validationResult(lengths).build();
+
 		ResponseParseResult finalParseResult = ResponseParseResult.builder().statusCode(statusCode)
 				.contentLength(contentLength).contentType(customContentType).headers(headers)
 				.bodyParseResult(bodyParseResult).rawHead(head).rawBody(body).bodyStoredAsFile(bodyStoredAsFile)
 				.bodyContentType(bodyContentType).validationResult(ValidationResult.valid()).build();
 
 		return finalParseResult;
+
+	}
+
+	// Each text taken from the response must fit its column, otherwise the response would be lost to a database error
+	static ValidationResult validateFieldLengths(List<Header> headers, BodyParseResult body) {
+
+		List<ValidationResult> checks = new ArrayList<>();
+
+		headers.forEach(header -> checks.add(RequestFieldLimits.checkLength(
+				"The name of the header '" + RequestFieldLimits.preview(header.getPrimaryKey().getHeader()) + "'",
+				header.getPrimaryKey().getHeader(), RequestFieldLimits.MAX_HEADER_NAME)));
+
+		body.getBodyProperties().forEach(property -> checks.add(RequestFieldLimits.checkLength(
+				"The path of the body property '" + RequestFieldLimits.preview(property.getFullPath()) + "'",
+				property.getFullPath(), RequestFieldLimits.MAX_BODY_PROPERTY_PATH)));
+
+		return checks.stream().filter(check -> !check.isValid()).findFirst().orElse(ValidationResult.valid());
 
 	}
 

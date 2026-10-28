@@ -311,4 +311,72 @@ class RequestUtilsEdgeCasesTest {
 		}
 		assertNull(result);
 	}
+
+	// ---- the size of the texts taken from the request ----
+
+	private static String invalidMessage(RequestParseResult result) {
+		assertFalse(result.getValidationResult().isValid());
+		return result.getValidationResult().getMessage();
+	}
+
+	@Test
+	void aComputatedPathAtTheLimitIsAccepted() {
+		String path = "/" + "a".repeat(499);
+
+		assertTrue(parse("GET " + path + " HTTP/1.1").getValidationResult().isValid());
+	}
+
+	@Test
+	void aComputatedPathOverTheLimitIsRefused() {
+		String path = "/" + "a".repeat(500);
+
+		assertEquals("The path is too long: 501 characters, the limit is 500",
+				invalidMessage(parse("GET " + path + " HTTP/1.1")));
+	}
+
+	@Test
+	void aQueryValueAtTheLimitIsAcceptedAndOneOverItIsRefused() {
+		assertTrue(parse("GET /a?jwt=" + "e".repeat(2000) + " HTTP/1.1").getValidationResult().isValid());
+
+		assertEquals("The value of the query parameter 'jwt' is too long: 2001 characters, the limit is 2000",
+				invalidMessage(parse("GET /a?jwt=" + "e".repeat(2001) + " HTTP/1.1")));
+	}
+
+	@Test
+	void aQueryParameterNameOverTheLimitIsRefusedAndCutInTheMessage() {
+		String message = invalidMessage(parse("GET /a?" + "n".repeat(501) + "=1 HTTP/1.1"));
+
+		assertTrue(message.startsWith("The name of the query parameter '" + "n".repeat(40) + "...' is too long: 501"));
+	}
+
+	@Test
+	void aPathVariableOverTheLimitIsRefused() {
+		// a long run of digits is a path variable, and it is also part of the computed path only as a placeholder
+		assertEquals("A path variable is too long: 2001 characters, the limit is 2000",
+				invalidMessage(parse("GET /items/" + "7".repeat(2001) + " HTTP/1.1")));
+	}
+
+	@Test
+	void aHeaderNameOverTheLimitIsRefused() {
+		RequestParseResult result = RequestUtils
+				.parseRawRequest(raw("GET /a HTTP/1.1", "X-" + "h".repeat(2000) + ": 1\r\n", ""));
+
+		assertTrue(invalidMessage(result).startsWith("The name of the header 'X-hhhh"));
+	}
+
+	@Test
+	void aBodyPropertyPathOverTheLimitIsRefused() {
+		String body = "{\"" + "k".repeat(2001) + "\":1}";
+		RequestParseResult result = RequestUtils.parseRawRequest(
+				raw("POST /a HTTP/1.1", "Content-Type: application/json\r\nContent-Length: " + body.length() + "\r\n", body));
+
+		assertTrue(invalidMessage(result).contains("The path of the body property"));
+	}
+
+	@Test
+	void everythingWithinTheLimitsIsKept() {
+		RequestParseResult result = parse("GET /a/b.json?x=1&y=2 HTTP/1.1");
+
+		assertTrue(result.getValidationResult().isValid());
+	}
 }

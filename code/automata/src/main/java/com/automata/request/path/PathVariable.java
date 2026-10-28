@@ -1,5 +1,6 @@
 package com.automata.request.path;
 
+import com.automata.request.common.RequestFieldLimits;
 import com.automata.request.Request;
 import com.automata.request.common.enums.PathVariableValueType;
 
@@ -41,7 +42,7 @@ public class PathVariable {
 	@Enumerated(EnumType.STRING)
 	private PathVariableValueType type;
 
-	@Column(nullable = false)
+	@Column(nullable = false, length = RequestFieldLimits.MAX_PATH_VARIABLE_VALUE)
 	private String value;
 
 	@ManyToOne(optional = false)

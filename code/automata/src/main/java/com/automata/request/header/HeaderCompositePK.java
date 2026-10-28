@@ -1,5 +1,6 @@
 package com.automata.request.header;
 
+import com.automata.request.common.RequestFieldLimits;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -15,7 +16,7 @@ public class HeaderCompositePK implements Serializable {
 
 	private static final long serialVersionUID = 6699915325160645145L;
 
-	@Column(nullable = false)
+	@Column(nullable = false, length = RequestFieldLimits.MAX_HEADER_NAME)
 	private String header;
 
 	private Long hostId;

@@ -1,5 +1,6 @@
 package com.automata.request.body;
 
+import com.automata.request.common.RequestFieldLimits;
 import com.automata.request.Request;
 import com.automata.request.common.enums.PropertyValueType;
 import com.automata.response.Response;
@@ -30,7 +31,7 @@ public class BodyProperty {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(length = 500)
+	@Column(length = RequestFieldLimits.MAX_BODY_PROPERTY_PATH)
 	private String fullPath;
 
 	@Column(columnDefinition = "text")

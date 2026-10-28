@@ -1,5 +1,6 @@
 package com.automata.request.parameter;
 
+import com.automata.request.common.RequestFieldLimits;
 import com.automata.request.Request;
 import com.automata.request.valueanalysis.ValueAnalysis;
 
@@ -31,10 +32,10 @@ public class QueryParameter {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(nullable = false)
+	@Column(nullable = false, length = RequestFieldLimits.MAX_PARAMETER_NAME)
 	private String parameter;
 
-	@Column(nullable = false)
+	@Column(nullable = false, length = RequestFieldLimits.MAX_PARAMETER_VALUE)
 	private String value;
 
 	@ManyToOne(optional = false)

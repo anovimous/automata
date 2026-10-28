@@ -210,6 +210,12 @@ public abstract class RequestUtils {
 
 		}
 
+		ValidationResult lengths = validateFieldLengths(pathParseResult, queryStringParseResult, headers,
+				bodyParseResult);
+
+		if (!lengths.isValid())
+			return RequestParseResult.builder().validationResult(lengths).build();
+
 		// Final result construction
 
 		RequestParseResult finalParseResult = RequestParseResult.builder().method(customMethod).version(version)
@@ -219,6 +225,42 @@ public abstract class RequestUtils {
 				.validationResult(ValidationResult.valid()).build();
 
 		return finalParseResult;
+
+	}
+
+	// Each text taken from the request must fit its column, otherwise the request would be lost to a database error
+	static ValidationResult validateFieldLengths(PathParsingResult path, QueryStringParseResult query,
+			List<Header> headers, BodyParseResult body) {
+
+		List<ValidationResult> checks = new ArrayList<>();
+
+		checks.add(RequestFieldLimits.checkLength("The path", path.getComputatedPath(),
+				RequestFieldLimits.MAX_COMPUTATED_PATH));
+
+		checks.add(RequestFieldLimits.checkLength("The extension of the path", path.getExtension(),
+				RequestFieldLimits.MAX_EXTENSION));
+
+		path.getPathVariables().forEach(variable -> checks.add(RequestFieldLimits.checkLength(
+				"A path variable", variable.getValue(), RequestFieldLimits.MAX_PATH_VARIABLE_VALUE)));
+
+		query.getQueryParameters().forEach(parameter -> {
+			checks.add(RequestFieldLimits.checkLength(
+					"The name of the query parameter '" + RequestFieldLimits.preview(parameter.getParameter()) + "'",
+					parameter.getParameter(), RequestFieldLimits.MAX_PARAMETER_NAME));
+			checks.add(RequestFieldLimits.checkLength(
+					"The value of the query parameter '" + RequestFieldLimits.preview(parameter.getParameter()) + "'",
+					parameter.getValue(), RequestFieldLimits.MAX_PARAMETER_VALUE));
+		});
+
+		headers.forEach(header -> checks.add(RequestFieldLimits.checkLength(
+				"The name of the header '" + RequestFieldLimits.preview(header.getPrimaryKey().getHeader()) + "'",
+				header.getPrimaryKey().getHeader(), RequestFieldLimits.MAX_HEADER_NAME)));
+
+		body.getBodyProperties().forEach(property -> checks.add(RequestFieldLimits.checkLength(
+				"The path of the body property '" + RequestFieldLimits.preview(property.getFullPath()) + "'",
+				property.getFullPath(), RequestFieldLimits.MAX_BODY_PROPERTY_PATH)));
+
+		return checks.stream().filter(check -> !check.isValid()).findFirst().orElse(ValidationResult.valid());
 
 	}
 

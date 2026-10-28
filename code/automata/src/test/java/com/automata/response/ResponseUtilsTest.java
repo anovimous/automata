@@ -133,4 +133,29 @@ class ResponseUtilsTest {
 		assertFalse(ResponseUtils.parseResponse(bytes("not a response")).validationResult().isValid());
 	}
 
+	// size of the texts taken from the response
+
+	@Test
+	void aHeaderNameOverTheLimitIsRefused() {
+		ResponseParseResult result = ResponseUtils.parseResponse(response("X-" + "h".repeat(2000) + ": 1\r\n", ""));
+
+		assertFalse(result.validationResult().isValid());
+		assertTrue(result.validationResult().getMessage().startsWith("The name of the header 'X-hhhh"));
+	}
+
+	@Test
+	void aHeaderNameAtTheLimitIsAccepted() {
+		assertTrue(ResponseUtils.parseResponse(response("X-" + "h".repeat(1998) + ": 1\r\n", "")).validationResult()
+				.isValid());
+	}
+
+	@Test
+	void aBodyPropertyPathOverTheLimitIsRefused() {
+		String body = "{\"" + "k".repeat(2001) + "\":1}";
+		ResponseParseResult result = ResponseUtils
+				.parseResponse(response("Content-Type: application/json\r\n", body));
+
+		assertFalse(result.validationResult().isValid());
+		assertTrue(result.validationResult().getMessage().contains("The path of the body property"));
+	}
 }
