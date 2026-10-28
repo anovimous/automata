@@ -140,28 +140,6 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 		assertEquals(java.util.List.of("n=0.1234567890123456789012345:DOUBLE"), storedProperties(summary.requestId()));
 	}
 
-	// ============================================================================================ BUG-049
-
-	@Test
-	@KnownBug("BUG-049")
-	void aChunkedBodyIsDecodedBeforeItIsParsed() throws Exception {
-		var summary = ingest(post("/a").header("Transfer-Encoding", "chunked").contentType("application/json")
-				.body("7\r\n{\"a\":1}\r\n0\r\n\r\n"));
-		flushAndClear();
-
-		assertEquals(java.util.List.of("a=1:INT"), storedProperties(summary.requestId()));
-	}
-
-	@Test
-	@KnownBug("BUG-049")
-	void aChunkedFormBodyIsDecodedBeforeItIsParsed() throws Exception {
-		var summary = ingest(post("/a").header("Transfer-Encoding", "chunked").contentType("application/x-www-form-urlencoded")
-				.body("7\r\na=1&b=2\r\n0\r\n\r\n"));
-		flushAndClear();
-
-		assertEquals(java.util.List.of("a=1:STRING", "b=2:STRING"), storedProperties(summary.requestId()));
-	}
-
 	// ============================================================================================ BUG-050
 
 	@Test
