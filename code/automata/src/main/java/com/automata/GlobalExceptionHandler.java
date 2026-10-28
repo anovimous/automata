@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.automata.common.exception.AlreadyExistsException;
+import com.automata.common.exception.InUseException;
 import com.automata.finding.common.exception.InvalidFindingStateException;
 import com.automata.host.common.exception.HostInUseException;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
@@ -75,6 +76,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(ProgramInUseException.class)
 	public ResponseEntity<String> handleProgramInUse(ProgramInUseException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(InUseException.class)
+	public ResponseEntity<String> handleInUse(InUseException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
 	}
 

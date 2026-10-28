@@ -201,4 +201,13 @@ class GlobalExceptionHandlerTest {
 		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
 		assertEquals("A record with the same unique value already exists", response.getBody());
 	}
+
+	@Test
+	void somethingStillInUseMapsTo409() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleInUse(new com.automata.common.exception.InUseException("still used"));
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("still used", response.getBody());
+	}
 }

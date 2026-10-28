@@ -22,8 +22,12 @@ import com.automata.agentcontext.common.dto.ContextRequestSummary;
 import com.automata.agentcontext.common.dto.ResolvedTarget;
 import com.automata.agentcontext.common.enums.AgentContextItemType;
 import com.automata.agentcontext.common.enums.RepresentativeStrategy;
+import com.automata.common.exception.InUseException;
+import com.automata.common.utils.Phrases;
+import com.automata.finding.FindingRepository;
 import com.automata.host.Host;
 import com.automata.host.HostRepository;
+import com.automata.job.repository.HttpJobRepository;
 import com.automata.job.utils.HttpJobUtils;
 import com.automata.request.Request;
 import com.automata.request.RequestRepository;
@@ -56,6 +60,10 @@ public class AgentContextService {
 	private final RequestRepository requestRepo;
 
 	private final TenantRepository tenantRepo;
+
+	private final HttpJobRepository jobRepo;
+
+	private final FindingRepository findingRepo;
 
 	private final RequestEqualitySetRepository equalitySetRepo;
 
@@ -243,6 +251,20 @@ public class AgentContextService {
 
 		AgentContext context = contextRepo.findById(contextId)
 				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		// the jobs and the findings of the agent of a context refer to it, and they are not the context's to delete
+		long jobs = jobRepo.countByAgentContextId(contextId);
+		long findings = findingRepo.countByAgentContextId(contextId);
+
+		if (jobs > 0 || findings > 0) {
+			List<String> parts = new ArrayList<>();
+			if (jobs > 0)
+				parts.add(Phrases.count(jobs, "job", "jobs"));
+			if (findings > 0)
+				parts.add(Phrases.count(findings, "finding", "findings"));
+			throw new InUseException("Agent context " + contextId + " cannot be deleted: it is still used by "
+					+ Phrases.list(parts));
+		}
 
 		itemRepo.deleteAll(context.getItems());
 		contextRepo.delete(context);

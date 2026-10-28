@@ -134,4 +134,6 @@ public interface HttpJobRepository extends JpaRepository<HttpJob, Long>, JpaSpec
 	@Query("SELECT COUNT(j) > 0 FROM HttpJob j JOIN j.wordlists w WHERE w.id = :wordlistId")
 	boolean existsByWordlistId(@Param("wordlistId") Long wordlistId);
 
+	long countByAgentContextId(Long agentContextId);
+
 }

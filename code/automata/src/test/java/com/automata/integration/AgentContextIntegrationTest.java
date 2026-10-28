@@ -41,7 +41,6 @@ import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.routine.Routine;
 import com.automata.routine.common.enums.Duration;
 import com.automata.tenant.Tenant;
-import com.automata.testsupport.KnownBug;
 import com.automata.vulnerability.Vulnerability;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -297,7 +296,6 @@ class AgentContextIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-039")
 	void deleteOfAContextWhoseAgentCreatedAJobOrAFindingIsRefusedOrKeepsTheirHistory() {
 		Routine routine = fx.routine("fuzz");
 		Request request = fx.request(host, Method.GET, "/a");
@@ -311,14 +309,26 @@ class AgentContextIntegrationTest {
 				.status(FindingStatus.SUGGESTED).evidence("e").createdBy(FindingCreator.AI).agentContext(managed).build());
 		fx.clear();
 
-		// today the foreign keys of http_job.agent_context_id and finding.agent_context_id make the delete fail with a raw
-		// database error (HTTP 500); the delete must either be refused with a clear conflict or detach the history
-		try {
-			service.deleteContext(context.getId());
-			fx.clear();
-		} catch (org.springframework.dao.DataIntegrityViolationException | jakarta.persistence.PersistenceException | IllegalStateException e) {
-			throw new AssertionError("raw database error: " + e.getMessage(), e);
-		}
+		com.automata.common.exception.InUseException e = assertThrows(com.automata.common.exception.InUseException.class,
+				() -> service.deleteContext(context.getId()));
+
+		assertEquals("Agent context " + context.getId() + " cannot be deleted: it is still used by 1 job and 1 finding", e.getMessage());
+		fx.clear();
+		assertTrue(contextRepo.findById(context.getId()).isPresent());
 		assertEquals(1, findingRepo.count());
+	}
+
+	@Test
+	void deleteOfAContextWithoutJobsOrFindingsOfItsAgentStillWorks() {
+		AgentContext context = context(RepresentativeStrategy.LATEST, false);
+		Routine routine = fx.routine("fuzz");
+		// the jobs and the findings of a user, or of another context, do not stop the delete
+		fx.narrowJob(routine, host, JobState.FINISHED, 1, Duration.SHORT, 1);
+		fx.clear();
+
+		service.deleteContext(context.getId());
+		fx.clear();
+
+		assertTrue(contextRepo.findById(context.getId()).isEmpty());
 	}
 }
