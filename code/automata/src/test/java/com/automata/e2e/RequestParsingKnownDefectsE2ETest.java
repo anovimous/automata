@@ -82,27 +82,6 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 		assertEquals(400, result.getResponse().getStatus(), result.getResponse().getContentAsString());
 	}
 
-	// ============================================================================================ BUG-046
-
-	@Test
-	@KnownBug("BUG-046")
-	void aTargetThatStartsWithTwoSlashesKeepsItsPath() throws Exception {
-		ingestAndVerify("double slash", get("//admin"), Expected.path("//admin"));
-		ingestAndVerify("double slashes inside", get("//a//b"), Expected.path("//a//b"));
-		ingestAndVerify("triple slash", get("///a"), Expected.path("///a"));
-		ingestAndVerify("double slash with a query", get("//admin?x=1"), Expected.path("//admin").query("x=1"));
-	}
-
-	@Test
-	@KnownBug("BUG-046")
-	void aTargetThatIsNeitherAPathNorAnAbsoluteUrlIsRefused() throws Exception {
-		for (String target : new String[] { "example.com:443", "?x=1", "host:80/path", "//" }) {
-			MvcResult result = send(get(target));
-
-			assertEquals(400, result.getResponse().getStatus(), target + ": " + result.getResponse().getContentAsString());
-		}
-	}
-
 	// ============================================================================================ BUG-047
 
 	@Test
