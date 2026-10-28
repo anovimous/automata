@@ -130,13 +130,4 @@ public class TenantController {
 		return ResponseEntity.status(204).build();
 	}
 
-	@DeleteMapping("/{tenantId}/authentication")
-	public ResponseEntity<Void> deleteAuthentication(@PathVariable Long tenantId, @PathVariable Long authenticationId) {
-
-		authService.deleteAuthentication(tenantId);
-
-		return ResponseEntity.status(204).build();
-
-	}
-
 }

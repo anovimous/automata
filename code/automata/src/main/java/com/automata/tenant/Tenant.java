@@ -7,6 +7,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import com.automata.host.Host;
 import com.automata.tenant.authentication.Authentication;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -45,7 +46,8 @@ public class Tenant {
 	@ManyToOne(optional = false)
 	private Host host;
 
-	@OneToOne
+	// An authentication is only replaced, never deleted on its own: it goes away with its tenant
+	@OneToOne(cascade = CascadeType.REMOVE)
 	private Authentication authentication;
 
 }

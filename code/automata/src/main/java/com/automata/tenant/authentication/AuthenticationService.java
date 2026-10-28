@@ -68,17 +68,4 @@ public class AuthenticationService {
 		return authentication;
 
 	}
-
-	@Transactional
-	public void deleteAuthentication(Long tenantId) {
-
-		Tenant tenant = tenantRepo.findById(tenantId)
-				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
-
-		Authentication authentication = tenant.getAuthentication();
-
-		if (authentication != null)
-			authRepo.delete(authentication);
-
-	}
 }

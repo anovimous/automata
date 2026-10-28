@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,14 +12,12 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
-import com.automata.testsupport.KnownBug;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -100,36 +97,5 @@ class AuthenticationServiceTest {
 
 		assertThrows(EntityNotFoundException.class, () -> service.createAuthentication(auth(), 9L));
 		verify(authRepo, never()).save(any());
-	}
-
-	@Test
-	void deleteOfUnknownTenantIsNotFound() {
-		when(tenantRepo.findById(9L)).thenReturn(Optional.empty());
-
-		assertThrows(EntityNotFoundException.class, () -> service.deleteAuthentication(9L));
-	}
-
-	@Test
-	void deleteOfATenantWithoutAuthenticationDoesNothing() {
-		when(tenantRepo.findById(1L)).thenReturn(Optional.of(new Tenant()));
-
-		service.deleteAuthentication(1L);
-
-		verify(authRepo, never()).delete(any());
-	}
-
-	@Test
-	@KnownBug("BUG-010")
-	void deleteUnlinksTheAuthenticationFromTheTenantBeforeRemovingIt() {
-		Authentication authentication = auth();
-		Tenant tenant = new Tenant();
-		tenant.setAuthentication(authentication);
-		when(tenantRepo.findById(1L)).thenReturn(Optional.of(tenant));
-
-		service.deleteAuthentication(1L);
-
-		assertNull(tenant.getAuthentication());
-		InOrder order = inOrder(authRepo);
-		order.verify(authRepo).delete(authentication);
 	}
 }
