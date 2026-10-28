@@ -90,6 +90,7 @@ def test_context_section_keeps_the_fields_of_the_plan(load_fixture: Callable[[st
         "defaultAutoApproval": False,
         "defaults": {"duration": "SHORT", "verbosity": "SUMMARIZED", "priority": 2},
         "maxRate": 30,
+        "defaultJobRate": 10,
     }
 
 
@@ -100,12 +101,14 @@ def test_context_section_leaves_out_what_is_not_set(load_fixture: Callable[[str]
         "defaultVerbosity": None,
         "defaultPriority": None,
         "maxRate": None,
+        "defaultJobRate": None,
     }
 
     section = context_section(AgentContextDetailed.model_validate(data))
 
     assert "description" not in section
     assert "maxRate" not in section
+    assert "defaultJobRate" not in section
     assert section["defaults"] == {}
 
 
@@ -160,7 +163,12 @@ def test_notes_of_the_sample_context(load_fixture: Callable[[str], Any]) -> None
     notes = briefing_notes(context, host, tenants, routines)
 
     assert any(note.startswith("Strategy LATEST") for note in notes)
-    assert "A job's rate is capped by the host rate limit 50, context maxRate 30." in notes
+    assert (
+        "A rate you give is refused when it is above the host rate limit 50, short rate limit 20 "
+        "(SHORT jobs), long rate limit 10 (LONG jobs), context maxRate 30, or above the rate "
+        "limit of the program (you cannot see it)." in notes
+    )
+    assert "A job without a rate gets the context's default 10, lowered to those limits." in notes
     assert any("sensitive" in note for note in notes)
     assert any("tenant-b" in note and "access-control" in note for note in notes)
     assert any("fuzz" in note and "wordlist" in note for note in notes)
@@ -174,7 +182,8 @@ def test_a_host_rate_limit_of_zero_is_called_out(load_fixture: Callable[[str], A
     notes = briefing_notes(context, host, tenants, [])
 
     assert any("rate limit of 0" in note and "Tell the user" in note for note in notes)
-    assert not any("capped by" in note for note in notes)
+    assert not any("is refused when it is above" in note for note in notes)
+    assert not any("without a rate" in note for note in notes)
 
 
 def test_the_rate_note_works_without_a_context_max_rate(
@@ -185,7 +194,22 @@ def test_the_rate_note_works_without_a_context_max_rate(
 
     notes = briefing_notes(context, host, tenants, [])
 
-    assert "A job's rate is capped by the host rate limit 50." in notes
+    assert (
+        "A rate you give is refused when it is above the host rate limit 50, short rate limit 20 "
+        "(SHORT jobs), long rate limit 10 (LONG jobs), or above the rate limit of the program "
+        "(you cannot see it)." in notes
+    )
+
+
+def test_the_default_rate_note_is_left_out_without_a_default_job_rate(
+    load_fixture: Callable[[str], Any],
+) -> None:
+    context, host, tenants = sample(load_fixture)
+    context.default_job_rate = None
+
+    notes = briefing_notes(context, host, tenants, [])
+
+    assert not any("without a rate" in note for note in notes)
 
 
 def test_a_host_out_of_scope_is_called_out(load_fixture: Callable[[str], Any]) -> None:

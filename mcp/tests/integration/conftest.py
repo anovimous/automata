@@ -175,6 +175,7 @@ def seed() -> Iterator[Seed]:
                     "defaultVerbosity": "SUMMARIZED",
                     "defaultPriority": 2,
                     "maxRate": 30,
+                    "defaultJobRate": 10,
                     "tenantIds": [tenant],
                 },
             )

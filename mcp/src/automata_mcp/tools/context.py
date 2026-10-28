@@ -20,8 +20,9 @@ def register(mcp: MCPServer[AppState]) -> None:
         recent jobs and findings in one call, with notes that explain the situation.
 
         Returns `context` (name, description, representativeStrategy, defaultAutoApproval,
-        defaults, maxRate), `host` (rate limits, technologies, notes), `targets` (the requests you
-        can create jobs on, each with its method, path and content type), `tenants` (the identities
+        defaults, maxRate, defaultJobRate), `host` (rate limits, technologies, notes), `targets`
+        (the requests you can create jobs on, each with its method, path and content type),
+        `tenants` (the identities
         of the context with their authentication data and the ids of their requests),
         `allowedRoutines` (the only routines you can use in create_job, each with its
         configSchema, whether it needs a wordlist and what it can target), `recentJobs` (your ten
@@ -45,12 +46,12 @@ def register(mcp: MCPServer[AppState]) -> None:
     async def get_context(context_uuid: ContextUuid, ctx: Context[AppState, Any]) -> dict[str, Any]:
         """Returns the configuration of the context: its host id, representativeStrategy,
         defaultAutoApproval, the allowed routine ids, the tenant ids, the defaults for duration,
-        verbosity and priority, maxRate, and its `items` (the requests and equality sets it is
-        made of).
+        verbosity and priority, maxRate, defaultJobRate, and its `items` (the requests and
+        equality sets it is made of).
 
         Use it when you only need the configuration; get_context_briefing gives this and much
         more in one call. The defaults are what create_job falls back to when you leave
-        duration, verbosity or priority out.
+        duration, verbosity, priority or rate out (the default rate is defaultJobRate).
         """
         state = get_state(ctx)
         context = await state.core.get_context(parse_context_uuid(context_uuid))
@@ -62,8 +63,9 @@ def register(mcp: MCPServer[AppState]) -> None:
         description, technologies and notes, and its rate limits (hostRateLimit, shortRateLimit,
         longRateLimit).
 
-        Use it to understand the target's stack and to choose a job rate. A job's rate is capped
-        by the host limit and by the context's maxRate; a host rate limit of 0 means the core
+        Use it to understand the target's stack and to choose a job rate. A rate you give
+        to create_job is refused above the host limit, the short or long limit of the duration,
+        the program limit and the context's maxRate; a host rate limit of 0 means the core
         refuses every job on it, and only the user can change that.
         """
         state = get_state(ctx)

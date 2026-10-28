@@ -30,6 +30,7 @@ class AgentContextDetailed(CoreModel):
     default_verbosity: ResultsVerbosity | None = None
     default_priority: int | None = None
     max_rate: int | None = None
+    default_job_rate: int | None = None
     creation_date: str | None = None
     items: list[AgentContextItem] = []
 
