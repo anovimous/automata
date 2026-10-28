@@ -145,12 +145,78 @@ class RequestUtilsEdgeCasesTest {
 	}
 
 	@Test
-	@KnownBug("BUG-024")
 	void unencodedBracketsAndBarsInTheUrlAreAccepted() {
 		// Burp records requests as the browser sent them, and browsers send [ ] { } | in the query unencoded
 		RequestParseResult result = parse("GET /api?filter[name]=x|y&ids={1} HTTP/1.1");
 
 		assertTrue(result.getValidationResult().isValid());
+		assertEquals(List.of("filter[name]=x|y", "ids={1}"), pairs(result));
+	}
+
+	@Test
+	void unencodedSpecialCharactersInThePathAreKeptAsSent() {
+		RequestParseResult result = parse("GET /a[b]/c|d/{id}/42 HTTP/1.1");
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("/a[b]/c|d/{id}/4@INT", result.getPathParseResult().getComputatedPath());
+	}
+
+	@Test
+	void aLoneAndAMalformedPercentSignAreAccepted() {
+		RequestParseResult result = parse("GET /discount/100%?a=50%&b=%zz HTTP/1.1");
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("/discount/100%", result.getPathParseResult().getComputatedPath());
+		assertEquals(List.of("a=50%", "b=%zz"), pairs(result));
+	}
+
+	@Test
+	void anAbsoluteUrlAsTheRequestTargetKeepsOnlyThePathAndTheQuery() {
+		RequestParseResult result = parse("GET http://example.com/api/users/7?a=1 HTTP/1.1");
+
+		assertEquals("/api/users/3@INT", result.getPathParseResult().getComputatedPath());
+		assertEquals(List.of("a=1"), pairs(result));
+	}
+
+	@Test
+	void aTargetWhichIsNotAPathIsRefusedWithAClearMessage() {
+		RequestParseResult result = parse("GET foo HTTP/1.1");
+
+		assertFalse(result.getValidationResult().isValid());
+		assertTrue(result.getValidationResult().getMessage().contains("must be a path starting with '/'"));
+	}
+
+	@Test
+	void everyKindOfTargetComposesBackToTheSameRequestLine() {
+		for (String target : List.of("/a[b]/c|d/{id}?f[x]=1|2&ids={1}", "/discount/100%25?q=a%26b", "/my%20file?x=1")) {
+			RequestParseResult parsed = parse("GET " + target + " HTTP/1.1");
+
+			RequestInternalDto composedFrom = dto(Method.GET, parsed.getPathParseResult().getComputatedPath(), "HTTP/1.1",
+					null,
+					parsed.getPathParseResult().getPathVariables().stream()
+							.map(v -> new PathVariableInternalDto(v.getIndex(), v.getValue(), 1L)).toList(),
+					parsed.getQueryStringParseResult().getQueryParameters().stream()
+							.map(p -> new QueryParameterInternalDto(p.getParameter(), p.getValue(), 1L)).toList(),
+					List.of());
+
+			String raw = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(composedFrom, "example.com"),
+					"HTTP/1.1");
+
+			// the path is as it was sent, the query is rebuilt from the parameters and percent-encoded
+			String path = target.contains("?") ? target.substring(0, target.indexOf('?')) : target;
+			assertTrue(raw.startsWith("GET " + path), raw);
+		}
+	}
+
+	@Test
+	void aSpecialCharacterInTheStoredPathIsWrittenAsItIsIntoTheRequestLine() {
+		RequestInternalDto composedFrom = dto(Method.GET, "/a[b]/c|d/{id}", "HTTP/1.1", null, List.of(),
+				List.of(new QueryParameterInternalDto("f[x]", "1|2", 1L)), List.of());
+
+		String raw = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(composedFrom, "example.com"),
+				"HTTP/1.1");
+
+		assertTrue(raw.startsWith("GET /a[b]/c|d/{id}?f%5Bx%5D=1%7C2 HTTP/1.1\r\n"), raw);
 	}
 
 	@Test

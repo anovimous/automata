@@ -2,7 +2,6 @@ package com.automata.request;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -151,21 +150,22 @@ public abstract class RequestUtils {
 					.build();
 		}
 
-		// URI Creation:
-		URI uri = URI.create(request.getPath());
+		// Request target: the raw path and query are kept, since decoding them first
+		// would break "%20", "%25" and "%26" (the query values are decoded once, as
+		// parameters), and java.net.URI would refuse the characters which browsers
+		// send unencoded, such as [ ] { } |
+		RequestTarget target;
+		try {
+			target = RequestTarget.parse(request.getPath());
+		} catch (IllegalArgumentException e) {
+			return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
+		}
 
-		// Path Parsing: the raw path and query are kept, since decoding them first
-		// would break "%20", "%25" and "%26" (they are decoded once, as parameters)
-		String path = uri.getRawPath();
-
-		if (path == null)
-			return RequestParseResult.builder()
-					.validationResult(ValidationResult.invalid("The request target has no path")).build();
-
-		PathParsingResult pathParseResult = PathUtils.parsePath(path);
+		// Path Parsing:
+		PathParsingResult pathParseResult = PathUtils.parsePath(target.path());
 
 		// QueryString Parsing:
-		String queryString = uri.getRawQuery();
+		String queryString = target.query();
 		QueryStringParseResult queryStringParseResult;
 
 		if (queryString != null)
@@ -281,7 +281,8 @@ public abstract class RequestUtils {
 		else
 			uri = stringUriBuilder.toString();
 
-		ClassicHttpRequest apacheRequest = new BasicClassicHttpRequest(method, URI.create(uri));
+		// the path is written as it was stored: parsing it as a URI would refuse what the sender sent
+		ClassicHttpRequest apacheRequest = new BasicClassicHttpRequest(method, uri);
 
 		apacheRequest.setAuthority(new URIAuthority(host));
 
