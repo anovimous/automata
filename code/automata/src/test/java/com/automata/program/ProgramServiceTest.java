@@ -27,7 +27,6 @@ import org.springframework.data.domain.Pageable;
 
 import com.automata.program.common.dto.PatchProgramRequest;
 import com.automata.program.common.enums.Platform;
-import com.automata.testsupport.KnownBug;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;
 
@@ -293,7 +292,6 @@ class ProgramServiceTest {
 	}
 
 	@Test
-	@KnownBug("BUG-002")
 	void patchWithAnUnknownVulnerabilityIdIsNotFound() {
 		Program program = program();
 		when(programRepo.findById(1L)).thenReturn(Optional.of(program));

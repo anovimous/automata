@@ -1,11 +1,13 @@
 package com.automata.agentcontext;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import org.springframework.data.domain.Page;
@@ -104,7 +106,7 @@ public class AgentContextService {
 
 		List<Routine> allowedRoutines = new ArrayList<>();
 		if (request.allowedRoutineIds() != null)
-			allowedRoutines = routineRepo.findAllById(request.allowedRoutineIds());
+			allowedRoutines = this.resolveRoutines(request.allowedRoutineIds());
 
 		AgentContext context = AgentContext.builder().name(request.name()).description(request.description())
 				.host(host).defaultAutoApproval(request.defaultAutoApproval())
@@ -132,6 +134,20 @@ public class AgentContextService {
 	}
 
 	// Every tenant must exist and belong to the host of the context
+	private List<Routine> resolveRoutines(Collection<Long> routineIds) {
+
+		List<Routine> routines = routineRepo.findAllById(routineIds);
+
+		Set<Long> missing = new TreeSet<>(routineIds);
+		routines.forEach(routine -> missing.remove(routine.getId()));
+
+		if (!missing.isEmpty())
+			throw new EntityNotFoundException("Routine not found: " + missing);
+
+		return routines;
+
+	}
+
 	private List<Tenant> resolveTenants(Host host, List<Long> tenantIds) {
 
 		if (tenantIds == null || tenantIds.isEmpty())
@@ -222,7 +238,7 @@ public class AgentContextService {
 		patch.representativeStrategy().ifPresent(context::setRepresentativeStrategy);
 
 		if (patch.allowedRoutineIds() != null)
-			context.setAllowedRoutines(routineRepo.findAllById(patch.allowedRoutineIds()));
+			context.setAllowedRoutines(this.resolveRoutines(patch.allowedRoutineIds()));
 
 		if (patch.setDefaultDurationNull())
 			context.setDefaultDuration(null);

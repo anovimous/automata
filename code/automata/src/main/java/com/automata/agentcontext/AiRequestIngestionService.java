@@ -31,7 +31,7 @@ public class AiRequestIngestionService {
 	@Transactional
 	public Request addRawRequest(AiRequestAdditionDto dto) {
 
-		Host host = hostRepo.findByHost(dto.host()).orElseThrow(() -> new EntityNotFoundException("Host not found"));
+		Host host = hostRepo.findByHost(dto.host().trim().toLowerCase()).orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
 		this.requireTenantAllowed(dto, host);
 

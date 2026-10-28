@@ -102,6 +102,15 @@ class AiRequestIngestionServiceTest {
 	}
 
 	@Test
+	void addRawRequest_theHostNameIsMatchedIgnoringCase() {
+		when(hostRepo.findByHost("a.com")).thenReturn(Optional.of(host(3L)));
+
+		service.addRawRequest(new AiRequestAdditionDto("cmVx", " A.Com", null, null, null));
+
+		assertEquals(3L, added().hostId());
+	}
+
+	@Test
 	void addRawRequest_unknownHost_isNotFound() {
 		when(hostRepo.findByHost("nope.com")).thenReturn(Optional.empty());
 

@@ -22,7 +22,7 @@ public class BurpAdapterService {
 	@Transactional
 	public void addRawRequest(String requestBase64, String host, String responseBase64) {
 
-		Host requestHost = hostRepo.findByHost(host).orElseThrow(() -> new EntityNotFoundException("Host not found"));
+		Host requestHost = hostRepo.findByHost(host == null ? null : host.trim().toLowerCase()).orElseThrow(() -> new EntityNotFoundException("Host not found"));
 
 		requestService.addRawRequestWithResponse(
 				new RawRequestAdditionDto(requestBase64, Source.BURP, requestHost.getId(), null, responseBase64));

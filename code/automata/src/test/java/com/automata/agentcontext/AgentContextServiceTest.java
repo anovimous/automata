@@ -194,6 +194,12 @@ class AgentContextServiceTest {
 				maxRate, false, defaultJobRate, false);
 	}
 
+	private AgentContextPatchRequest patchWithRoutines(List<Long> routineIds) {
+		return new AgentContextPatchRequest(Optional.empty(), Optional.empty(), false, Optional.empty(),
+				Optional.empty(), routineIds, Optional.empty(), false, Optional.empty(), false, Optional.empty(), false,
+				Optional.empty(), false, Optional.empty(), false);
+	}
+
 	private AgentContext contextWithRates(int maxRate, int defaultJobRate) {
 		AgentContext ctx = AgentContext.builder().id(1L).host(host(1L))
 				.representativeStrategy(RepresentativeStrategy.LATEST).maxRate(maxRate)
@@ -1205,16 +1211,29 @@ class AgentContextServiceTest {
 	// ---- unknown routine ids (BUG-038) ----
 
 	@Test
-	@com.automata.testsupport.KnownBug("BUG-038")
 	void createContextWithAnUnknownRoutineIdIsNotFound() {
 		Host h = host(1L);
 		when(hostRepo.findById(1L)).thenReturn(Optional.of(h));
-		when(routineRepo.findAllById(List.of(1L, 99L))).thenReturn(List.of(new com.automata.routine.Routine()));
+		com.automata.routine.Routine routine = new com.automata.routine.Routine();
+		routine.setId(1L);
+		when(routineRepo.findAllById(List.of(1L, 99L))).thenReturn(List.of(routine));
 		com.automata.agentcontext.common.dto.AgentContextCreationRequest request = new com.automata.agentcontext.common.dto.AgentContextCreationRequest(
 				"ctx", null, 1L, false, RepresentativeStrategy.LATEST, List.of(1L, 99L), null, null, null, 5, 5, null);
 
 		org.junit.jupiter.api.Assertions.assertThrows(jakarta.persistence.EntityNotFoundException.class,
 				() -> service.createContext(request));
+	}
+
+	@Test
+	void patchContextWithAnUnknownRoutineIdIsNotFound() {
+		contextWithRates(5, 5);
+		when(routineRepo.findAllById(List.of(1L, 99L))).thenReturn(List.of());
+
+		jakarta.persistence.EntityNotFoundException ex = org.junit.jupiter.api.Assertions.assertThrows(
+				jakarta.persistence.EntityNotFoundException.class,
+				() -> service.patchContext(1L, patchWithRoutines(List.of(1L, 99L))));
+
+		assertEquals("Routine not found: [1, 99]", ex.getMessage());
 	}
 
 	// ---- the order of the items (BUG-040) ----

@@ -1,8 +1,10 @@
 package com.automata.program;
 
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.TreeSet;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -92,8 +94,13 @@ public class ProgramService {
 		}
 
 		if (patchRequest.outOfScopeVulnIds() != null) {
-			Set<Vulnerability> vulns = vulnerabilityRepo.findAllById(patchRequest.outOfScopeVulnIds()).stream()
-					.collect(Collectors.toSet());
+			List<Vulnerability> found = vulnerabilityRepo.findAllById(patchRequest.outOfScopeVulnIds());
+			Set<Long> missing = new TreeSet<>(patchRequest.outOfScopeVulnIds());
+			found.forEach(vuln -> missing.remove(vuln.getId()));
+			if (!missing.isEmpty())
+				throw new EntityNotFoundException("Vulnerability not found: " + missing);
+
+			Set<Vulnerability> vulns = new HashSet<>(found);
 
 			program.setOutOfScopeVulns(vulns);
 		}
