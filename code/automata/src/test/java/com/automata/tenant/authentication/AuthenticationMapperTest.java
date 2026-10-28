@@ -28,6 +28,22 @@ class AuthenticationMapperTest {
 	}
 
 	@Test
+	void toAuthenticationDto_carriesTheIdOfTheTenant() {
+		com.automata.tenant.Tenant tenant = new com.automata.tenant.Tenant();
+		tenant.setId(8L);
+		Authentication authentication = Authentication.builder().id(4L).authData(authData()).tenant(tenant).build();
+
+		assertEquals(8L, AuthenticationMapper.toAuthenticationDto(authentication).tenantId());
+	}
+
+	@Test
+	void toAuthenticationDto_hasNoTenantIdWhenTheAuthenticationKnowsNoTenant() {
+		Authentication authentication = Authentication.builder().id(4L).authData(authData()).build();
+
+		org.junit.jupiter.api.Assertions.assertNull(AuthenticationMapper.toAuthenticationDto(authentication).tenantId());
+	}
+
+	@Test
 	void toAuthentication_takesTheAuthDataOfTheCreationRequest() {
 		StaticAuthData authData = authData();
 

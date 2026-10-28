@@ -1,5 +1,6 @@
 package com.automata.tenant.authentication;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
@@ -12,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
@@ -61,8 +61,10 @@ class AuthenticationServicePatchTest {
 	void patchAuthentication_tenantWithoutAuthentication_isNotFound() {
 		when(tenantRepo.findById(3L)).thenReturn(Optional.of(new Tenant()));
 
-		assertThrows(ResponseStatusException.class,
+		EntityNotFoundException e = assertThrows(EntityNotFoundException.class,
 				() -> service.patchAuthentication(new AuthenticationPatchRequest(Optional.empty()), 3L));
+
+		assertEquals("Authentication not found for this tenant", e.getMessage());
 	}
 
 	@Test

@@ -170,7 +170,7 @@ public class HostService {
 	}
 
 	public void deleteHost(Long hostId) {
-		throw new RuntimeException("Delete operation is not implemented yet");
+		throw new UnsupportedOperationException("Deleting a host is not implemented yet");
 	}
 
 }

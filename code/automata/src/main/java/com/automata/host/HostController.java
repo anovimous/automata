@@ -48,7 +48,7 @@ public class HostController {
 
 	@GetMapping("")
 	public ResponseEntity<PageHolderResponse<HostSummaryResponse>> getHosts(
-			@RequestParam(defaultValue = "") String query, @RequestParam Long programId,
+			@RequestParam(defaultValue = "") String query, @RequestParam(required = false) Long programId,
 			@PageableDefault(size = 10, sort = {
 					"insertionDate" }, direction = Sort.Direction.DESC) Pageable pageable) {
 

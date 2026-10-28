@@ -307,13 +307,12 @@ class ProgramServiceTest {
 
 	@Test
 	void deleteIsNotImplementedYet() {
-		RuntimeException ex = assertThrows(RuntimeException.class, () -> service.deleteProgram(1L));
-		assertEquals("Delete operation is not implemented yet", ex.getMessage());
+		UnsupportedOperationException ex = assertThrows(UnsupportedOperationException.class, () -> service.deleteProgram(1L));
+		assertEquals("Deleting a program is not implemented yet", ex.getMessage());
 	}
 
 	// GlobalExceptionHandler answers 501 for an UnsupportedOperationException and 500 for any other exception
 	@Test
-	@KnownBug("BUG-003")
 	void deleteSignalsNotImplementedWithUnsupportedOperationException() {
 		assertThrows(UnsupportedOperationException.class, () -> service.deleteProgram(1L));
 	}

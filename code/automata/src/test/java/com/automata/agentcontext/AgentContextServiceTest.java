@@ -62,6 +62,10 @@ class AgentContextServiceTest {
 	RequestEqualityRelationRepository equalityRelationRepo;
 	@Mock
 	TenantRepository tenantRepo;
+	@Mock
+	com.automata.job.repository.HttpJobRepository jobRepo;
+	@Mock
+	com.automata.finding.FindingRepository findingRepo;
 
 	@InjectMocks
 	AgentContextService service;
@@ -469,6 +473,57 @@ class AgentContextServiceTest {
 
 		verify(itemRepo).deleteAll(List.of(item));
 		verify(contextRepo).delete(ctx);
+	}
+
+	private AgentContext contextToDelete() {
+		AgentContext ctx = AgentContext.builder().id(1L).host(host(1L)).representativeStrategy(RepresentativeStrategy.LATEST).build();
+		when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+		return ctx;
+	}
+
+	@Test
+	void deleteContextIsRefusedWhileJobsRefer() {
+		contextToDelete();
+		when(jobRepo.countByAgentContextId(1L)).thenReturn(2L);
+
+		com.automata.common.exception.InUseException e = org.junit.jupiter.api.Assertions
+				.assertThrows(com.automata.common.exception.InUseException.class, () -> service.deleteContext(1L));
+
+		org.junit.jupiter.api.Assertions.assertEquals("Agent context 1 cannot be deleted: it is still used by 2 jobs", e.getMessage());
+		verify(contextRepo, never()).delete(any());
+		verify(itemRepo, never()).deleteAll(any());
+	}
+
+	@Test
+	void deleteContextIsRefusedWhileFindingsRefer() {
+		contextToDelete();
+		when(findingRepo.countByAgentContextId(1L)).thenReturn(1L);
+
+		com.automata.common.exception.InUseException e = org.junit.jupiter.api.Assertions
+				.assertThrows(com.automata.common.exception.InUseException.class, () -> service.deleteContext(1L));
+
+		org.junit.jupiter.api.Assertions.assertEquals("Agent context 1 cannot be deleted: it is still used by 1 finding", e.getMessage());
+		verify(contextRepo, never()).delete(any());
+	}
+
+	@Test
+	void deleteContextNamesBothTheJobsAndTheFindings() {
+		contextToDelete();
+		when(jobRepo.countByAgentContextId(1L)).thenReturn(1L);
+		when(findingRepo.countByAgentContextId(1L)).thenReturn(3L);
+
+		com.automata.common.exception.InUseException e = org.junit.jupiter.api.Assertions
+				.assertThrows(com.automata.common.exception.InUseException.class, () -> service.deleteContext(1L));
+
+		org.junit.jupiter.api.Assertions.assertEquals("Agent context 1 cannot be deleted: it is still used by 1 job and 3 findings", e.getMessage());
+	}
+
+	@Test
+	void deleteOfAnUnknownContextIsNotFound() {
+		when(contextRepo.findById(9L)).thenReturn(Optional.empty());
+
+		org.junit.jupiter.api.Assertions.assertThrows(EntityNotFoundException.class, () -> service.deleteContext(9L));
+		org.mockito.Mockito.verifyNoInteractions(jobRepo, findingRepo);
 	}
 
 	// ---- getContext

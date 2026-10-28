@@ -30,7 +30,6 @@ import com.automata.host.common.dto.PatchHostRequest;
 import com.automata.host.common.enums.Scope;
 import com.automata.host.common.exception.HostInUseException;
 import com.automata.program.Program;
-import com.automata.testsupport.KnownBug;
 import com.automata.testsupport.Mvc;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -94,11 +93,18 @@ class HostControllerTest {
 	}
 
 	@Test
-	@KnownBug("BUG-014")
 	void listWithoutAProgramIdListsEveryHost() throws Exception {
 		when(hostService.getHostsPagedAndFilteredOnQueryString(eq(""), any())).thenReturn(new PageImpl<>(List.of(host(1))));
 
 		mvc.perform(get("/api/hosts")).andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(1));
+	}
+
+	@Test
+	void listWithoutAProgramIdKeepsTheQueryFilter() throws Exception {
+		when(hostService.getHostsPagedAndFilteredOnQueryString(eq("api"), any())).thenReturn(new PageImpl<>(List.of(host(1))));
+
+		mvc.perform(get("/api/hosts").param("query", "api")).andExpect(status().isOk())
+				.andExpect(jsonPath("$.content[0].host").value("api.example.com"));
 	}
 
 	@Test

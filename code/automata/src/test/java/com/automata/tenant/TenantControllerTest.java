@@ -32,7 +32,6 @@ import com.automata.tenant.authentication.Authentication;
 import com.automata.tenant.authentication.AuthenticationService;
 import com.automata.tenant.authentication.StaticAuthData;
 import com.automata.tenant.authentication.StaticData;
-import com.automata.testsupport.KnownBug;
 import com.automata.testsupport.Mvc;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -172,9 +171,8 @@ class TenantControllerTest {
 	}
 
 	@Test
-	@KnownBug("BUG-011")
 	void getAuthenticationOfATenantWithoutAuthenticationAnswers404() throws Exception {
-		when(authService.getAuthenticationOfTenant(2L)).thenReturn(null);
+		when(authService.getAuthenticationOfTenant(2L)).thenThrow(new jakarta.persistence.EntityNotFoundException("Authentication not found for this tenant"));
 
 		mvc.perform(get("/api/tenants/2/authentication")).andExpect(status().isNotFound());
 	}
