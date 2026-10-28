@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
+import com.automata.common.exception.AlreadyExistsException;
 import com.automata.finding.common.exception.InvalidFindingStateException;
 import com.automata.host.common.exception.HostInUseException;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
@@ -63,6 +64,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(ProgramInUseException.class)
 	public ResponseEntity<String> handleProgramInUse(ProgramInUseException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(AlreadyExistsException.class)
+	public ResponseEntity<String> handleAlreadyExists(AlreadyExistsException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
 	}
 

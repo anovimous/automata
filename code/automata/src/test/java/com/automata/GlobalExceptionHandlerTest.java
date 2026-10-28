@@ -147,4 +147,13 @@ class GlobalExceptionHandlerTest {
 		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
 		assertEquals("busy", response.getBody());
 	}
+
+	@Test
+	void somethingThatAlreadyExistsMapsTo409() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleAlreadyExists(new com.automata.common.exception.AlreadyExistsException("Host 'x' already exists"));
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("Host 'x' already exists", response.getBody());
+	}
 }

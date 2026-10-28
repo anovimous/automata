@@ -146,15 +146,25 @@ class TenantHostIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-015")
 	void creatingTheSameHostTwiceIsRefusedWithAClearError() {
 		hostService.createHost(creation("api.example.com", program.getId()), newHost("api.example.com", Scope.FQDN));
 		em.flush();
 
-		// today: the unique constraint on host.host surfaces as a DataIntegrityViolationException (HTTP 500)
-		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+		// the names are lower-cased before the check, and they are unique in the whole application
+		com.automata.common.exception.AlreadyExistsException ex = assertThrows(com.automata.common.exception.AlreadyExistsException.class,
 				() -> hostService.createHost(creation("API.example.com", program.getId()), newHost("API.example.com", Scope.FQDN)));
-		assertNotNull(ex);
+		assertEquals("Host 'api.example.com' already exists", ex.getMessage());
+		assertEquals(1, hostRepo.count());
+	}
+
+	@Test
+	void theSameHostNameInAnotherProgramIsRefusedToo() {
+		hostService.createHost(creation("api.example.com", program.getId()), newHost("api.example.com", Scope.FQDN));
+		em.flush();
+		Program other = fx.program("Other");
+
+		assertThrows(com.automata.common.exception.AlreadyExistsException.class,
+				() -> hostService.createHost(creation("api.example.com", other.getId()), newHost("api.example.com", Scope.FQDN)));
 	}
 
 	@Test

@@ -39,4 +39,6 @@ public interface HostRepository extends JpaRepository<Host, Long> {
 
 	Optional<Host> findByHost(String host);
 
+	boolean existsByHost(String host);
+
 }
