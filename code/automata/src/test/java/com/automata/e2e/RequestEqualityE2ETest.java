@@ -24,7 +24,6 @@ import com.automata.request.equalityset.RequestEqualityRelationRepository;
 import com.automata.request.equalityset.RequestEqualityService;
 import com.automata.request.equalityset.RequestEqualitySet;
 import com.automata.request.equalityset.RequestEqualitySetRepository;
-import com.automata.testsupport.KnownBug;
 
 /**
  * Requests that come in through the HTTP layer are grouped by the real comparators: what the parsing stores
@@ -264,6 +263,23 @@ class RequestEqualityE2ETest extends RequestE2ETestBase {
 
 		assertEquals(sets.get(a), sets.get(c));
 		assertNotEquals(sets.get(a), sets.get(b));
+	}
+
+	@Test
+	void aPathWithAndWithoutATrailingSlashAreDifferentEndpoints() throws Exception {
+		long plain = id(ingest(get("/users")));
+		long slash = id(ingest(get("/users/")));
+		long slash2 = id(ingest(get("/users/?x=1")));
+		long root = id(ingest(get("/")));
+		long root2 = id(ingest(get("/?a=1")));
+
+		Map<Long, Long> sets = equalize(HashTarget.METHOD, HashTarget.PATH);
+
+		assertNotEquals(sets.get(plain), sets.get(slash));
+		assertEquals(sets.get(slash), sets.get(slash2));
+		assertEquals(sets.get(root), sets.get(root2));
+		assertNotEquals(sets.get(root), sets.get(plain));
+		assertEquals(3, setRepo.count());
 	}
 
 	@Test

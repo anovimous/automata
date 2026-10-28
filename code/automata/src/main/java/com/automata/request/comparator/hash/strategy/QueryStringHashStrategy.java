@@ -36,12 +36,9 @@ public class QueryStringHashStrategy implements HashStrategy {
 
 		parameters = parameters.stream().sorted((a, b) -> a.getParameter().compareTo(b.getParameter())).toList();
 
-		StringBuilder builder = new StringBuilder();
-
-		for (QueryParameter param : parameters)
-			builder.append(param.getParameter());
-
-		return builder.toString();
+		// A name can't contain a NUL character (it is refused when the request is parsed), so it
+		// separates the names without making "ab" the same as "a" and "b"
+		return parameters.stream().map(QueryParameter::getParameter).collect(java.util.stream.Collectors.joining("\u0000"));
 
 	}
 
