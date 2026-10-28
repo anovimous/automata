@@ -36,7 +36,8 @@ public abstract class PathUtils {
 
 		parseResult.setExtension(extensionOf(cleanedPath));
 
-		List<String> uriSplits = Arrays.asList(cleanedPath.split("/"));
+		// -1 keeps the empty segments at the end: "/" is the root and "/a/" is not "/a"
+		List<String> uriSplits = Arrays.asList(cleanedPath.split("/", -1));
 
 		List<String> newUriSplits = new ArrayList<>();
 
@@ -115,8 +116,8 @@ public abstract class PathUtils {
 
 	public static String composeRawPath(String computatedPath, List<PathVariableInternalDto> pathVariableDtos) {
 
-		// .split here will result in an entry of "" at the index 0
-		List<String> computatedUriSplits = Arrays.asList(computatedPath.split("/"));
+		// .split here will result in an entry of "" at the index 0, and at the end for a trailing slash
+		List<String> computatedUriSplits = Arrays.asList(computatedPath.split("/", -1));
 
 		Map<Integer, PathVariableInternalDto> dtosMap = pathVariableDtos.stream()
 				.collect(Collectors.toMap(PathVariableInternalDto::index, dto -> dto));

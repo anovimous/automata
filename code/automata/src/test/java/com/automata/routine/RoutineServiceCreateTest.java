@@ -39,6 +39,31 @@ class RoutineServiceCreateTest {
 	}
 
 	@Test
+	void aRoutineKeyThatExistsIsRefusedAndNothingIsSaved() {
+		Routine routine = new Routine();
+		routine.setKey("fuzz");
+		routine.setResultContentType(ResultContentType.JSON);
+		when(routineRepo.existsByKey("fuzz")).thenReturn(true);
+
+		com.automata.common.exception.AlreadyExistsException e = org.junit.jupiter.api.Assertions
+				.assertThrows(com.automata.common.exception.AlreadyExistsException.class, () -> service.createRoutine(routine, null));
+
+		assertEquals("Routine 'fuzz' already exists", e.getMessage());
+		org.mockito.Mockito.verify(routineRepo, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void aNewRoutineKeyIsSaved() {
+		Routine routine = new Routine();
+		routine.setKey("masser");
+		routine.setResultContentType(ResultContentType.JSON);
+		when(routineRepo.existsByKey("masser")).thenReturn(false);
+		when(routineRepo.save(routine)).thenReturn(routine);
+
+		assertSame(routine, service.createRoutine(routine, null));
+	}
+
+	@Test
 	void routineWithoutAResultContentTypeIsRefused() {
 		Routine routine = new Routine();
 

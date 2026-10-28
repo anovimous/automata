@@ -88,6 +88,41 @@ class HostServiceCreateTest {
 	}
 
 	@Test
+	void aHostNameThatExistsIsRefusedAndNothingIsSaved() {
+		when(programRepo.findById(1L)).thenReturn(Optional.of(new Program()));
+		when(hostRepo.existsByHost("api.example.com")).thenReturn(true);
+
+		com.automata.common.exception.AlreadyExistsException e = assertThrows(
+				com.automata.common.exception.AlreadyExistsException.class,
+				() -> service.createHost(request(10, 5, 5), toBeCreated()));
+
+		assertEquals("Host 'api.example.com' already exists", e.getMessage());
+		verify(hostRepo, never()).save(any());
+	}
+
+	@Test
+	void theHostNameIsComparedInLowerCaseWithTheExistingOnes() {
+		when(programRepo.findById(1L)).thenReturn(Optional.of(new Program()));
+		when(hostRepo.existsByHost("api.example.com")).thenReturn(true);
+		Host upperCase = new Host();
+		upperCase.setHost("API.Example.COM");
+
+		assertThrows(com.automata.common.exception.AlreadyExistsException.class,
+				() -> service.createHost(request(10, 5, 5), upperCase));
+
+		verify(hostRepo, never()).save(any());
+	}
+
+	@Test
+	void aNewHostNameIsSaved() {
+		when(programRepo.findById(1L)).thenReturn(Optional.of(new Program()));
+		when(hostRepo.existsByHost("api.example.com")).thenReturn(false);
+		when(hostRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+		assertEquals("api.example.com", service.createHost(request(10, 5, 5), toBeCreated()).getHost());
+	}
+
+	@Test
 	void anUnknownProgramIsNotFound() {
 		when(programRepo.findById(1L)).thenReturn(Optional.empty());
 

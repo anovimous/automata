@@ -178,7 +178,17 @@ class RequestCorpusE2ETest extends RequestE2ETestBase {
 				c("a hidden file at the root", get("/.env"), Expected.path("/.env")),
 				c("a hidden file with an extension", get("/.env.local"), Expected.path("/.env.local").extension(".local")),
 				c("a trailing dot is no extension", get("/a/file."), Expected.path("/a/file.")),
-				c("an encoded dot is no extension", get("/a/file%2Ejson"), Expected.path("/a/file%2Ejson")));
+				c("an encoded dot is no extension", get("/a/file%2Ejson"), Expected.path("/a/file%2Ejson")),
+				c("the root path", get("/"), Expected.path("/")),
+				c("the root path with a query", get("/?x=1&y=2"), Expected.path("/").query("x=1", "y=2")),
+				c("an absolute url without a path asks for the root", get("http://h"), Expected.path("/")),
+				c("an absolute url with only a query asks for the root", get("http://h?x=1"), Expected.path("/").query("x=1")),
+				c("a trailing slash", get("/api/users/"), Expected.path("/api/users/")),
+				c("a trailing slash after a number", get("/api/users/42/"), Expected.path("/api/users/3@INT/").vars("3:INT=42")),
+				c("a trailing slash with a query", get("/api/users/?page=2"), Expected.path("/api/users/").query("page=2")),
+				c("a trailing slash after an extension is no extension", get("/a/report.pdf/"), Expected.path("/a/report.pdf/")),
+				c("two trailing slashes", get("/a//"), Expected.path("/a//")),
+				c("a double slash inside", get("/a//b"), Expected.path("/a//b")));
 	}
 
 	@ParameterizedTest(name = "{0}")

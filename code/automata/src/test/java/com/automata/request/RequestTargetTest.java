@@ -111,9 +111,9 @@ class RequestTargetTest {
 	}
 
 	@Test
-	void anAbsoluteUrlWithoutAPathHasAnEmptyPath() {
-		assertEquals("", RequestTarget.parse("http://example.com").path());
-		assertEquals("", RequestTarget.parse("http://example.com?x=1").path());
+	void anAbsoluteUrlWithoutAPathAsksForTheRoot() {
+		assertEquals("/", RequestTarget.parse("http://example.com").path());
+		assertEquals("/", RequestTarget.parse("http://example.com?x=1").path());
 		assertEquals("x=1", RequestTarget.parse("http://example.com?x=1").query());
 	}
 

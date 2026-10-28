@@ -42,7 +42,6 @@ import com.automata.job.domain.valueobject.HttpJobSummaryInternalDto;
 import com.automata.job.service.HttpJobCreationService;
 import com.automata.job.service.HttpJobQueryService;
 import com.automata.job.service.HttpJobStateService;
-import com.automata.testsupport.KnownBug;
 import com.automata.testsupport.Mvc;
 
 import jakarta.persistence.EntityNotFoundException;
@@ -124,7 +123,6 @@ class HttpJobControllerEndpointsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-004")
 	void listWithAnUnknownStateAnswers400() throws Exception {
 		mvc.perform(get("/api/jobs/http").param("currentStates", "SLEEPING")).andExpect(status().isBadRequest());
 	}
@@ -238,7 +236,6 @@ class HttpJobControllerEndpointsTest {
 	// ---- creation ----
 
 	@Test
-	@KnownBug("BUG-004")
 	void creatingAJobWithoutAScopeAnswers400() throws Exception {
 		mvc.perform(post("/api/jobs/http").contentType(MediaType.APPLICATION_JSON).content("{\"genericDetails\":{}}"))
 				.andExpect(status().isBadRequest());

@@ -102,6 +102,9 @@ public class HttpJobController {
 	@PostMapping("")
 	public ResponseEntity<Void> createNewJob(@RequestBody HttpJobCreationRequest request) {
 
+		if (request.httpJobScope() == null)
+			throw new IllegalArgumentException("httpJobScope is required");
+
 		HttpJob newlyCreatedJob = switch (request.httpJobScope()) {
 
 		case HttpJobScope.NARROW ->

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -24,7 +25,6 @@ import org.springframework.data.jpa.domain.Specification;
 import com.automata.request.comparator.common.dto.ComparatorPatchRequest;
 import com.automata.request.comparator.common.enums.Schema;
 import com.automata.request.comparator.hash.HashTarget;
-import com.automata.testsupport.KnownBug;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -45,7 +45,11 @@ class ComparatorServiceTest {
 	}
 
 	private static Modifier modifier(long id) {
-		return Modifier.builder().id(id).target(HashTarget.PATH).priority(id).description("d").build();
+		return Modifier.builder().id(id).target(HashTarget.PATH).priority(id).description("d").isAvailable(true).build();
+	}
+
+	private static Modifier unavailableModifier(long id) {
+		return Modifier.builder().id(id).target(HashTarget.PATH).priority(id).description("d").isAvailable(false).build();
 	}
 
 	@Test
@@ -83,23 +87,57 @@ class ComparatorServiceTest {
 		assertEquals(2, created.getModifiers().size());
 	}
 
-	@Test
-	@KnownBug("BUG-027")
 	void createWithAnUnknownModifierIdIsNotFound() {
 		Comparator toCreate = Comparator.builder().name("c").build();
 		when(modifierRepo.findAllById(Set.of(1L, 99L))).thenReturn(List.of(modifier(1)));
 
-		assertThrows(EntityNotFoundException.class, () -> service.createComparator(toCreate, Set.of(1L, 99L)));
+		EntityNotFoundException e = assertThrows(EntityNotFoundException.class,
+				() -> service.createComparator(toCreate, Set.of(1L, 99L)));
+
+		assertEquals("Modifier not found: [99]", e.getMessage());
+		verify(comparatorRepo, never()).save(any());
 	}
 
 	@Test
-	@KnownBug("BUG-027")
+	void createNamesAllTheUnknownModifierIdsInOrder() {
+		Comparator toCreate = Comparator.builder().name("c").build();
+		when(modifierRepo.findAllById(Set.of(7L, 3L, 1L))).thenReturn(List.of(modifier(1)));
+
+		EntityNotFoundException e = assertThrows(EntityNotFoundException.class,
+				() -> service.createComparator(toCreate, Set.of(7L, 3L, 1L)));
+
+		assertEquals("Modifier not found: [3, 7]", e.getMessage());
+	}
+
+	@Test
+	void createWithAModifierThatIsNotAvailableIsRefused() {
+		Comparator toCreate = Comparator.builder().name("c").build();
+		when(modifierRepo.findAllById(Set.of(1L, 2L))).thenReturn(List.of(modifier(1), unavailableModifier(2)));
+
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> service.createComparator(toCreate, Set.of(1L, 2L)));
+
+		assertEquals("Modifier not available: [2]", e.getMessage());
+		verify(comparatorRepo, never()).save(any());
+	}
+
+	@Test
+	void createWithANullSetOfModifiersIsRefused() {
+		Comparator toCreate = Comparator.builder().name("c").build();
+
+		assertThrows(IllegalArgumentException.class, () -> service.createComparator(toCreate, null));
+		verify(comparatorRepo, never()).save(any());
+	}
+
+	@Test
 	void createWithoutAnyModifierIsRefused() {
 		// equalizing with a comparator without modifiers fails (Guava cannot combine zero hash codes)
 		Comparator toCreate = Comparator.builder().name("c").build();
-		when(modifierRepo.findAllById(Set.of())).thenReturn(List.of());
 
-		assertThrows(IllegalArgumentException.class, () -> service.createComparator(toCreate, Set.of()));
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> service.createComparator(toCreate, Set.of()));
+
+		assertEquals("A comparator needs at least one modifier", e.getMessage());
+		verify(comparatorRepo, never()).save(any());
 	}
 
 	@Test

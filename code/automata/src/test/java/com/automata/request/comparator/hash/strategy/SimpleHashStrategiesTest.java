@@ -12,7 +12,6 @@ import com.automata.request.Request;
 import com.automata.request.common.enums.Method;
 import com.automata.request.comparator.hash.HashTarget;
 import com.automata.request.parameter.QueryParameter;
-import com.automata.testsupport.KnownBug;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 
@@ -113,7 +112,26 @@ class SimpleHashStrategiesTest {
 	}
 
 	@Test
-	@KnownBug("BUG-026")
+	void parametersWithTheSameNamesInAnotherOrderHashTheSame() {
+		assertEquals(query.hashStrategyTarget(request(Method.GET, "/a", "b", "a", "c"), FUNCTION),
+				query.hashStrategyTarget(request(Method.GET, "/a", "c", "b", "a"), FUNCTION));
+	}
+
+	@Test
+	void splittingANameInTwoParametersChangesTheHash() {
+		assertNotEquals(query.hashStrategyTarget(request(Method.GET, "/a", "abc"), FUNCTION),
+				query.hashStrategyTarget(request(Method.GET, "/a", "ab", "c"), FUNCTION));
+		assertNotEquals(query.hashStrategyTarget(request(Method.GET, "/a", "ab", "c"), FUNCTION),
+				query.hashStrategyTarget(request(Method.GET, "/a", "a", "bc"), FUNCTION));
+	}
+
+	@Test
+	void aNameThatContainsALineBreakIsNotTwoParameters() {
+		assertNotEquals(query.hashStrategyTarget(request(Method.GET, "/a", "a\nb"), FUNCTION),
+				query.hashStrategyTarget(request(Method.GET, "/a", "a", "b"), FUNCTION));
+	}
+
+	@Test
 	void oneParameterIsNotTheSameAsTwoWhoseNamesConcatenateToIt() {
 		// ?ab=1 and ?a=1&b=2 are different shapes
 		assertNotEquals(query.hashStrategyTarget(request(Method.GET, "/a", "ab"), FUNCTION),

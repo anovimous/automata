@@ -22,13 +22,16 @@ import com.automata.program.Program;
 import com.automata.routine.Routine;
 import com.automata.routine.RoutineRepository;
 import com.automata.routine.common.enums.Duration;
-import com.automata.testsupport.KnownBug;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.wordlist.Wordlist;
 import com.automata.wordlist.WordlistRepository;
 
 @RepositoryIntegrationTest
+@org.springframework.context.annotation.Import(com.automata.routine.RoutineService.class)
 class RoutineWordlistIntegrationTest {
+
+	@Autowired
+	com.automata.routine.RoutineService routineService;
 
 	@Autowired
 	TestEntityManager em;
@@ -121,21 +124,47 @@ class RoutineWordlistIntegrationTest {
 	}
 
 	@Test
-	@KnownBug("BUG-015")
 	void aSecondRoutineWithTheSameKeyIsRefusedAsAConflictNotADatabaseError() {
 		fx.routine("fuzz");
+		em.flush();
 
-		// the unique key surfaces as a DataIntegrityViolationException through the repository (HTTP 500)
-		try {
-			Routine duplicate = new Routine();
-			duplicate.setKey("fuzz");
-			duplicate.setProtocol(com.automata.routine.common.enums.Protocol.HTTP);
-			duplicate.setResultContentType(com.automata.routine.common.enums.ResultContentType.TEXT);
-			duplicate.setAllowedTargets(Set.of(com.automata.routine.common.enums.TargetCardinalityPair.SINGLE_HOST));
-			routineRepo.saveAndFlush(duplicate);
-		} catch (DataIntegrityViolationException e) {
-			throw new AssertionError("raw database error: " + e.getMessage(), e);
-		}
+		com.automata.common.exception.AlreadyExistsException e = assertThrows(com.automata.common.exception.AlreadyExistsException.class,
+				() -> routineService.createRoutine(newRoutine("fuzz"), null));
+
+		assertEquals("Routine 'fuzz' already exists", e.getMessage());
+		assertEquals(1, routineRepo.count());
+	}
+
+	@Test
+	void aRoutineWithANewKeyIsCreated() {
+		fx.routine("fuzz");
+		em.flush();
+
+		routineService.createRoutine(newRoutine("masser"), null);
+		em.flush();
+
+		assertTrue(routineRepo.existsByKey("masser"));
+		assertEquals(2, routineRepo.count());
+	}
+
+	@Test
+	void theKeyIsComparedAsItIsWrittenSoAnotherCaseIsAnotherRoutine() {
+		fx.routine("fuzz");
+		em.flush();
+
+		routineService.createRoutine(newRoutine("Fuzz"), null);
+		em.flush();
+
+		assertEquals(2, routineRepo.count());
+	}
+
+	private static Routine newRoutine(String key) {
+		Routine routine = new Routine();
+		routine.setKey(key);
+		routine.setProtocol(com.automata.routine.common.enums.Protocol.HTTP);
+		routine.setResultContentType(com.automata.routine.common.enums.ResultContentType.TEXT);
+		routine.setAllowedTargets(Set.of(com.automata.routine.common.enums.TargetCardinalityPair.SINGLE_HOST));
+		return routine;
 	}
 
 	private static Wordlist wordlist(String name, String sha) {

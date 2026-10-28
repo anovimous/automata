@@ -10,6 +10,8 @@ import com.automata.vulnerability.Vulnerability;
 @Repository
 public interface RoutineRepository extends JpaRepository<Routine, Long> {
 
+	boolean existsByKey(String key);
+
 	Page<Routine> findByKeyContainingIgnoreCase(String key, Pageable pageable);
 
 	Page<Routine> findByKeyContainingIgnoreCaseAndVulnerability(String key, Vulnerability vulnerability,

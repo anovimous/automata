@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.automata.program.Program;
 import com.automata.program.ProgramRepository;
+import com.automata.common.exception.AlreadyExistsException;
 import com.automata.host.common.dto.HostCreationRequest;
 import com.automata.host.common.dto.PatchHostRequest;
 import com.automata.host.common.exception.HostInUseException;
@@ -57,6 +58,10 @@ public class HostService {
 
 		HostUtils.validateHostFormat(host.getHost())
 				.ifNotValidThrow(() -> new IllegalArgumentException("Host is of invalid format"));
+
+		// host names are unique for the whole application, not only inside a program
+		if (hostRepo.existsByHost(host.getHost()))
+			throw new AlreadyExistsException("Host '" + host.getHost() + "' already exists");
 
 		host.setLevel(HostUtils.identifyLevel(host.getHost()));
 

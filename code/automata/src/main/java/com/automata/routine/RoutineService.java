@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.automata.common.exception.AlreadyExistsException;
 import com.automata.routine.common.dto.RoutinePatchRequest;
 import com.automata.vulnerability.Vulnerability;
 import com.automata.vulnerability.VulnerabilityRepository;
@@ -45,6 +46,9 @@ public class RoutineService {
 
 		if (toBeCreatedRoutine.getResultContentType() == null)
 			throw new IllegalArgumentException("resultContentType is required");
+
+		if (toBeCreatedRoutine.getKey() != null && routineRepo.existsByKey(toBeCreatedRoutine.getKey()))
+			throw new AlreadyExistsException("Routine '" + toBeCreatedRoutine.getKey() + "' already exists");
 
 		Vulnerability vulnerability = null;
 

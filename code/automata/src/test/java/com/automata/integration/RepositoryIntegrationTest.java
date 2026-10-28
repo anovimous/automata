@@ -31,6 +31,8 @@ import com.automata.AutomataApplication;
 @ContextConfiguration(classes = AutomataApplication.class)
 @TestPropertySource(properties = { "spring.datasource.url=${AUTOMATA_IT_DB_URL}",
 		"spring.datasource.username=${AUTOMATA_IT_DB_USER:it}", "spring.datasource.password=${AUTOMATA_IT_DB_PASSWORD:it}",
-		"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate" })
+		"spring.flyway.enabled=true", "spring.jpa.hibernate.ddl-auto=validate",
+		// every test class with its own configuration gets its own context and pool, and PostgreSQL stops at 100 connections
+		"spring.datasource.hikari.maximum-pool-size=2" })
 public @interface RepositoryIntegrationTest {
 }
