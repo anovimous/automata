@@ -160,6 +160,10 @@ public class RequestService {
 			tenant = tenantRepo.findById(dto.tenantId())
 					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
+		// a job on the request sends the authentication of its tenant, so the tenant has to belong to the host
+		if (tenant != null && !tenant.getHost().getId().equals(host.getId()))
+			throw new IllegalArgumentException("Tenant does not belong to the host of the request");
+
 		byte[] rawRequest = Base64Utils.decodeToBytes(dto.requestBase64());
 
 		RequestParseResult parseResult = RequestUtils.parseRawRequest(rawRequest);

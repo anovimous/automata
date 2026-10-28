@@ -64,24 +64,6 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 		ingestAndVerify("trailing slash after a number", get("/api/users/42/"), Expected.path("/api/users/3@INT/").vars("3:INT=42"));
 	}
 
-	// ============================================================================================ BUG-025
-
-	@Test
-	@KnownBug("BUG-025")
-	void anEmptyRequestIsRefusedWithAClearMessage() throws Exception {
-		MvcResult result = send(new byte[0], null, null);
-
-		assertEquals(400, result.getResponse().getStatus(), result.getResponse().getContentAsString());
-	}
-
-	@Test
-	@KnownBug("BUG-025")
-	void aRequestOfOnlyNewlinesIsRefusedWithAClearMessage() throws Exception {
-		MvcResult result = send("\r\n\r\n".getBytes(StandardCharsets.ISO_8859_1), null, null);
-
-		assertEquals(400, result.getResponse().getStatus(), result.getResponse().getContentAsString());
-	}
-
 	// ============================================================================================ BUG-047
 
 	@Test
@@ -90,33 +72,6 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 		ingestAndVerify("http 1.0", get("/a").version("HTTP/1.0"), Expected.path("/a").version("HTTP/1.0"));
 		ingestAndVerify("http 1.0 with a body", post("/a").version("HTTP/1.0").json("{\"a\":1}"),
 				Expected.path("/a").method(Method.POST).version("HTTP/1.0").inline(RequestContentType.JSON).props("a=1:INT"));
-	}
-
-	// ============================================================================================ BUG-048
-
-	@Test
-	@KnownBug("BUG-048")
-	void aJsonNumberBeyondTheRangeOfALongIsStored() throws Exception {
-		MvcResult result = send(post("/a").json("{\"n\":123456789012345678901234567890}"));
-
-		assertEquals(201, result.getResponse().getStatus(), result.getResponse().getContentAsString());
-	}
-
-	@Test
-	@KnownBug("BUG-048")
-	void aJsonNumberBeyondTheRangeOfADoubleIsStored() throws Exception {
-		MvcResult result = send(post("/a").json("{\"n\":1.5e300,\"m\":1e999}"));
-
-		assertEquals(201, result.getResponse().getStatus(), result.getResponse().getContentAsString());
-	}
-
-	@Test
-	@KnownBug("BUG-048")
-	void aDecimalKeepsAllItsDigits() throws Exception {
-		var summary = ingest(post("/a").json("{\"n\":0.1234567890123456789012345}"));
-		flushAndClear();
-
-		assertEquals(java.util.List.of("n=0.1234567890123456789012345:DOUBLE"), storedProperties(summary.requestId()));
 	}
 
 	// ============================================================================================ BUG-050

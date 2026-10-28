@@ -82,6 +82,36 @@ class RequestServiceBodyStorageTest {
 	@InjectMocks
 	private RequestService service;
 
+	@org.junit.jupiter.api.Test
+	void aTenantOfAnotherHostIsRefusedAndNothingIsSaved() {
+		Host other = new Host();
+		other.setId(99L);
+		com.automata.tenant.Tenant foreign = com.automata.tenant.Tenant.builder().id(7L).name("t").email("e").host(other).build();
+		when(tenantRepo.findById(7L)).thenReturn(Optional.of(foreign));
+
+		IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+				() -> service.addRawRequest(new com.automata.request.common.dto.RawRequestAdditionDto(
+						java.util.Base64.getEncoder().encodeToString("GET /a HTTP/1.1\r\nHost: h\r\n\r\n".getBytes()),
+						com.automata.request.common.enums.Source.BURP, 3L, 7L, null)));
+
+		org.junit.jupiter.api.Assertions.assertEquals("Tenant does not belong to the host of the request", e.getMessage());
+		org.mockito.Mockito.verify(requestRepo, org.mockito.Mockito.never()).save(any(Request.class));
+	}
+
+	@org.junit.jupiter.api.Test
+	void aTenantOfTheHostOfTheRequestIsKept() {
+		Host own = new Host();
+		own.setId(3L);
+		com.automata.tenant.Tenant tenant = com.automata.tenant.Tenant.builder().id(7L).name("t").email("e").host(own).build();
+		when(tenantRepo.findById(7L)).thenReturn(Optional.of(tenant));
+
+		Request saved = service.addRawRequest(new com.automata.request.common.dto.RawRequestAdditionDto(
+				java.util.Base64.getEncoder().encodeToString("GET /a HTTP/1.1\r\nHost: h\r\n\r\n".getBytes()),
+				com.automata.request.common.enums.Source.BURP, 3L, 7L, null));
+
+		org.junit.jupiter.api.Assertions.assertSame(tenant, saved.getTenant());
+	}
+
 	@BeforeEach
 	void stubRepositories() {
 		Host host = new Host();

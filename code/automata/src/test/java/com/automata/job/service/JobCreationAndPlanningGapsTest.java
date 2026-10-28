@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
@@ -113,7 +115,6 @@ class JobCreationAndPlanningGapsTest {
 	// ---- the tenant of a job ----
 
 	@Test
-	@KnownBug("BUG-042")
 	void aTenantOfAnotherHostIsRefusedForANarrowJob() {
 		givenEverythingElseIsValid();
 		Tenant foreign = Tenant.builder().id(9L).name("t").email("e").host(Host.of(99L)).build();
@@ -122,7 +123,34 @@ class JobCreationAndPlanningGapsTest {
 				new TargetSelector(SelectorType.SINGLE_HOST, null), List.of(), null);
 
 		// the authentication of a tenant of another host would be sent to this host
-		assertThrows(IllegalArgumentException.class,
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> creationService.createDraftNarrowJob(generic, new NarrowHttpJobDetailsDto(Duration.SHORT, JOB_HOST_ID, 9L)));
+
+		assertEquals("Tenant does not belong to the host of the job", e.getMessage());
+		verify(jobRepo, never()).save(any(HttpJob.class));
+	}
+
+	@Test
+	void aTenantOfTheHostOfTheJobIsAccepted() {
+		givenEverythingElseIsValid();
+		Tenant own = Tenant.builder().id(9L).name("t").email("e").host(Host.of(JOB_HOST_ID)).build();
+		when(tenantRepo.findById(9L)).thenReturn(Optional.of(own));
+		GenericHttpJobDetailsDto generic = new GenericHttpJobDetailsDto(ResultsVerbosity.NORMAL, 2, 5, 1L, null,
+				new TargetSelector(SelectorType.SINGLE_HOST, null), List.of(), null);
+
+		var job = creationService.createDraftNarrowJob(generic, new NarrowHttpJobDetailsDto(Duration.SHORT, JOB_HOST_ID, 9L));
+
+		assertEquals(own, job.getTenant());
+	}
+
+	@Test
+	void anUnknownTenantIsNotFoundForANarrowJob() {
+		givenEverythingElseIsValid();
+		when(tenantRepo.findById(9L)).thenReturn(Optional.empty());
+		GenericHttpJobDetailsDto generic = new GenericHttpJobDetailsDto(ResultsVerbosity.NORMAL, 2, 5, 1L, null,
+				new TargetSelector(SelectorType.SINGLE_HOST, null), List.of(), null);
+
+		assertThrows(jakarta.persistence.EntityNotFoundException.class,
 				() -> creationService.createDraftNarrowJob(generic, new NarrowHttpJobDetailsDto(Duration.SHORT, JOB_HOST_ID, 9L)));
 	}
 

@@ -133,6 +133,22 @@ class ResponseUtilsTest {
 		assertFalse(ResponseUtils.parseResponse(bytes("not a response")).validationResult().isValid());
 	}
 
+	// a response without a status line
+
+	@Test
+	void anEmptyResponseIsInvalid() {
+		ResponseParseResult result = ResponseUtils.parseResponse(new byte[0]);
+
+		assertFalse(result.validationResult().isValid());
+		assertEquals("The response is empty: it has no status line", result.validationResult().getMessage());
+	}
+
+	@Test
+	void emptyLinesWithoutAStatusLineAreInvalid() {
+		assertFalse(ResponseUtils.parseResponse(bytes("\r\n\r\n")).validationResult().isValid());
+		assertFalse(ResponseUtils.parseResponse(bytes("\n")).validationResult().isValid());
+	}
+
 	// size of the texts taken from the response
 
 	@Test

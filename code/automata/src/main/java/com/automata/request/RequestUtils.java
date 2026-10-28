@@ -137,6 +137,11 @@ public abstract class RequestUtils {
 			return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
 		}
 
+		// nothing but empty lines: the parser finds no request line and gives no request
+		if (request == null)
+			return RequestParseResult.builder()
+					.validationResult(ValidationResult.invalid("The request is empty: it has no request line")).build();
+
 		// Here starts construction of RequestParseResult components:
 
 		// Method

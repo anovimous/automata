@@ -111,6 +111,10 @@ public class HttpJobCreationService {
 			tenant = tenantRepo.findById(narrowDto.tenantId())
 					.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
 
+		// the authentication of the tenant is written into the job, so it must not be sent to another host
+		if (tenant != null && !tenant.getHost().getId().equals(host.getId()))
+			throw new IllegalArgumentException("Tenant does not belong to the host of the job");
+
 		builder.tenant(tenant);
 
 		builder.wordlists(findWordlists(genericDto));
