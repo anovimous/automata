@@ -468,7 +468,7 @@ public class AgentContextService {
 				ResolvedTarget target = ResolvedTarget.builder().requestId(req.getId())
 						.automataJobEligible(eligible).autoApproval(context.isDefaultAutoApproval())
 						.sourceItemType(AgentContextItemType.REQUEST).build();
-				targetsByRequestId.put(req.getId(), target);
+				mergeResolvedTarget(targetsByRequestId, target);
 
 			} else {
 
@@ -483,7 +483,7 @@ public class AgentContextService {
 								.automataJobEligible(eligible).autoApproval(setAutoApproval)
 								.sourceItemType(AgentContextItemType.EQUALITY_SET)
 								.sourceEqualitySetId(set.getId()).build();
-						targetsByRequestId.put(latest.getId(), target);
+						mergeResolvedTarget(targetsByRequestId, target);
 					}
 				} else {
 					List<RequestEqualityRelation> relations = equalityRelationRepo.findAllBySet(set);
@@ -494,7 +494,7 @@ public class AgentContextService {
 								.automataJobEligible(eligible).autoApproval(setAutoApproval)
 								.sourceItemType(AgentContextItemType.EQUALITY_SET)
 								.sourceEqualitySetId(set.getId()).build();
-						targetsByRequestId.put(req.getId(), target);
+						mergeResolvedTarget(targetsByRequestId, target);
 					}
 				}
 			}
@@ -502,6 +502,21 @@ public class AgentContextService {
 
 		return new ArrayList<>(targetsByRequestId.values());
 
+	}
+
+	/**
+	 * A request can be reached by several items. It is approved only when every
+	 * one of them approves it, so the order of the items does not matter: the
+	 * target which does not approve wins, and among equals the one of a REQUEST
+	 * item.
+	 */
+	static void mergeResolvedTarget(Map<Long, ResolvedTarget> targetsByRequestId, ResolvedTarget target) {
+		targetsByRequestId.merge(target.requestId(), target, (kept, other) -> {
+			if (kept.autoApproval() != other.autoApproval())
+				return kept.autoApproval() ? other : kept;
+			return other.sourceItemType() == AgentContextItemType.REQUEST
+					&& kept.sourceItemType() != AgentContextItemType.REQUEST ? other : kept;
+		});
 	}
 
 }

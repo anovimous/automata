@@ -691,9 +691,9 @@ class AgentContextServiceTest {
 
 		assertEquals(1, targets.size());
 		assertEquals(10L, targets.get(0).requestId());
-		// The later entry (equality set) overwrites the first (direct), so set auto-approval wins
-		assertTrue(targets.get(0).autoApproval());
-		assertEquals(AgentContextItemType.EQUALITY_SET, targets.get(0).sourceItemType());
+		// the direct item does not approve and the set does: the most restrictive wins
+		assertFalse(targets.get(0).autoApproval());
+		assertEquals(AgentContextItemType.REQUEST, targets.get(0).sourceItemType());
 	}
 
 	@Test
@@ -1220,7 +1220,6 @@ class AgentContextServiceTest {
 	// ---- the order of the items (BUG-040) ----
 
 	@Test
-	@com.automata.testsupport.KnownBug("BUG-040")
 	void theApprovalOfARequestDoesNotDependOnTheOrderOfTheItems() {
 		Host h = host(1L);
 		Request req = eligibleRequest(10L);
@@ -1240,5 +1239,67 @@ class AgentContextServiceTest {
 		boolean other = service.resolveContextTargets(2L).get(0).autoApproval();
 
 		org.junit.jupiter.api.Assertions.assertEquals(one, other);
+	}
+
+	@Test
+	void aRequestIsApprovedOnlyWhenEveryItemApprovesIt() {
+		Host h = host(1L);
+		Request req = eligibleRequest(10L);
+		Equalization eq = Equalization.builder().id(5L).host(h).build();
+		RequestEqualitySet set = RequestEqualitySet.builder().id(30L).equalization(eq).alias("s").autoApproval(true).build();
+		AgentContextItem directItem = AgentContextItem.builder().id(1L).itemType(AgentContextItemType.REQUEST).request(req).build();
+		AgentContextItem setItem = AgentContextItem.builder().id(2L).itemType(AgentContextItemType.EQUALITY_SET).equalitySet(set).build();
+		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set)).thenReturn(req);
+		for (boolean defaultApproval : new boolean[] { true, false }) {
+			for (List<AgentContextItem> items : List.of(List.of(directItem, setItem), List.of(setItem, directItem))) {
+				AgentContext ctx = AgentContext.builder().id(1L).host(h).representativeStrategy(RepresentativeStrategy.LATEST)
+						.defaultAutoApproval(defaultApproval).items(items).build();
+				when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+
+				// the set approves, so the direct item (the context default) decides
+				assertEquals(defaultApproval, service.resolveContextTargets(1L).get(0).autoApproval());
+			}
+		}
+	}
+
+	@Test
+	void aSetWhichDoesNotApproveBeatsAnApprovingDirectItemInAnyOrder() {
+		Host h = host(1L);
+		Request req = eligibleRequest(10L);
+		Equalization eq = Equalization.builder().id(5L).host(h).build();
+		RequestEqualitySet set = RequestEqualitySet.builder().id(30L).equalization(eq).alias("s").autoApproval(false).build();
+		AgentContextItem directItem = AgentContextItem.builder().id(1L).itemType(AgentContextItemType.REQUEST).request(req).build();
+		AgentContextItem setItem = AgentContextItem.builder().id(2L).itemType(AgentContextItemType.EQUALITY_SET).equalitySet(set).build();
+		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set)).thenReturn(req);
+		for (List<AgentContextItem> items : List.of(List.of(directItem, setItem), List.of(setItem, directItem))) {
+			AgentContext ctx = AgentContext.builder().id(1L).host(h).representativeStrategy(RepresentativeStrategy.LATEST)
+					.defaultAutoApproval(true).items(items).build();
+			when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+
+			ResolvedTarget target = service.resolveContextTargets(1L).get(0);
+
+			assertFalse(target.autoApproval());
+			assertEquals(AgentContextItemType.EQUALITY_SET, target.sourceItemType());
+		}
+	}
+
+	@Test
+	void twoSetsApproveARequestOnlyWhenBothDo() {
+		Host h = host(1L);
+		Request req = eligibleRequest(10L);
+		Equalization eq = Equalization.builder().id(5L).host(h).build();
+		RequestEqualitySet yes = RequestEqualitySet.builder().id(30L).equalization(eq).alias("y").autoApproval(true).build();
+		RequestEqualitySet no = RequestEqualitySet.builder().id(31L).equalization(eq).alias("n").autoApproval(false).build();
+		AgentContextItem a = AgentContextItem.builder().id(1L).itemType(AgentContextItemType.EQUALITY_SET).equalitySet(yes).build();
+		AgentContextItem b = AgentContextItem.builder().id(2L).itemType(AgentContextItemType.EQUALITY_SET).equalitySet(no).build();
+		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(yes)).thenReturn(req);
+		when(equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(no)).thenReturn(req);
+		for (List<AgentContextItem> items : List.of(List.of(a, b), List.of(b, a))) {
+			AgentContext ctx = AgentContext.builder().id(1L).host(h).representativeStrategy(RepresentativeStrategy.LATEST)
+					.defaultAutoApproval(false).items(items).build();
+			when(contextRepo.findById(1L)).thenReturn(Optional.of(ctx));
+
+			assertFalse(service.resolveContextTargets(1L).get(0).autoApproval());
+		}
 	}
 }
