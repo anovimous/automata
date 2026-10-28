@@ -164,7 +164,21 @@ class RequestCorpusE2ETest extends RequestE2ETestBase {
 				c("an https absolute url", get("https://api.example.com:8443/a/b"), Expected.path("/a/b")),
 				c("an absolute url with user info", get("http://user:pw@h/a"), Expected.path("/a")),
 				c("an absolute url with an ipv6 host", get("http://[::1]:8080/a"), Expected.path("/a")),
-				c("a fragment is not part of the path", get("/a/b#section"), Expected.path("/a/b")));
+				c("a fragment is not part of the path", get("/a/b#section"), Expected.path("/a/b")),
+				c("a json extension", get("/api/users.json"), Expected.path("/api/users.json").extension(".json")),
+				c("a pdf in a directory", get("/files/2024/report.pdf"), Expected.path("/files/2@INT/report.pdf").vars("2:INT=2024").extension(".pdf")),
+				c("the full extension of a minified file", get("/static/app.min.js"), Expected.path("/static/app.min.js").extension(".min.js")),
+				c("the full extension of an archive", get("/dl/backup.tar.gz"), Expected.path("/dl/backup.tar.gz").extension(".tar.gz")),
+				c("the extension is lower case", get("/img/LOGO.PNG"), Expected.path("/img/LOGO.PNG").extension(".png")),
+				c("an extension and a query", get("/page.html?x=1"), Expected.path("/page.html").extension(".html").query("x=1")),
+				c("an extension after a number", get("/users/42.json"), Expected.path("/users/42.json").extension(".json")),
+				c("a version in an earlier segment is no extension", get("/v1.2/users"), Expected.path("/v1.2/users")),
+				c("dot segments have no extension", get("/a/../b/./c"), Expected.path("/a/../b/./c")),
+				c("a hidden file has no extension", get("/.git/config"), Expected.path("/.git/config")),
+				c("a hidden file at the root", get("/.env"), Expected.path("/.env")),
+				c("a hidden file with an extension", get("/.env.local"), Expected.path("/.env.local").extension(".local")),
+				c("a trailing dot is no extension", get("/a/file."), Expected.path("/a/file.")),
+				c("an encoded dot is no extension", get("/a/file%2Ejson"), Expected.path("/a/file%2Ejson")));
 	}
 
 	@ParameterizedTest(name = "{0}")

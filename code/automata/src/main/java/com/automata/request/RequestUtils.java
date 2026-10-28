@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -88,7 +89,8 @@ public abstract class RequestUtils {
 			}
 
 			if (filter.getExtension() != null && !filter.getExtension().isBlank()) {
-				predicates.add(cb.equal(root.get("extension"), filter.getExtension()));
+				// extensions are stored in lower case
+				predicates.add(cb.equal(root.get("extension"), filter.getExtension().toLowerCase(Locale.ROOT)));
 			}
 
 			if (filter.getContentType() != null) {
