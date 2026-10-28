@@ -18,6 +18,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.automata.host.Host;
 import com.automata.request.common.enums.Method;
 
 /**
@@ -242,6 +243,19 @@ class RequestRejectionE2ETest extends RequestE2ETestBase {
 
 		assertEquals(400, result.getResponse().getStatus());
 		assertNothingStored("broken envelope");
+	}
+
+	@Test
+	void aTenantOfAnotherHostIsRefused() throws Exception {
+		Host other = fx.host(program, "www.example.com");
+		var foreign = fx.tenant(other, "mallory");
+		fx.clear();
+
+		MvcResult result = send(get("/a").bytes(), foreign.getId(), null);
+
+		assertEquals(400, result.getResponse().getStatus());
+		assertTrue(result.getResponse().getContentAsString().contains("Tenant does not belong to the host of the request"));
+		assertNothingStored("tenant of another host");
 	}
 
 	@Test
