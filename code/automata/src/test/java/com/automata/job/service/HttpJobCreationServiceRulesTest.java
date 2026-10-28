@@ -376,7 +376,7 @@ class HttpJobCreationServiceRulesTest {
 		when(programRepo.findById(2L)).thenReturn(Optional.of(new Program()));
 		when(jobRepo.save(any(com.automata.job.domain.model.HttpJob.class))).thenAnswer(inv -> inv.getArgument(0));
 		when(targetSelectionService.handleTargetSelector(any()))
-				.thenReturn(new com.automata.job.domain.valueobject.TargetSelectionResult.MultipleHosts(Set.of(5L, 6L)));
+				.thenReturn(new com.automata.job.domain.valueobject.TargetSelectionResult.MultipleHosts(Set.of(5L, 6L), Set.of(2L)));
 		when(hostRepo.findDtosByIds(Set.of(5L, 6L))).thenReturn(List.of(
 				new com.automata.host.common.dto.HostRateLimitInternalDto(5L, 10),
 				new com.automata.host.common.dto.HostRateLimitInternalDto(6L, 0)));

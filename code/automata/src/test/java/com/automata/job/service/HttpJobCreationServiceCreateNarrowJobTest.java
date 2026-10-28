@@ -125,7 +125,7 @@ class HttpJobCreationServiceCreateNarrowJobTest {
 
 	@Test
 	void multipleRequestsAreConfiguredAsTarget() {
-		givenNarrowJobCanBeCreated(new TargetSelectionResult.MultipleRequests(Set.of(8L, 9L)));
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.MultipleRequests(Set.of(8L, 9L), Set.of(JOB_HOST_ID)));
 		when(targetConfigService.configureRequestsAsTarget(any(), any()))
 				.thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -135,8 +135,19 @@ class HttpJobCreationServiceCreateNarrowJobTest {
 	}
 
 	@Test
+	void multipleRequestsOfAnotherHostAreRefusedWithoutConfiguringTargets() {
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.MultipleRequests(Set.of(8L, 9L), Set.of(JOB_HOST_ID, 99L)));
+
+		assertThrows(com.automata.job.domain.exception.IneligibleJobTargetException.class,
+				() -> service.createDraftNarrowJob(genericDto(SelectorType.MULTIPLE_REQUESTS), narrowDto()));
+
+		org.mockito.Mockito.verifyNoInteractions(targetConfigService);
+		assertEquals(0, TransactionSynchronizationManager.getSynchronizations().size());
+	}
+
+	@Test
 	void hostsSelectionCanNotTargetANarrowJob() {
-		givenNarrowJobCanBeCreated(new TargetSelectionResult.MultipleHosts(Set.of(5L)));
+		givenNarrowJobCanBeCreated(new TargetSelectionResult.MultipleHosts(Set.of(5L), Set.of(1L)));
 
 		assertThrows(IllegalArgumentException.class,
 				() -> service.createDraftNarrowJob(genericDto(SelectorType.MULTIPLE_HOSTS), narrowDto()));

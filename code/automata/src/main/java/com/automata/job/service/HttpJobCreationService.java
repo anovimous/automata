@@ -130,8 +130,10 @@ public class HttpJobCreationService {
 			yield targetConfigService.configureRequestsAsTarget(newlyPersistedJob, Set.of(selected.requestId()));
 		}
 
-		case TargetSelectionResult.MultipleRequests selected ->
-			targetConfigService.configureRequestsAsTarget(newlyPersistedJob, selected.requestsIds());
+		case TargetSelectionResult.MultipleRequests selected -> {
+			selected.hostsIds().forEach(hostId -> requireTargetOfJobHost(hostId, narrowDto.hostId()));
+			yield targetConfigService.configureRequestsAsTarget(newlyPersistedJob, selected.requestsIds());
+		}
 
 		case TargetSelectionResult.MultipleHosts selected -> throw new IllegalArgumentException(
 				"Target of this cardinality and type is not allowed to be a target of narrow jobs");
@@ -171,6 +173,7 @@ public class HttpJobCreationService {
 		WideHttpJob fullyConfiguredJob = switch (selectionResult) {
 
 		case TargetSelectionResult.MultipleHosts selected -> {
+			selected.programsIds().forEach(programId -> requireHostsOfJobProgram(programId, wideDto.programId()));
 			requireHostsAcceptJobs(selected.hostsIds());
 			yield targetConfigService.configureHostsAsTarget(newlyPersistedJob, selected.hostsIds());
 		}
@@ -398,6 +401,14 @@ public class HttpJobCreationService {
 		hostRepo.findDtosByIds(hostIds).stream().filter(dto -> dto.rateLimit() < 1).findFirst().ifPresent(dto -> {
 			throw IneligibleJobTargetException.forHostWithoutRateLimit(dto.hostId());
 		});
+	}
+
+	// the hosts of a wide job count against the rate limit of the program of the job
+	private void requireHostsOfJobProgram(Long hostProgramId, Long jobProgramId) {
+		if (!jobProgramId.equals(hostProgramId))
+			throw new IllegalArgumentException(String.format(
+					"A target host belongs to program %d, but the job is for program %d, so it can't be used as its target.",
+					hostProgramId, jobProgramId));
 	}
 
 	// a single host or request target must belong to the host the job (and its rate
