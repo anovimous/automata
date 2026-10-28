@@ -8,6 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.automata.response.common.exception.ResponseAlreadyExistsException;
 import com.automata.common.dto.RawHttpMessage;
 import com.automata.common.utils.Base64Utils;
 import com.automata.common.utils.HttpMessageUtils;
@@ -114,6 +115,11 @@ public class ResponseService {
 
 		if (responseBase64 == null)
 			return;
+
+		// the response of a request is unique: the database would refuse a second one with an error nobody can read
+		responseRepo.findByRequest(request).ifPresent(existing -> {
+			throw new ResponseAlreadyExistsException(request.getId(), existing.getId());
+		});
 
 		byte[] rawResponse = Base64Utils.decodeToBytes(responseBase64);
 

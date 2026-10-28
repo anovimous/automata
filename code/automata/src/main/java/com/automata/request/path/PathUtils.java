@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -31,15 +32,9 @@ public abstract class PathUtils {
 
 		String cleanedPath = path.substring(0, pathEnd);
 
-		int lastSlashIndex = cleanedPath.lastIndexOf("/");
-
-		int lastDotIndex = cleanedPath.lastIndexOf(".", lastSlashIndex);
-
 		PathParsingResult parseResult = new PathParsingResult();
 
-		String extension = (lastDotIndex != -1) ? cleanedPath.substring(lastDotIndex) : null;
-
-		parseResult.setExtension(extension);
+		parseResult.setExtension(extensionOf(cleanedPath));
 
 		List<String> uriSplits = Arrays.asList(cleanedPath.split("/"));
 
@@ -69,6 +64,32 @@ public abstract class PathUtils {
 
 		parseResult.setComputatedPath(String.join("/", newUriSplits));
 		return parseResult;
+
+	}
+
+	/**
+	 * The full extension of the last segment, in lower case: everything from its first
+	 * dot, so ".min.js" and ".tar.gz" and not only the last part. There is none when the
+	 * dot belongs to an earlier segment ("/v1.2/users"), when the segment only starts
+	 * with a dot (a hidden file such as ".env", whose extension would be the file
+	 * itself) and when nothing but dots follows the name ("a.", "..").
+	 */
+	static String extensionOf(String path) {
+
+		String lastSegment = path.substring(path.lastIndexOf('/') + 1);
+
+		// from the second character on: a leading dot is part of the name
+		int firstDot = lastSegment.indexOf('.', 1);
+
+		if (firstDot < 0)
+			return null;
+
+		String extension = lastSegment.substring(firstDot);
+
+		if (extension.chars().allMatch(c -> c == '.'))
+			return null;
+
+		return extension.toLowerCase(Locale.ROOT);
 
 	}
 

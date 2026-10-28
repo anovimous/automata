@@ -26,26 +26,6 @@ import com.automata.testsupport.KnownBug;
 @RequestE2E
 class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 
-	// ============================================================================================ BUG-018
-
-	@Test
-	@KnownBug("BUG-018")
-	void theExtensionOfTheLastSegmentIsDetected() throws Exception {
-		ingestAndVerify("json", get("/api/users.json"), Expected.path("/api/users.json").extension(".json"));
-		ingestAndVerify("pdf in a directory", get("/files/2024/report.pdf"), Expected.path("/files/2024/report.pdf").extension(".pdf"));
-		ingestAndVerify("min js", get("/static/app.min.js"), Expected.path("/static/app.min.js").extension(".js"));
-		ingestAndVerify("with a query", get("/page.html?x=1"), Expected.path("/page.html").extension(".html").query("x=1"));
-	}
-
-	@Test
-	@KnownBug("BUG-018")
-	void aDotInAnEarlierSegmentIsNotTheExtension() throws Exception {
-		ingestAndVerify("version in the path", get("/v1.2/users"), Expected.path("/v1.2/users"));
-		ingestAndVerify("dot segments", get("/a/../b/./c"), Expected.path("/a/../b/./c"));
-		ingestAndVerify("a hidden directory", get("/.git/config"), Expected.path("/.git/config"));
-		ingestAndVerify("a decimal segment", get("/a/5.5/b"), Expected.path("/a/5.5/b"));
-	}
-
 	// ============================================================================================ BUG-019
 
 	@Test

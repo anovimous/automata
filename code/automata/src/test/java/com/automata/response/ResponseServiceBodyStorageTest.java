@@ -167,6 +167,33 @@ class ResponseServiceBodyStorageTest {
 	}
 
 	@Test
+	void addResponse_requestThatAlreadyHasOne_isRefusedAndNothingIsSaved() {
+		Response existing = new Response();
+		existing.setId(9L);
+		when(responseRepo.findByRequest(request)).thenReturn(java.util.Optional.of(existing));
+		byte[] raw = bytes("HTTP/1.1 204 No Content\r\n\r\n");
+
+		com.automata.response.common.exception.ResponseAlreadyExistsException e = assertThrows(
+				com.automata.response.common.exception.ResponseAlreadyExistsException.class,
+				() -> service.addResponseToRequest(Base64Utils.encode(raw), request));
+
+		org.junit.jupiter.api.Assertions.assertEquals("Request 5 already has a response (id 9), so another one can't be added.", e.getMessage());
+		verify(responseRepo, never()).save(any());
+		verify(responseRawRepo, never()).save(any());
+		verifyNoInteractions(headerService, bodyService, bodyStorage);
+	}
+
+	@Test
+	void addResponse_requestThatAlreadyHasOne_isRefusedEvenWhenTheNewResponseIsMalformed() {
+		Response existing = new Response();
+		existing.setId(9L);
+		when(responseRepo.findByRequest(request)).thenReturn(java.util.Optional.of(existing));
+
+		assertThrows(com.automata.response.common.exception.ResponseAlreadyExistsException.class,
+				() -> service.addResponseToRequest(Base64Utils.encode(bytes("garbage")), request));
+	}
+
+	@Test
 	void addResponse_nullResponse_doesNothing() {
 		service.addResponseToRequest(null, request);
 

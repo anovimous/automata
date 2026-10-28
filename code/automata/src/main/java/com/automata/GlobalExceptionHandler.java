@@ -15,6 +15,7 @@ import com.automata.host.common.exception.HostInUseException;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.exception.JobNotApprovedException;
+import com.automata.response.common.exception.ResponseAlreadyExistsException;
 import com.automata.wordlist.common.exception.WordlistAlreadyExistsException;
 import com.automata.wordlist.common.exception.WordlistInUseException;
 
@@ -54,6 +55,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(WordlistInUseException.class)
 	public ResponseEntity<String> handleWordlistInUse(WordlistInUseException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(ResponseAlreadyExistsException.class)
+	public ResponseEntity<String> handleResponseAlreadyExists(ResponseAlreadyExistsException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
 	}
 

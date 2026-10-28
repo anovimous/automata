@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import com.automata.request.common.dto.PathVariableInternalDto;
@@ -86,28 +87,57 @@ class PathUtilsTest {
 		assertEquals("/api/users/3@INT", PathUtils.parsePath("/api/users/5?x=1#top").getComputatedPath());
 	}
 
-	@Test
-	@KnownBug("BUG-018")
-	void theExtensionOfTheLastSegmentIsDetected() {
-		assertEquals(".json", PathUtils.parsePath("/api/users.json").getExtension());
-		assertEquals(".js", PathUtils.parsePath("/static/app.min.js").getExtension());
+	@ParameterizedTest
+	@CsvSource(delimiter = '|', nullValues = "null", value = {
+			"/api/users.json|.json",
+			"/files/report.pdf|.pdf",
+			"/files/2024/report.pdf|.pdf",
+			"/static/app.min.js|.min.js",
+			"/a/archive.tar.gz|.tar.gz",
+			"/a/b.c.d.e|.c.d.e",
+			"/a/IMAGE.PNG|.png",
+			"/a/Report.Min.JS|.min.js",
+			"/users/42.json|.json",
+			"/users/1.0|.0",
+			"/a/file.|null",
+			"/a/file..|null",
+			"/a/file..json|..json",
+			"/file.txt|.txt",
+			"file.txt|.txt",
+			"/page.html?x=1|.html",
+			"/page.html#top|.html",
+			"/a/.env|null",
+			"/.htaccess|null",
+			"/a/.env.local|.local",
+			"/a/..|null",
+			"/a/.|null",
+			"/a/%2Ejson|null",
+			"/a/file.%4AS|.%4as" })
+	void theFullExtensionOfTheLastSegment(String path, String extension) {
+		assertEquals(extension, PathUtils.parsePath(path).getExtension(), path);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "/api/users", "/api/v1.2/users", "/v1.2/users/42", "/a/../b/./c", "/.git/config", "/a.b/c.d/e", "/a.json/b", "/a/b/", "/a" })
+	void aDotInAnEarlierSegmentIsNotTheExtension(String path) {
+		assertNull(PathUtils.parsePath(path).getExtension(), path);
 	}
 
 	@Test
-	void aPathWithoutADotInTheLastSegmentHasNoExtension() {
-		assertNull(PathUtils.parsePath("/api/users").getExtension());
+	void theExtensionStaysPartOfTheComputedPathAndThePathVariablesAreNotTouched() {
+		PathParsingResult result = PathUtils.parsePath("/users/42/report.min.js");
+
+		assertEquals("/users/2@INT/report.min.js", result.getComputatedPath());
+		assertEquals(".min.js", result.getExtension());
+		assertEquals(1, result.getPathVariables().size());
 	}
 
 	@Test
-	@KnownBug("BUG-018")
-	void aDotInAnEarlierSegmentIsNotTheExtension() {
-		assertNull(PathUtils.parsePath("/api/v1.2/users").getExtension());
-	}
-
-	@Test
-	@KnownBug("BUG-018")
-	void theExtensionOfAFileInASubdirectoryIsDetected() {
-		assertEquals(".pdf", PathUtils.parsePath("/files/report.pdf").getExtension());
+	void extensionOfAPathWithoutSlashIsTheExtensionOfTheWholeText() {
+		assertEquals(".txt", PathUtils.extensionOf("a.txt"));
+		assertNull(PathUtils.extensionOf("a"));
+		assertNull(PathUtils.extensionOf(""));
+		assertNull(PathUtils.extensionOf("/"));
 	}
 
 	@Test
