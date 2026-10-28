@@ -59,9 +59,25 @@ public class FindingService {
 		return this.createFinding(request, null);
 	}
 
+	// the fields the database cannot do without
+	private static void requireFields(FindingCreationRequest request) {
+		if (request.requestId() == null)
+			throw new IllegalArgumentException("requestId is required");
+		if (request.vulnerabilityId() == null)
+			throw new IllegalArgumentException("vulnerabilityId is required");
+		if (request.status() == null)
+			throw new IllegalArgumentException("status is required");
+		if (request.createdBy() == null)
+			throw new IllegalArgumentException("createdBy is required");
+		if (request.evidence() == null || request.evidence().isBlank())
+			throw new IllegalArgumentException("evidence is required");
+	}
+
 	// The context is the one of the agent that creates the finding, null for the findings of users
 	@Transactional
 	public Finding createFinding(FindingCreationRequest request, AgentContext agentContext) {
+
+		requireFields(request);
 
 		validateSeverity(request.severity());
 		validateConfidence(request.confidence());
@@ -134,6 +150,9 @@ public class FindingService {
 
 	@Transactional
 	public void reviewFinding(Long findingId, FindingReviewRequest request) {
+
+		if (request.verdict() == null)
+			throw new IllegalArgumentException("verdict is required");
 
 		Finding finding = findingRepo.findById(findingId)
 				.orElseThrow(() -> new EntityNotFoundException("Finding not found"));
