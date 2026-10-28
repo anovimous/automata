@@ -130,8 +130,10 @@ def register(mcp: MCPServer[AppState]) -> None:
         meant to run with a wordlist; the core does not enforce it, but such a job fails at the
         worker without one.
 
-        `rate` is at least 1 and is capped by the host limit and the context's maxRate; a host
-        with a rate limit of 0 refuses every job (tell the user). `duration` is needed unless the
+        `rate` is at least 1 and is refused when it is above the host limit, the limit of the
+        duration (short or long), the program limit or the context's maxRate; without a `rate`
+        the job gets the context's defaultJobRate, lowered to those limits. A host with a rate
+        limit of 0 refuses every job (tell the user). `duration` is needed unless the
         context has a default. `priority` is 1 to 5. A job always runs as the tenant of its target
         request. The core checks every rule and its message is shown if one is broken (the target
         must be in list_targets, job-eligible and of the context's host; the routine must be
