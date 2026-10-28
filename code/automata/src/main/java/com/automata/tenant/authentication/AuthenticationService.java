@@ -1,9 +1,7 @@
 package com.automata.tenant.authentication;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.automata.tenant.Tenant;
 import com.automata.tenant.TenantRepository;
@@ -24,6 +22,9 @@ public class AuthenticationService {
 
 		Tenant tenant = tenantRepo.findById(tenantId)
 				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+
+		if (tenant.getAuthentication() == null)
+			throw new EntityNotFoundException("Authentication not found for this tenant");
 
 		return tenant.getAuthentication();
 
@@ -59,7 +60,7 @@ public class AuthenticationService {
 		Authentication authentication = tenant.getAuthentication();
 
 		if (authentication == null)
-			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Authentication not found for this tenant");
+			throw new EntityNotFoundException("Authentication not found for this tenant");
 
 		patchRequest.authData().ifPresent(authentication::setAuthData);
 

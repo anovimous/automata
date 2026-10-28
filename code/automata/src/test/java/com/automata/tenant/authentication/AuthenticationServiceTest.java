@@ -1,5 +1,6 @@
 package com.automata.tenant.authentication;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -55,10 +56,22 @@ class AuthenticationServiceTest {
 	}
 
 	@Test
-	void getOfATenantWithoutAuthenticationReturnsNull() {
+	void getOfATenantWithoutAuthenticationIsNotFound() {
 		when(tenantRepo.findById(1L)).thenReturn(Optional.of(new Tenant()));
 
-		assertNull(service.getAuthenticationOfTenant(1L));
+		EntityNotFoundException e = assertThrows(EntityNotFoundException.class, () -> service.getAuthenticationOfTenant(1L));
+
+		assertEquals("Authentication not found for this tenant", e.getMessage());
+	}
+
+	@Test
+	void getOfATenantWithAnAuthenticationReturnsIt() {
+		Tenant tenant = new Tenant();
+		Authentication authentication = auth();
+		tenant.setAuthentication(authentication);
+		when(tenantRepo.findById(1L)).thenReturn(Optional.of(tenant));
+
+		assertSame(authentication, service.getAuthenticationOfTenant(1L));
 	}
 
 	@Test
