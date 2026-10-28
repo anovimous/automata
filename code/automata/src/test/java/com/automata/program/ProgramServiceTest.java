@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -39,6 +41,12 @@ class ProgramServiceTest {
 
 	@Mock
 	VulnerabilityRepository vulnerabilityRepo;
+
+	@Mock
+	com.automata.job.repository.NarrowHttpJobRepository narrowJobRepo;
+
+	@Mock
+	com.automata.job.repository.WideHttpJobRepository wideJobRepo;
 
 	@InjectMocks
 	ProgramService service;
@@ -187,7 +195,6 @@ class ProgramServiceTest {
 	}
 
 	@Test
-	@KnownBug("BUG-001")
 	void patchChangesTheProgramRateLimit() {
 		Program program = program();
 		when(programRepo.findById(1L)).thenReturn(Optional.of(program));
@@ -195,6 +202,94 @@ class ProgramServiceTest {
 		service.patchProgram(1L, patch(null, null, 80, null, null, false, false));
 
 		assertEquals(80, program.getProgramRateLimit());
+	}
+
+	@Test
+	void patchChangesTheRateLimitOnlyWhenNoJobOfTheProgramIsInProgress() {
+		Program program = program();
+		when(programRepo.findById(1L)).thenReturn(Optional.of(program));
+
+		service.patchProgram(1L, patch(null, null, 80, null, null, false, false));
+
+		// drafts and finished jobs do not use the rate, everything else does
+		java.util.Set<com.automata.job.domain.model.enums.JobState> inProgress = java.util.EnumSet.complementOf(java.util.EnumSet.of(
+				com.automata.job.domain.model.enums.JobState.DRAFT, com.automata.job.domain.model.enums.JobState.FINISHED,
+				com.automata.job.domain.model.enums.JobState.CANCELED, com.automata.job.domain.model.enums.JobState.FAILED,
+				com.automata.job.domain.model.enums.JobState.SELFTERMINATED, com.automata.job.domain.model.enums.JobState.LOSTCONTACT));
+		verify(narrowJobRepo).existsByProgramIdAndCurrentStateIn(1L, inProgress);
+		verify(wideJobRepo).existsByProgramIdAndCurrentStateIn(1L, inProgress);
+	}
+
+	@Test
+	void patchRefusesANewRateLimitWhileANarrowJobOfTheProgramIsInProgress() {
+		Program program = program();
+		when(programRepo.findById(1L)).thenReturn(Optional.of(program));
+		when(narrowJobRepo.existsByProgramIdAndCurrentStateIn(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+
+		com.automata.program.common.exception.ProgramInUseException e = assertThrows(
+				com.automata.program.common.exception.ProgramInUseException.class,
+				() -> service.patchProgram(1L, patch(null, null, 80, null, null, false, false)));
+
+		assertTrue(e.getMessage().contains("rate limit of program 1 cannot be changed"));
+		assertEquals(50, program.getProgramRateLimit());
+		verify(programRepo, never()).save(any());
+	}
+
+	@Test
+	void patchRefusesANewRateLimitWhileAWideJobOfTheProgramIsInProgress() {
+		Program program = program();
+		when(programRepo.findById(1L)).thenReturn(Optional.of(program));
+		when(wideJobRepo.existsByProgramIdAndCurrentStateIn(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+
+		assertThrows(com.automata.program.common.exception.ProgramInUseException.class,
+				() -> service.patchProgram(1L, patch(null, null, 80, null, null, false, false)));
+
+		assertEquals(50, program.getProgramRateLimit());
+	}
+
+	@Test
+	void patchWithTheSameRateLimitNeverLooksAtTheJobs() {
+		Program program = program();
+		when(programRepo.findById(1L)).thenReturn(Optional.of(program));
+
+		service.patchProgram(1L, patch("Renamed", null, 50, null, null, false, false));
+
+		assertEquals("Renamed", program.getName());
+		assertEquals(50, program.getProgramRateLimit());
+		verifyNoInteractions(narrowJobRepo, wideJobRepo);
+	}
+
+	@Test
+	void patchWithoutARateLimitNeverLooksAtTheJobs() {
+		Program program = program();
+		when(programRepo.findById(1L)).thenReturn(Optional.of(program));
+
+		service.patchProgram(1L, patch("Renamed", null, null, null, null, false, false));
+
+		verifyNoInteractions(narrowJobRepo, wideJobRepo);
+	}
+
+	@Test
+	void patchRefusesANegativeRateLimit() {
+		Program program = program();
+		when(programRepo.findById(1L)).thenReturn(Optional.of(program));
+
+		IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+				() -> service.patchProgram(1L, patch(null, null, -1, null, null, false, false)));
+
+		assertEquals("programRateLimit cannot be negative", e.getMessage());
+		assertEquals(50, program.getProgramRateLimit());
+		verify(programRepo, never()).save(any());
+	}
+
+	@Test
+	void patchAcceptsARateLimitOfZero() {
+		Program program = program();
+		when(programRepo.findById(1L)).thenReturn(Optional.of(program));
+
+		service.patchProgram(1L, patch(null, null, 0, null, null, false, false));
+
+		assertEquals(0, program.getProgramRateLimit());
 	}
 
 	@Test

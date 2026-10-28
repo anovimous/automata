@@ -43,6 +43,10 @@ public interface NarrowHttpJobRepository extends JpaRepository<NarrowHttpJob, Lo
 	@Query("SELECT j.tenant.authentication FROM NarrowHttpJob j WHERE j.id = :jobId")
 	Authentication findAuthenticationOfJob(@Param("jobId") Long jobId);
 
+	@Query("SELECT COUNT(j) > 0 FROM NarrowHttpJob j WHERE j.program.id = :programId AND j.genericDetails.currentState IN :states")
+	boolean existsByProgramIdAndCurrentStateIn(@Param(value = "programId") Long programId,
+			@Param(value = "states") Set<JobState> states);
+
 	@Query("SELECT COUNT(j) > 0 FROM NarrowHttpJob j WHERE j.host.id = :hostId AND j.genericDetails.currentState IN :states")
 	boolean existsByHostIdAndCurrentStateIn(@Param(value = "hostId") Long hostId,
 			@Param(value = "states") Set<JobState> states);

@@ -1,26 +1,29 @@
 package com.automata;
 
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
-import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import com.automata.finding.common.exception.InvalidFindingStateException;
 import com.automata.host.common.exception.HostInUseException;
 import com.automata.job.domain.exception.IneligibleJobTargetException;
 import com.automata.job.domain.exception.InvalidJobStateException;
 import com.automata.job.domain.exception.JobNotApprovedException;
+import com.automata.program.common.exception.ProgramInUseException;
 import com.automata.response.common.exception.ResponseAlreadyExistsException;
 import com.automata.wordlist.common.exception.WordlistAlreadyExistsException;
 import com.automata.wordlist.common.exception.WordlistInUseException;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -55,6 +58,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(WordlistInUseException.class)
 	public ResponseEntity<String> handleWordlistInUse(WordlistInUseException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+	}
+
+	@ExceptionHandler(ProgramInUseException.class)
+	public ResponseEntity<String> handleProgramInUse(ProgramInUseException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
 	}
 

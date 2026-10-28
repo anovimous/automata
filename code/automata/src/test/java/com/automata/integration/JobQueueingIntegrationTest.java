@@ -359,6 +359,23 @@ class JobQueueingIntegrationTest {
 	}
 
 	@Test
+	void narrowJobsInProgressAreFoundByTheProgramOfTheirHostAndNotByAnotherProgram() {
+		Set<JobState> inProgress = Set.of(JobState.QUEUED, JobState.RUNNING, JobState.PAUSED, JobState.TOQUEUE);
+		Program other = fx.program("Other");
+		fx.narrowJob(routine, host, JobState.DRAFT, 1, Duration.SHORT, 1);
+		fx.narrowJob(routine, host, JobState.FINISHED, 1, Duration.SHORT, 1);
+		fx.clear();
+
+		assertEquals(false, narrowRepo.existsByProgramIdAndCurrentStateIn(program.getId(), inProgress));
+
+		fx.narrowJob(routine, host, JobState.RUNNING, 1, Duration.SHORT, 1);
+		fx.clear();
+
+		assertTrue(narrowRepo.existsByProgramIdAndCurrentStateIn(program.getId(), inProgress));
+		assertEquals(false, narrowRepo.existsByProgramIdAndCurrentStateIn(other.getId(), inProgress));
+	}
+
+	@Test
 	void updateJobsStateOnlyMovesTheJobsStillInTheExpectedState() {
 		NarrowHttpJob stillWaiting = fx.narrowJob(routine, host, JobState.TOQUEUE, 1, Duration.SHORT, 1);
 		NarrowHttpJob canceledMeanwhile = fx.narrowJob(routine, host, JobState.CANCELED, 1, Duration.SHORT, 1);

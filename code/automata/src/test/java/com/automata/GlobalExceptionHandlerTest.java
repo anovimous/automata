@@ -139,4 +139,12 @@ class GlobalExceptionHandlerTest {
 		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
 	}
 
+	@Test
+	void aProgramInUseMapsTo409() {
+		ResponseEntity<String> response = new GlobalExceptionHandler()
+				.handleProgramInUse(new com.automata.program.common.exception.ProgramInUseException("busy"));
+
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("busy", response.getBody());
+	}
 }
