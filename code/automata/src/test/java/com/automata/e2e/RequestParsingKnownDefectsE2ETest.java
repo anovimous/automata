@@ -29,7 +29,6 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 	// ============================================================================================ BUG-047
 
 	@Test
-	@KnownBug("BUG-047")
 	void theVersionOfAnHttp10RequestIsKept() throws Exception {
 		ingestAndVerify("http 1.0", get("/a").version("HTTP/1.0"), Expected.path("/a").version("HTTP/1.0"));
 		ingestAndVerify("http 1.0 with a body", post("/a").version("HTTP/1.0").json("{\"a\":1}"),

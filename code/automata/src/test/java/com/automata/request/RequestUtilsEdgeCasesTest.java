@@ -364,11 +364,30 @@ class RequestUtilsEdgeCasesTest {
 
 	@Test
 	void composedHttp2RequestIsWrittenWithTheHttp2Version() {
-		RequestInternalDto dto = dto(Method.GET, "/a", "HTTP/2", null, List.of(), List.of(), List.of());
+		RequestInternalDto dto = dto(Method.GET, "/a", "HTTP/2.0", null, List.of(), List.of(), List.of());
 
-		String raw = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, "example.com"), "HTTP/2");
+		String raw = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, "example.com"), "HTTP/2.0");
 
-		assertTrue(raw.startsWith("GET /a HTTP/2\r\n"), raw);
+		assertTrue(raw.startsWith("GET /a HTTP/2.0\r\n"), raw);
+	}
+
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(strings = { "HTTP/1.0", "HTTP/1.1", "HTTP/2.0" })
+	void aComposedRequestIsWrittenWithItsVersion(String version) {
+		RequestInternalDto dto = dto(Method.GET, "/a", version, null, List.of(), List.of(), List.of());
+
+		String raw = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, "example.com"), version);
+
+		assertTrue(raw.startsWith("GET /a " + version + "\r\n"), raw);
+	}
+
+	@Test
+	void aPathWhichHoldsTheDefaultVersionIsNotTouchedWhenComposing() {
+		RequestInternalDto dto = dto(Method.GET, "/HTTP/1.1/x", "HTTP/1.0", null, List.of(), List.of(), List.of());
+
+		String raw = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, "example.com"), "HTTP/1.0");
+
+		assertTrue(raw.startsWith("GET /HTTP/1.1/x HTTP/1.0\r\n"), raw);
 	}
 
 	@Test

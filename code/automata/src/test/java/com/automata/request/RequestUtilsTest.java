@@ -177,7 +177,51 @@ class RequestUtilsTest {
 		RequestParseResult result = RequestUtils.parseRawRequest(request("GET /a HTTP/2", "", ""));
 
 		assertTrue(result.getValidationResult().isValid());
-		assertEquals("HTTP/2", result.getVersion());
+		assertEquals("HTTP/2.0", result.getVersion());
+	}
+
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.CsvSource({ "HTTP/1.1,HTTP/1.1", "HTTP/1.0,HTTP/1.0", "HTTP/2,HTTP/2.0", "HTTP/2.0,HTTP/2.0",
+			"HTTP/0.9,HTTP/1.1", "HTTP/1.2,HTTP/1.1", "HTTP/1.01,HTTP/1.1", "HTTP/1,HTTP/1.1",
+			"HTTP/4,HTTP/1.1", "HTTP/2.1,HTTP/1.1", "HTTP/abc,HTTP/1.1" })
+	void theVersionTokenIsKeptOrDefaulted(String token, String expected) {
+		RequestParseResult result = RequestUtils.parseRawRequest(request("GET /a " + token, "", ""));
+
+		assertTrue(result.getValidationResult().isValid(), token);
+		assertEquals(expected, result.getVersion(), token);
+	}
+
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(strings = { "HTTP/3", "HTTP/3.0", "HTTP/3.1" })
+	void http3IsRefused(String token) {
+		RequestParseResult result = RequestUtils.parseRawRequest(request("GET /a " + token, "", ""));
+
+		assertFalse(result.getValidationResult().isValid(), token);
+	}
+
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(strings = { "GET /a", "GET /a FOO/1.1", "GET /a HTTP", "GET /a HTP/1.1", "GET /a http/1.1", "GET /a http/1.0", "GET /a http/2",
+			"GET /a http/2.0", "GET /a http/3", "GET /a Http/1.1" })
+	void aTokenWhichIsNotHttpIsRefused(String requestLine) {
+		RequestParseResult result = RequestUtils.parseRawRequest(request(requestLine, "", ""));
+
+		assertFalse(result.getValidationResult().isValid(), requestLine);
+	}
+
+	@Test
+	void onlyTheEndOfTheRequestLineIsTheVersion() {
+		RequestParseResult result = RequestUtils.parseRawRequest(request("GET /x/HTTP/2 HTTP/1.0", "X-A: HTTP/2", ""));
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("HTTP/1.0", result.getVersion());
+	}
+
+	@Test
+	void theEmptyLinesBeforeTheRequestLineAreSkipped() {
+		RequestParseResult result = RequestUtils.parseRawRequest(("\r\nGET /a HTTP/2\r\nHost: h\r\n\r\n").getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("HTTP/2.0", result.getVersion());
 	}
 
 	@Test

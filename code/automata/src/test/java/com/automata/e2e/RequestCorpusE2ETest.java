@@ -64,10 +64,14 @@ class RequestCorpusE2ETest extends RequestE2ETestBase {
 		cases.add(c("lowercase method", RawHttp.of("get", "/a"), Expected.path("/a")));
 		cases.add(c("mixed case method", RawHttp.of("PoSt", "/a"), Expected.path("/a").method(Method.POST)));
 		cases.add(c("lowercase put", RawHttp.of("put", "/a"), Expected.path("/a").method(Method.PUT)));
-		cases.add(c("HTTP/2", get("/a").version("HTTP/2"), Expected.path("/a").version("HTTP/2")));
-		cases.add(c("HTTP/2.0", get("/a").version("HTTP/2.0"), Expected.path("/a").version("HTTP/2")));
+		cases.add(c("HTTP/2", get("/a").version("HTTP/2"), Expected.path("/a").version("HTTP/2.0")));
+		cases.add(c("HTTP/2.0", get("/a").version("HTTP/2.0"), Expected.path("/a").version("HTTP/2.0")));
+		cases.add(c("HTTP/1.1", get("/a").version("HTTP/1.1"), Expected.path("/a").version("HTTP/1.1")));
+		cases.add(c("HTTP/1.0", get("/a").version("HTTP/1.0"), Expected.path("/a").version("HTTP/1.0")));
+		for (String other : new String[] { "HTTP/0.9", "HTTP/1.2", "HTTP/1.01", "HTTP/1", "HTTP/4", "HTTP/abc" })
+			cases.add(c(other + " is kept as HTTP/1.1", get("/a").requestLine("GET /a " + other), Expected.path("/a").version("HTTP/1.1")));
 		cases.add(c("HTTP/2 post with json", post("/a").version("HTTP/2").json("{\"a\":1}"),
-				Expected.path("/a").method(Method.POST).version("HTTP/2").inline(JSON).props("a=1:INT")));
+				Expected.path("/a").method(Method.POST).version("HTTP/2.0").inline(JSON).props("a=1:INT")));
 		cases.add(c("HEAD without body", head("/a"), Expected.path("/a").method(Method.HEAD)));
 		cases.add(c("DELETE with a json body", delete("/a/7").json("{\"force\":true}"),
 				Expected.path("/a/2@INT").method(Method.DELETE).vars("2:INT=7").inline(JSON).props("force=true:BOOLEAN")));

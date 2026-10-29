@@ -207,7 +207,7 @@ class RequestJobDataE2ETest extends RequestE2ETestBase {
 		long id = ingest(get("/a").version("HTTP/2")).requestId();
 		flushAndClear();
 
-		assertEquals("GET /a HTTP/2\r\nHost: api.example.com\r\n\r\n", new String(composedForAJob(id), StandardCharsets.UTF_8));
+		assertEquals("GET /a HTTP/2.0\r\nHost: api.example.com\r\n\r\n", new String(composedForAJob(id), StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -290,7 +290,6 @@ class RequestJobDataE2ETest extends RequestE2ETestBase {
 	}
 
 	@Test
-	@KnownBug("BUG-047")
 	void anHttp10RequestIsRebuiltAsHttp10() throws Exception {
 		long id = ingest(get("/a").version("HTTP/1.0")).requestId();
 		flushAndClear();
