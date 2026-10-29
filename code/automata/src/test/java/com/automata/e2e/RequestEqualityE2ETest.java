@@ -293,6 +293,18 @@ class RequestEqualityE2ETest extends RequestE2ETestBase {
 	}
 
 	@Test
+	void theSameNonAsciiPathIsOneEndpoint() throws Exception {
+		long a = id(ingest(get("/café")));
+		long b = id(ingest(get("/café").header("X-Other", "1")));
+		long other = id(ingest(get("/cafe")));
+
+		Map<Long, Long> sets = equalize(HashTarget.METHOD, HashTarget.PATH);
+
+		assertEquals(sets.get(a), sets.get(b));
+		assertNotEquals(sets.get(a), sets.get(other));
+	}
+
+	@Test
 	void requestsOfAnotherHostAreNotGrouped() throws Exception {
 		long mine = id(ingest(get("/a")));
 		Host other = fx.host(program, "www.example.com");
