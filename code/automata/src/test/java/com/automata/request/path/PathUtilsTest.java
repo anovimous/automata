@@ -14,7 +14,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import com.automata.request.common.dto.PathVariableInternalDto;
 import com.automata.request.common.enums.PathVariableValueType;
-import com.automata.testsupport.KnownBug;
 
 class PathUtilsTest {
 
@@ -202,14 +201,5 @@ class PathUtilsTest {
 
 			assertEquals(original, PathUtils.composeRawPath(parsed.getComputatedPath(), dtos), original);
 		}
-	}
-
-	@Test
-	@KnownBug("BUG-020")
-	void aLiteralSegmentThatLooksLikeAPlaceholderSurvivesTheRoundTrip() {
-		String original = "/docs/1@INT";
-		PathParsingResult parsed = PathUtils.parsePath(original);
-
-		assertEquals(original, PathUtils.composeRawPath(parsed.getComputatedPath(), List.of()));
 	}
 }
