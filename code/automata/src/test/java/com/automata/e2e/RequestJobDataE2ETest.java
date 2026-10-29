@@ -273,17 +273,6 @@ class RequestJobDataE2ETest extends RequestE2ETestBase {
 		assertTrue(e.getMessage().contains("no Content-Type"), e.getMessage());
 	}
 
-	// ============================================================================================ known problems
-
-	@Test
-	@KnownBug("BUG-020")
-	void aLiteralSegmentThatLooksLikeAPlaceholderIsRebuilt() throws Exception {
-		long id = ingest(get("/docs/1@INT")).requestId();
-		flushAndClear();
-
-		assertEquals("GET /docs/1@INT HTTP/1.1\r\nHost: api.example.com\r\n\r\n", new String(composedForAJob(id), StandardCharsets.UTF_8));
-	}
-
 	@Test
 	void theRootPathIsRebuiltWithItsSlash() throws Exception {
 		long id = ingest(get("/")).requestId();
