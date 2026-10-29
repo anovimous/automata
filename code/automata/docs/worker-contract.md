@@ -201,7 +201,7 @@ The user only changes `currentState` while no worker holds the job (prepare, can
 | lose contact | PAUSED | LOSTCONTACT | - |
 <!-- actions:end -->
 
-Also: the scheduler moves `TOQUEUE` → `QUEUED` when it publishes the message (a bulk update in `HttpJobsSynchronizationService`, not in `JobStateTransitions`); canceling a `SCHEDULED` job answers 501; the user endpoints are `queue`, `pause`, `resume`, `cancel`.
+Also: the scheduler moves `TOQUEUE` → `QUEUED` when it publishes the message (a bulk update in `HttpJobsSynchronizationService`, not in `JobStateTransitions`); canceling a `SCHEDULED` job answers 501; `pause` and `resume` answer 409 while the requested state is `CANCELED` (a cancel can't be undone), a repeated pause or resume is accepted, and `cancel` replaces a pending pause or resume; the user endpoints are `queue`, `pause`, `resume`, `cancel`.
 
 ## 6. Delivery and failure rules
 
