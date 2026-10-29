@@ -75,6 +75,8 @@ public final class JobStateTransitions {
 		if (current != JobState.RUNNING)
 			throw InvalidJobStateException.requiredState(JobState.RUNNING, current, "pause it");
 
+		requireNoPendingCancel(requested, "paused");
+
 		return new ToApplyJobStateChange(current, JobState.PAUSED);
 	}
 
@@ -82,6 +84,8 @@ public final class JobStateTransitions {
 
 		if (current != JobState.PAUSED)
 			throw InvalidJobStateException.requiredState(JobState.PAUSED, current, "resume it");
+
+		requireNoPendingCancel(requested, "resumed");
 
 		return new ToApplyJobStateChange(current, JobState.RUNNING);
 	}
@@ -100,6 +104,14 @@ public final class JobStateTransitions {
 			return new ToApplyJobStateChange(current, JobState.CANCELED);
 
 		return new ToApplyJobStateChange(JobState.CANCELED, requested);
+	}
+
+	// A cancel can't be undone, so a pause or a resume must not replace it
+	private static void requireNoPendingCancel(JobState requested, String operation) {
+
+		if (requested == JobState.CANCELED)
+			throw new InvalidJobStateException("The job can't be " + operation + " because it is requested to cancel");
+
 	}
 
 	/**

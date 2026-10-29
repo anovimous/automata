@@ -67,8 +67,29 @@ class JobStateTransitionsTest {
 	}
 
 	@Test
-	void aNewPauseRequestReplacesAPendingRequest() {
-		assertEquals(JobState.PAUSED, JobStateTransitions.requestPause(JobState.RUNNING, JobState.CANCELED).toApplyRequestedState());
+	void aPauseIsRefusedWhileACancelIsPending() {
+		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
+				() -> JobStateTransitions.requestPause(JobState.RUNNING, JobState.CANCELED));
+		assertEquals("The job can't be paused because it is requested to cancel", ex.getMessage());
+	}
+
+	@Test
+	void aResumeIsRefusedWhileACancelIsPending() {
+		InvalidJobStateException ex = assertThrows(InvalidJobStateException.class,
+				() -> JobStateTransitions.requestResume(JobState.PAUSED, JobState.CANCELED));
+		assertEquals("The job can't be resumed because it is requested to cancel", ex.getMessage());
+	}
+
+	@Test
+	void aPauseOrResumeAlreadyRequestedIsRepeatedWithoutAnError() {
+		assertEquals(JobState.PAUSED, JobStateTransitions.requestPause(JobState.RUNNING, JobState.PAUSED).toApplyRequestedState());
+		assertEquals(JobState.RUNNING, JobStateTransitions.requestResume(JobState.PAUSED, JobState.RUNNING).toApplyRequestedState());
+	}
+
+	@Test
+	void aCancelReplacesAPendingPauseOrResume() {
+		assertEquals(JobState.CANCELED, JobStateTransitions.cancel(JobState.RUNNING, JobState.PAUSED).toApplyRequestedState());
+		assertEquals(JobState.CANCELED, JobStateTransitions.cancel(JobState.PAUSED, JobState.RUNNING).toApplyRequestedState());
 	}
 
 	// ---- cancel
