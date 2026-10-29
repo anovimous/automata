@@ -170,6 +170,57 @@ class RequestUtilsTest {
 		assertEquals("{\"a\":1}", new String(result.getRawBody(), StandardCharsets.UTF_8));
 	}
 
+	// UTF-8 in the head
+
+	private static byte[] utf8(String text) {
+		return text.getBytes(StandardCharsets.UTF_8);
+	}
+
+	@Test
+	void aUtf8PathIsParsedAsText() {
+		RequestParseResult result = RequestUtils.parseRawRequest(utf8("GET /café/€ HTTP/1.1\r\nHost: h\r\n\r\n"));
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("/café/€", result.getPathParseResult().getComputatedPath());
+	}
+
+	@Test
+	void aUtf8HeaderNameIsParsedAsText() {
+		RequestParseResult result = RequestUtils
+				.parseRawRequest(utf8("GET /a HTTP/1.1\r\nHost: h\r\nX-é: é€😀\r\n\r\n"));
+
+		assertTrue(result.getValidationResult().isValid());
+		assertTrue(result.getHeaders().stream().anyMatch(h -> h.getPrimaryKey().getHeader().equals("X-é")),
+				result.getHeaders().toString());
+	}
+
+	@Test
+	void aUtf8QueryValueIsDecodedOnce() {
+		RequestParseResult result = RequestUtils.parseRawRequest(utf8("GET /a?q=é%C3%A9 HTTP/1.1\r\nHost: h\r\n\r\n"));
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals("éé", result.getQueryStringParseResult().getQueryParameters().get(0).getValue());
+	}
+
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(strings = { "GET /caf\u00e9 HTTP/1.1\r\nHost: h\r\n\r\n",
+			"GET /a HTTP/1.1\r\nHost: h\r\nX-A: caf\u00e9\r\n\r\n", "GET /a HTTP/1.1\r\nHost: h\r\nX-\u00e9: 1\r\n\r\n",
+			"GET /a HTTP/1.1\r\nHost: h\r\nX-A: \u00e2\u0082\r\n\r\n", "GET /\u00c0\u00af HTTP/1.1\r\nHost: h\r\n\r\n" })
+	void aHeadWhichIsNotUtf8IsRefused(String raw) {
+		RequestParseResult result = RequestUtils.parseRawRequest(bytes(raw));
+
+		assertFalse(result.getValidationResult().isValid());
+		assertEquals("The request head is not valid UTF-8", result.getValidationResult().getMessage());
+	}
+
+	@Test
+	void aBodyWhichIsNotUtf8IsNotLookedAtByTheHeadCheck() {
+		RequestParseResult result = RequestUtils.parseRawRequest(request("POST /a HTTP/1.1", "Content-Type: text/plain\r\n", "caf\u00e9"));
+
+		assertTrue(result.getValidationResult().isValid());
+		assertEquals(4, result.getRawBody().length);
+	}
+
 	// Version
 
 	@Test

@@ -15,18 +15,15 @@ import com.automata.common.dto.HeaderEntry;
 import com.automata.request.common.dto.RequestMetadataResponse;
 import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.RequestContentType;
-import com.automata.testsupport.KnownBug;
 
 /**
- * What the parsing of a request must do and does not do yet. Every test states the correct behaviour and is
- * disabled with the bug that breaks it (see .claude/functionality-bugs.md); when a bug is fixed, its tests
- * lose the annotation and guard the fix. To see them all fail, run the tests with
- * {@code -Djunit.jupiter.conditions.deactivate='org.junit.*DisabledCondition'}.
+ * The version token of the request line (BUG-047) and the UTF-8 bytes of the head (BUG-050), from the route to the stored rows and the
+ * request a job sends.
  */
 @RequestE2E
-class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
+class RequestVersionAndEncodingE2ETest extends RequestE2ETestBase {
 
-	// ============================================================================================ BUG-047
+	// ============================================================================================ the version
 
 	@Test
 	void theVersionOfAnHttp10RequestIsKept() throws Exception {
@@ -35,16 +32,14 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 				Expected.path("/a").method(Method.POST).version("HTTP/1.0").inline(RequestContentType.JSON).props("a=1:INT"));
 	}
 
-	// ============================================================================================ BUG-050
+	// ============================================================================================ utf-8
 
 	@Test
-	@KnownBug("BUG-050")
 	void nonAsciiBytesInThePathAreDecodedAsUtf8() throws Exception {
 		ingestAndVerify("utf-8 path", get("/café/€"), Expected.path("/café/€"));
 	}
 
 	@Test
-	@KnownBug("BUG-050")
 	void nonAsciiHeaderValuesAreShownAsUtf8() throws Exception {
 		var summary = ingest(get("/a").header("X-Name", "é€"));
 		flushAndClear();
@@ -55,12 +50,16 @@ class RequestParsingKnownDefectsE2ETest extends RequestE2ETestBase {
 	}
 
 	@Test
-	@KnownBug("BUG-050")
 	void nonAsciiHeaderNamesAreStoredAsUtf8() throws Exception {
 		ingest(get("/a").header("X-é", "1"));
 		flushAndClear();
 
 		assertTrue(storedHeaderNames().contains("X-é"), storedHeaderNames().toString());
+	}
+
+	@Test
+	void aRawNonAsciiQueryValueIsDecodedAsUtf8() throws Exception {
+		ingestAndVerify("utf-8 query", get("/a?q=é€😀"), Expected.path("/a").query("q=é€😀"));
 	}
 
 	// helper kept private to the class: the base64 of a text

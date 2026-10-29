@@ -28,6 +28,24 @@ class ResponseUtilsTest {
 		return bytes("HTTP/1.1 200 OK\r\n" + headers + "\r\n" + body);
 	}
 
+	@Test
+	void utf8HeadersOfAResponseAreParsedAsText() {
+		ResponseParseResult result = ResponseUtils.parseResponse(
+				"HTTP/1.1 200 OK\r\nX-Name: é€\r\nContent-Length: 0\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+
+		assertTrue(result.validationResult().isValid());
+		assertTrue(result.headers().stream().anyMatch(h -> h.getPrimaryKey().getHeader().equals("X-Name")),
+				result.headers().toString());
+	}
+
+	@Test
+	void aResponseHeadWhichIsNotUtf8IsRefused() {
+		ResponseParseResult result = ResponseUtils.parseResponse(response("X-Name: caf\u00e9\r\n", ""));
+
+		assertFalse(result.validationResult().isValid());
+		assertEquals("The response head is not valid UTF-8", result.validationResult().getMessage());
+	}
+
 	// JSON: detailed components, body inline
 
 	@Test

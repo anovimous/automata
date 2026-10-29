@@ -47,7 +47,8 @@ public abstract class ResponseUtils {
 
 		byte[] body = parts.body();
 
-		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192);
+		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192, 8192, 0,
+				HttpMessageUtils.strictUtf8Decoder());
 
 		DefaultHttpResponseParser parser = new DefaultHttpResponseParser();
 
@@ -56,7 +57,8 @@ public abstract class ResponseUtils {
 		try {
 			response = parser.parse(buffer, new ByteArrayInputStream(head));
 		} catch (Exception e) {
-			return ResponseParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
+			return ResponseParseResult.builder()
+					.validationResult(ValidationResult.invalid(HttpMessageUtils.headErrorMessage(e, "response"))).build();
 		}
 
 		// nothing but empty lines: the parser finds no status line and gives no response
@@ -175,7 +177,8 @@ public abstract class ResponseUtils {
 	public static String composeRawResponse(ClassicHttpResponse apacheCoreResponse) {
 
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		SessionOutputBufferImpl buffer = new SessionOutputBufferImpl(8192);
+		SessionOutputBufferImpl buffer = new SessionOutputBufferImpl(new BasicHttpTransportMetrics(), 8192, 8192,
+				HttpMessageUtils.utf8Encoder());
 
 		DefaultHttpResponseWriter writer = new DefaultHttpResponseWriter();
 

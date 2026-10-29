@@ -89,4 +89,24 @@ class QueryParameterUtilsTest {
 
 		assertEquals("a=1&b=hello+world&c=%26", QueryParameterUtils.composeRawQueryString(dtos).orElseThrow());
 	}
+
+	@Test
+	void aCharacterWhichIsNotAsciiIsDecodedAsUtf8() {
+		QueryStringParseResult result = QueryParameterUtils.parseQueryString("q=é€😀&é=1");
+
+		assertEquals("é€😀", result.getQueryParameters().get(0).getValue());
+		assertEquals("é", result.getQueryParameters().get(1).getParameter());
+	}
+
+	@Test
+	void aRawAndAnEncodedCharacterGiveTheSameValue() {
+		assertEquals(QueryParameterUtils.parseQueryString("q=%C3%A9").getQueryParameters().get(0).getValue(),
+				QueryParameterUtils.parseQueryString("q=é").getQueryParameters().get(0).getValue());
+	}
+
+	@Test
+	void anAsciiQueryIsNotChangedBeforeTheDecoding() {
+		assertEquals("a=b%20c&d", QueryParameterUtils.percentEncodeNonAscii("a=b%20c&d"));
+		assertEquals("a=%C3%A9%F0%9F%98%80", QueryParameterUtils.percentEncodeNonAscii("a=é😀"));
+	}
 }

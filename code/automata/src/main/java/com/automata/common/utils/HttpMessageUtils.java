@@ -1,6 +1,10 @@
 package com.automata.common.utils;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CodingErrorAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -124,7 +128,7 @@ public abstract class HttpMessageUtils {
 
 	private static List<String> headLines(byte[] head) {
 
-		String text = new String(head, StandardCharsets.ISO_8859_1);
+		String text = new String(head, StandardCharsets.UTF_8);
 
 		List<String> lines = new ArrayList<>();
 
@@ -143,6 +147,35 @@ public abstract class HttpMessageUtils {
 			return null;
 
 		return Base64Utils.encode(body);
+
+	}
+
+	/**
+	 * A decoder for the head of a message given to the Apache parsers, which would
+	 * otherwise read every byte as one character. A head which is not valid UTF-8 is
+	 * refused instead of being replaced, since it could not be sent back as it was.
+	 */
+	public static CharsetDecoder strictUtf8Decoder() {
+		return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+				.onUnmappableCharacter(CodingErrorAction.REPORT);
+	}
+
+	// The encoder which writes a head back as the bytes it was read from
+	public static CharsetEncoder utf8Encoder() {
+		return StandardCharsets.UTF_8.newEncoder();
+	}
+
+	/**
+	 * The message of a validation error for an exception of an Apache parser: a
+	 * head which is not valid UTF-8 says so, the others keep their own message.
+	 */
+	public static String headErrorMessage(Exception e, String what) {
+
+		for (Throwable cause = e; cause != null; cause = cause.getCause())
+			if (cause instanceof CharacterCodingException)
+				return "The " + what + " head is not valid UTF-8";
+
+		return e.getMessage();
 
 	}
 

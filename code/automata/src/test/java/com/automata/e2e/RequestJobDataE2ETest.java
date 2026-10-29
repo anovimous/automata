@@ -44,7 +44,6 @@ import com.automata.request.parameter.QueryParameterRepository;
 import com.automata.request.path.PathVariableRepository;
 import com.automata.routine.Routine;
 import com.automata.routine.common.enums.Duration;
-import com.automata.testsupport.KnownBug;
 
 /**
  * The way back: a stored request is rebuilt for a job by the real data file writer, and the rebuilt request must
@@ -298,12 +297,19 @@ class RequestJobDataE2ETest extends RequestE2ETestBase {
 	}
 
 	@Test
-	@KnownBug("BUG-050")
 	void aUtf8PathIsRebuiltAsTheSameBytes() throws Exception {
 		long id = ingest(get("/café")).requestId();
 		flushAndClear();
 
 		assertEquals("GET /café HTTP/1.1\r\nHost: api.example.com\r\n\r\n", new String(composedForAJob(id), StandardCharsets.UTF_8));
+	}
+
+	@Test
+	void aUtf8PathWithAFourByteCharacterIsRebuiltAsTheSameBytes() throws Exception {
+		long id = ingest(get("/café/€😀")).requestId();
+		flushAndClear();
+
+		assertEquals("GET /café/€😀 HTTP/1.1\r\nHost: api.example.com\r\n\r\n", new String(composedForAJob(id), StandardCharsets.UTF_8));
 	}
 
 	// the unused method keeps the imports honest for readers who add cases
