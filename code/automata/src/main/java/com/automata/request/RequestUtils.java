@@ -110,23 +110,16 @@ public abstract class RequestUtils {
 
 		byte[] body = parts.body();
 
-		String version = "HTTP/1.1";
-
-		byte[] parseableHead = head;
-
-		// HTTP/2 is only looked for in the request line, headers may contain it as text
-		String headText = new String(head, StandardCharsets.ISO_8859_1);
-
-		int firstLineEnd = headText.indexOf('\n');
-
-		String firstLine = firstLineEnd < 0 ? headText : headText.substring(0, firstLineEnd);
-
-		if (firstLine.contains("HTTP/2")) {
-			version = "HTTP/2";
-			// replace with 1.1 just in apache.parse since it doesn't accept HTTP/2
-			// original version will still be persisted in request entity
-			parseableHead = headText.replaceFirst("HTTP/2(\\.0)?", "HTTP/1.1").getBytes(StandardCharsets.ISO_8859_1);
+		RequestLineVersion lineVersion;
+		try {
+			lineVersion = RequestLineVersion.of(new String(head, StandardCharsets.ISO_8859_1));
+		} catch (IllegalArgumentException e) {
+			return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
 		}
+
+		String version = lineVersion.version();
+
+		byte[] parseableHead = lineVersion.parseableHead().getBytes(StandardCharsets.ISO_8859_1);
 
 		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192);
 
@@ -362,10 +355,86 @@ public abstract class RequestUtils {
 
 		String rawRequest = baos.toString(StandardCharsets.UTF_8);
 		
-		if (version.equals("HTTP/2"))
-			rawRequest = rawRequest.replaceFirst("HTTP/1.1", "HTTP/2");
+		// the writer always puts HTTP/1.1; only the end of the request line is the version
+		int lineEnd = rawRequest.indexOf("\r\n");
+
+		if (version != null && !version.equals(DEFAULT_VERSION) && lineEnd >= DEFAULT_VERSION.length()
+				&& rawRequest.startsWith(DEFAULT_VERSION, lineEnd - DEFAULT_VERSION.length()))
+			rawRequest = rawRequest.substring(0, lineEnd - DEFAULT_VERSION.length()) + version
+					+ rawRequest.substring(lineEnd);
 
 		return rawRequest;
+
+	}
+
+	private static final String DEFAULT_VERSION = "HTTP/1.1";
+
+	private static final java.util.regex.Pattern HTTP_2 = java.util.regex.Pattern.compile("HTTP/2(\\.0)?");
+
+	private static final java.util.regex.Pattern HTTP_3 = java.util.regex.Pattern.compile("HTTP/3(\\.\\d+)?");
+
+	/**
+	 * The version of a request and the head to give the parser, which accepts
+	 * neither HTTP/2 nor every token that starts with {@code HTTP/}. Only the
+	 * version token at the end of the request line is looked at (a header or a
+	 * path may hold the same text):
+	 * <ul>
+	 * <li>{@code HTTP/1.1} and {@code HTTP/1.0} are kept;</li>
+	 * <li>{@code HTTP/2} and {@code HTTP/2.0} are {@code HTTP/2.0};</li>
+	 * <li>{@code HTTP/3} is refused;</li>
+	 * <li>any other token starting with {@code HTTP/} is {@code HTTP/1.1};</li>
+	 * <li>anything else, a lower case {@code http/} included, is left to the
+	 * parser, which refuses it.</li>
+	 * </ul>
+	 * A token that is not kept is replaced by {@code HTTP/1.1} for the parser.
+	 */
+	record RequestLineVersion(String version, String parseableHead) {
+
+		static RequestLineVersion of(String headText) {
+
+			int length = headText.length();
+			int lineStart = 0;
+
+			// the parser skips the empty lines before the request line
+			while (lineStart < length) {
+				int end = headText.indexOf('\n', lineStart);
+				if (!headText.substring(lineStart, end < 0 ? length : end).isBlank())
+					break;
+				if (end < 0)
+					return new RequestLineVersion(DEFAULT_VERSION, headText);
+				lineStart = end + 1;
+			}
+
+			if (lineStart >= length)
+				return new RequestLineVersion(DEFAULT_VERSION, headText);
+
+			int lineEnd = headText.indexOf('\n', lineStart);
+			int contentEnd = lineEnd < 0 ? length : lineEnd;
+			while (contentEnd > lineStart && Character.isWhitespace(headText.charAt(contentEnd - 1)))
+				contentEnd--;
+
+			int space = headText.lastIndexOf(' ', contentEnd - 1);
+			if (space < lineStart)
+				return new RequestLineVersion(DEFAULT_VERSION, headText);
+
+			String token = headText.substring(space + 1, contentEnd);
+			String version;
+
+			if (token.equals("HTTP/1.1") || token.equals("HTTP/1.0"))
+				return new RequestLineVersion(token, headText);
+			else if (HTTP_2.matcher(token).matches())
+				version = "HTTP/2.0";
+			else if (HTTP_3.matcher(token).matches())
+				throw new IllegalArgumentException("Invalid protocol version: HTTP/3 is not supported");
+			else if (token.startsWith("HTTP/"))
+				version = DEFAULT_VERSION;
+			else
+				return new RequestLineVersion(DEFAULT_VERSION, headText);
+
+			return new RequestLineVersion(version,
+					headText.substring(0, space + 1) + DEFAULT_VERSION + headText.substring(contentEnd));
+
+		}
 
 	}
 

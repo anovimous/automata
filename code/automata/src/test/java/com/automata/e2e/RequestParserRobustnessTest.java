@@ -203,7 +203,7 @@ class RequestParserRobustnessTest {
 
 			// the headers and the body
 			assertTrue(result.getHeaders().stream().allMatch(h -> !h.getPrimaryKey().getHeader().isBlank()), label);
-			assertTrue(result.getVersion().equals("HTTP/1.1") || result.getVersion().equals("HTTP/2"), label);
+			assertTrue(java.util.Set.of("HTTP/1.0", "HTTP/1.1", "HTTP/2.0").contains(result.getVersion()), label);
 			if (result.getRawBody().length == 0)
 				assertTrue(result.getBodyParseResult().getBodyProperties().isEmpty(), label + ": no body, no properties");
 		}
