@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790" width="1200" height="790" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+    <style>
+      .t{font-size:14px;font-weight:700;fill:#1f2937;text-anchor:middle}
+      .s{font-size:11px;fill:#4b5563;text-anchor:middle}
+      .e{font-size:11px;fill:#444}
+      .h{font-size:11px;font-weight:700;fill:#6b7280;letter-spacing:1px}
+      .ln{stroke:#444;stroke-width:1.5;fill:none}
+      .dash{stroke-dasharray:5 4}
+      .actor{fill:#fff3cd;stroke:#b8860b;stroke-width:1.5}
+      .client{fill:#e8f1fb;stroke:#3b78b8;stroke-width:1.5}
+      .core{fill:#e6f4ea;stroke:#2e7d32;stroke-width:1.5}
+      .corebox{fill:#f4faf5;stroke:#2e7d32;stroke-width:2}
+      .store{fill:#f3e8fd;stroke:#7b3fa0;stroke-width:1.5}
+      .worker{fill:#fdecea;stroke:#c0392b;stroke-width:1.5}
+      .fleet{fill:#fff8f7;stroke:#c0392b;stroke-width:2;stroke-dasharray:8 5}
+    </style>
+  </defs>
+  <rect width="1200" height="790" fill="#ffffff"/>
+
+  <!-- core container -->
+  <rect class="corebox" x="470" y="80" width="260" height="520" rx="12"/>
+  <text class="h" x="600" y="104" text-anchor="middle">AUTOMATA CORE · SPRING BOOT</text>
+  <rect class="core" x="490" y="120" width="220" height="80" rx="8"/>
+  <text class="t" x="600" y="152">Domain</text>
+  <text class="s" x="600" y="170">programs · hosts · requests</text><text class="s" x="600" y="184">routines · contexts · findings</text>
+  <rect class="core" x="490" y="250" width="220" height="80" rx="8"/>
+  <text class="t" x="600" y="282">Job engine</text>
+  <text class="s" x="600" y="300">state machine · rate limits</text><text class="s" x="600" y="314">60 s scheduler</text>
+  <rect class="core" x="490" y="480" width="220" height="80" rx="8"/>
+  <text class="t" x="600" y="512">Worker API</text>
+  <text class="s" x="600" y="530">/api/external/jobs/http</text><text class="s" x="600" y="544">poll · update</text>
+
+  <!-- people -->
+  <rect class="actor" x="20" y="250" width="160" height="80" rx="40"/>
+  <text class="t" x="100" y="284">Pentester</text>
+  <text class="s" x="100" y="302">sets scope · creates jobs</text><text class="s" x="100" y="316">approves · reviews</text>
+  <rect class="actor" x="20" y="480" width="160" height="80" rx="40"/>
+  <text class="t" x="100" y="514">AI agent</text>
+  <text class="s" x="100" y="532">works inside one</text><text class="s" x="100" y="546">agent context</text>
+  <path class="ln dash" d="M100,330 V480" marker-end="url(#a)"/>
+  <text class="e" x="108" y="410">hands over</text><text class="e" x="108" y="424">the context UUID</text>
+
+  <!-- clients -->
+  <rect class="client" x="240" y="135" width="160" height="50" rx="8"/><text class="t" x="320" y="165">Frontend</text>
+  <rect class="client" x="240" y="265" width="160" height="50" rx="8"/><text class="t" x="320" y="295">Burp extension</text>
+  <rect class="client" x="240" y="495" width="160" height="50" rx="8"/><text class="t" x="320" y="525">MCP server</text>
+  <path class="ln" d="M180,275 H210 V160 H240" marker-end="url(#a)"/>
+  <path class="ln" d="M180,290 H240" marker-end="url(#a)"/>
+  <path class="ln" d="M180,520 H240" marker-end="url(#a)"/>
+  <path class="ln" d="M400,160 H470" marker-end="url(#a)"/><text class="e" x="435" y="152" text-anchor="middle">REST</text>
+  <path class="ln" d="M400,290 H470" marker-end="url(#a)"/><text class="e" x="435" y="282" text-anchor="middle">REST</text>
+  <path class="ln" d="M400,520 H470" marker-end="url(#a)"/><text class="e" x="435" y="512" text-anchor="middle">scoped REST</text>
+
+  <!-- stores -->
+  <rect class="store" x="860" y="135" width="200" height="50" rx="8"/><text class="t" x="960" y="157">PostgreSQL</text><text class="s" x="960" y="173">all state</text>
+  <rect class="store" x="860" y="265" width="200" height="50" rx="8"/><text class="t" x="960" y="287">RustFS (S3)</text><text class="s" x="960" y="303">job files · bodies · wordlists</text>
+  <rect class="store" x="860" y="395" width="200" height="50" rx="8"/><text class="t" x="960" y="417">RabbitMQ</text><text class="s" x="960" y="433">jobs.http.queue</text>
+  <path class="ln" d="M710,160 H860" marker-end="url(#a)"/><text class="e" x="785" y="152" text-anchor="middle">SQL</text>
+  <path class="ln" d="M710,290 H860" marker-end="url(#a)"/><text class="e" x="785" y="282" text-anchor="middle">job files</text>
+  <path class="ln" d="M710,315 H790 V420 H860" marker-end="url(#a)"/><text class="e" x="800" y="375">publish</text><text class="e" x="800" y="389">jobs</text>
+
+  <!-- fleet -->
+  <rect class="fleet" x="470" y="650" width="690" height="110" rx="12"/>
+  <text class="h" x="490" y="674">DISTRIBUTED WORKER FLEET · SCALE OUT · ANY MACHINE OR NETWORK</text>
+  <rect class="worker" x="490" y="690" width="150" height="55" rx="8"/><text class="t" x="565" y="713">Orchestrator 1</text><text class="s" x="565" y="730">ffuf · masser</text>
+  <rect class="worker" x="660" y="690" width="150" height="55" rx="8"/><text class="t" x="735" y="713">Orchestrator 2</text><text class="s" x="735" y="730">ffuf · masser</text>
+  <rect class="worker" x="830" y="690" width="150" height="55" rx="8"/><text class="t" x="905" y="713">Orchestrator 3</text><text class="s" x="905" y="730">ffuf · masser</text>
+  <rect class="worker" x="1000" y="690" width="150" height="55" rx="8"/><text class="t" x="1075" y="713">Orchestrator N</text><text class="s" x="1075" y="730">ffuf · masser</text>
+
+  <!-- fleet connections -->
+  <path class="ln" d="M600,650 V560" marker-end="url(#a)"/>
+  <text class="e" x="608" y="610">poll requested state,</text><text class="e" x="608" y="624">report state</text>
+  <path class="ln" d="M960,445 V650" marker-end="url(#a)"/>
+  <text class="e" x="968" y="545">jobs</text><text class="e" x="968" y="559">(competing consumers)</text>
+  <path class="ln dash" d="M1060,290 H1110 V650" marker-start="url(#a)" marker-end="url(#a)"/>
+  <text class="e" transform="translate(1128,470) rotate(-90)" text-anchor="middle">read job files · write results</text>
+
+  <!-- note -->
+  <text class="h" x="20" y="660">HOW IT FITS TOGETHER</text>
+  <text class="e" x="20" y="682">Everything a user or the AI agent does goes through the core.</text>
+  <text class="e" x="20" y="700">The core enforces rate limits before it queues a job.</text>
+  <text class="e" x="20" y="718">Workers share nothing and never talk to each other:</text>
+  <text class="e" x="20" y="736">they only know the queue, RustFS and the Worker API.</text>
+</svg>
