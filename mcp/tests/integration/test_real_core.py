@@ -288,7 +288,7 @@ async def test_the_core_refuses_what_the_server_does_not_check(
     assert "The core rejected the arguments" in text_of(bad_config)
 
 
-async def test_a_job_nobody_approved_cannot_be_queued_or_finished_or_canceled(
+async def test_a_job_nobody_approved_cannot_be_queued_or_finished_but_can_be_canceled(
     real_agent: Agent, seed: Seed
 ) -> None:
     job_id = await make_job(real_agent, seed)
@@ -303,7 +303,8 @@ async def test_a_job_nobody_approved_cannot_be_queued_or_finished_or_canceled(
     assert queued.is_error and "a human must approve it" in text_of(queued)
     assert result.is_error and "use wait_for_jobs" in text_of(result)
     assert concluded.is_error and "use wait_for_jobs" in text_of(concluded)
-    assert canceled.is_error and "TOQUEUE, QUEUED, RUNNING or PAUSED" in text_of(canceled)
+    # a draft nobody approved can be canceled (the core cancels it at once)
+    assert not canceled.is_error and "The job is canceled." in text_of(canceled)
 
 
 async def test_waiting_for_a_job_that_waits_for_a_human_returns_at_once(

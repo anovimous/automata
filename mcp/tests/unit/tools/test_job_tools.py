@@ -528,16 +528,28 @@ async def test_cancel_job_says_what_happened(
     assert "worker carries it out" in data["next_step"]
 
 
-async def test_cancel_job_of_a_draft_explains_what_can_be_canceled(
+async def test_cancel_job_of_a_draft_is_canceled_at_once(
+    agent: Agent, core_api: respx.MockRouter, load_fixture: Callable[[str], Any]
+) -> None:
+    core_api.post(f"{CP}/jobs/31/cancel").respond(204)
+    core_api.get(f"{CP}/jobs/31").respond(200, json=job(load_fixture, currentState="CANCELED"))
+
+    data = (await call(agent, "cancel_job")).structured_content or {}
+
+    assert data["currentState"] == "CANCELED"
+    assert data["next_step"] == "The job is canceled."
+
+
+async def test_cancel_job_of_an_ended_job_explains_what_can_be_canceled(
     agent: Agent, core_api: respx.MockRouter
 ) -> None:
-    core_api.post(f"{CP}/jobs/31/cancel").respond(409, text="A draft cannot be canceled")
+    core_api.post(f"{CP}/jobs/31/cancel").respond(409, text="The job is already finished")
 
     result = await call(agent, "cancel_job")
 
     assert result.is_error
-    assert "A draft cannot be canceled" in text_of(result)
-    assert "TOQUEUE, QUEUED, RUNNING or PAUSED" in text_of(result)
+    assert "The job is already finished" in text_of(result)
+    assert "DRAFT, TOQUEUE, QUEUED, RUNNING or PAUSED" in text_of(result)
 
 
 # ---------------------------------------------------------------------------- wait_for_jobs

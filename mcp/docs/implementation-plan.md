@@ -430,7 +430,7 @@ All require the request to be in the context (404 otherwise: say "not found or n
 
 **`set_job_ai_result(context_uuid, job_id, ai_result)`** — row 104. Requires a terminal state (the core answers 409 otherwise). Nothing is checked in the server: the core answers 400 above 5 000 characters, and the agent is told in the description to keep it short. Guidance: write the outcome summary: what was tested, what was observed, whether the hypothesis held, and the decision (finding / no finding / retry with other parameters).
 
-**`cancel_job(context_uuid, job_id)`** — row 105. Core rule: cancelable in `TOQUEUE, QUEUED, RUNNING, PAUSED`; a `DRAFT` or ended job answers 409. A `TOQUEUE` job is canceled immediately. For `QUEUED`, `RUNNING` and `PAUSED` jobs the cancel is a *request* (`requestedState=CANCELED`) carried out when the worker next polls: say so and tell the agent to check `get_job`. A `PAUSED` job may have been paused by a human; canceling it is final.
+**`cancel_job(context_uuid, job_id)`** — row 105. Core rule: cancelable in `DRAFT, TOQUEUE, QUEUED, RUNNING, PAUSED`; an ended job answers 409. A `DRAFT` or `TOQUEUE` job is canceled immediately. For `QUEUED`, `RUNNING` and `PAUSED` jobs the cancel is a *request* (`requestedState=CANCELED`) carried out when the worker next polls: say so and tell the agent to check `get_job`. A `PAUSED` job may have been paused by a human; canceling it is final.
 
 *As implemented in phase 5 (`tools/jobs.py`, `services/jobs.py`, `services/waiting.py`, `services/config_validation.py`):*
 
@@ -621,7 +621,7 @@ None of these blocks the MVP; each would be a separate core branch (the core rep
 | C2 | ~~`POST /api/wordlists` accepts any path~~ **Done** (core: the file is uploaded and stored in RustFS, there is no path) | the tool uploads the text through the route | — |
 | C3 | Export is by `hostId` without a context | pinned by MCP | optional: `GET /api/agent-contexts/uuid/{uuid}/export/body-properties` |
 | C4 | Requests added with `add_request` are not in any context | the agent cannot read them back or create jobs on them (by decision) | none required; a human adds them to a context |
-| C5 | A `DRAFT` job cannot be canceled | a draft the agent no longer wants stays | none; the agent just does not queue it |
+| C5 | ~~A `DRAFT` job cannot be canceled~~ **Done** (core: a `DRAFT` job is canceled at once) | `cancel_job` cancels a draft | — |
 | C6 | No finish notification | `wait_for_jobs` polls | SSE `GET /api/agent-contexts/uuid/{uuid}/events` (core enhancement plan §4) |
 | C7 | Job results are raw tool output (`ffuf` JSON, `masser` output) | the agent reads raw text | structured `{jobId}.summary.json` written by the worker (enhancement plan §3); a change in the worker and the core, nothing to do in this server |
 | C8 | ~~Failure classification is MCP-side~~ **Done** (core and worker: `failureCategory` on the job) | the tools return the category | — |
