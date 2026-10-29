@@ -121,7 +121,8 @@ public abstract class RequestUtils {
 
 		byte[] parseableHead = lineVersion.parseableHead().getBytes(StandardCharsets.ISO_8859_1);
 
-		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192);
+		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192, 8192, 0,
+				HttpMessageUtils.strictUtf8Decoder());
 
 		DefaultHttpRequestParser parser = new DefaultHttpRequestParser();
 
@@ -129,7 +130,8 @@ public abstract class RequestUtils {
 		try {
 			request = parser.parse(buffer, new ByteArrayInputStream(parseableHead));
 		} catch (Exception e) {
-			return RequestParseResult.builder().validationResult(ValidationResult.invalid(e.getMessage())).build();
+			return RequestParseResult.builder()
+					.validationResult(ValidationResult.invalid(HttpMessageUtils.headErrorMessage(e, "request"))).build();
 		}
 
 		// nothing but empty lines: the parser finds no request line and gives no request
@@ -335,7 +337,8 @@ public abstract class RequestUtils {
 	public static String composeRawRequest(ClassicHttpRequest apacheCoreRequest, String version) {
 
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		SessionOutputBufferImpl buffer = new SessionOutputBufferImpl(8192);
+		SessionOutputBufferImpl buffer = new SessionOutputBufferImpl(new BasicHttpTransportMetrics(), 8192, 8192,
+				HttpMessageUtils.utf8Encoder());
 
 		DefaultHttpRequestWriter writer = new DefaultHttpRequestWriter();
 

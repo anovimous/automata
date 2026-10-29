@@ -114,4 +114,20 @@ class HttpMessageUtilsTest {
 		assertNull(HttpMessageUtils.encodeInlineBody(null, false));
 	}
 
+	@Test
+	void theHeadIsReadAsUtf8() {
+		byte[] head = "GET /café HTTP/1.1\r\nX-é: é€\r\n\r\n".getBytes(StandardCharsets.UTF_8);
+
+		assertEquals("GET /café HTTP/1.1", HttpMessageUtils.startLine(head));
+		assertEquals("/café", HttpMessageUtils.requestTarget(head));
+		assertEquals("é€", HttpMessageUtils.headerValue(HttpMessageUtils.parseHeaders(head), "X-é"));
+	}
+
+	@Test
+	void theErrorMessageNamesAHeadWhichIsNotUtf8() {
+		Exception e = new RuntimeException("wrapped", new java.nio.charset.MalformedInputException(1));
+
+		assertEquals("The request head is not valid UTF-8", HttpMessageUtils.headErrorMessage(e, "request"));
+		assertEquals("boom", HttpMessageUtils.headErrorMessage(new RuntimeException("boom"), "request"));
+	}
 }

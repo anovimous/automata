@@ -382,6 +382,15 @@ class RequestUtilsEdgeCasesTest {
 	}
 
 	@Test
+	void aUtf8PathIsComposedAsItsUtf8Bytes() {
+		RequestInternalDto dto = dto(Method.GET, "/café/€", "HTTP/1.1", null, List.of(), List.of(), List.of());
+
+		String raw = RequestUtils.composeRawRequest(RequestUtils.composeApacheCoreRequest(dto, "example.com"), "HTTP/1.1");
+
+		assertTrue(raw.startsWith("GET /café/€ HTTP/1.1\r\n"), raw);
+	}
+
+	@Test
 	void aPathWhichHoldsTheDefaultVersionIsNotTouchedWhenComposing() {
 		RequestInternalDto dto = dto(Method.GET, "/HTTP/1.1/x", "HTTP/1.0", null, List.of(), List.of(), List.of());
 
