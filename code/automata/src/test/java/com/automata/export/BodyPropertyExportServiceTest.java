@@ -16,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.automata.request.body.BodyPropertyRepository;
-import com.automata.testsupport.KnownBug;
 
 @ExtendWith(MockitoExtension.class)
 class BodyPropertyExportServiceTest {
@@ -123,21 +122,27 @@ class BodyPropertyExportServiceTest {
 	}
 
 	@Test
-	@KnownBug("BUG-035")
 	void bracketFormFieldsExportTheirInnerName() {
 		when(repo.findDistinctFullPathsByRequestHostId(1L)).thenReturn(List.of("filter[name]"));
 		when(repo.findDistinctFullPathsByResponseHostId(1L)).thenReturn(List.of());
 
-		assertEquals(List.of("filter", "name"), service.export(1L, null).names());
+		assertEquals(List.of("filter", "name", "filter[name]"), service.export(1L, null).names());
 	}
 
 	@Test
-	@KnownBug("BUG-035")
 	void aKeyWithADotInItDoesNotProduceBrokenNames() {
 		// json-flattener writes a key that contains a dot as ["a.b"]
 		when(repo.findDistinctFullPathsByRequestHostId(1L)).thenReturn(List.of("[\"a.b\"]"));
 		when(repo.findDistinctFullPathsByResponseHostId(1L)).thenReturn(List.of());
 
-		assertTrue(service.export(1L, null).names().stream().noneMatch(n -> n.contains("\"") || n.contains("]")));
+		assertEquals(List.of("a.b"), service.export(1L, null).names());
+	}
+
+	@Test
+	void aFormFieldAndAJsonPathAreMergedWithoutDuplicates() {
+		when(repo.findDistinctFullPathsByRequestHostId(1L)).thenReturn(List.of("filter[name]", "name"));
+		when(repo.findDistinctFullPathsByResponseHostId(1L)).thenReturn(List.of("filter.name"));
+
+		assertEquals(List.of("filter", "name", "filter[name]"), service.export(1L, null).names());
 	}
 }

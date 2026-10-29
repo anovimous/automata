@@ -68,22 +68,7 @@ public class BodyPropertyExportService {
 	private List<String> mergeAndExtractNames(List<String> requestPaths, List<String> responsePaths) {
 
 		return Stream.concat(requestPaths.stream(), responsePaths.stream())
-				.flatMap(path -> extractAllSegments(path).stream()).distinct().collect(Collectors.toList());
-
-	}
-
-	/**
-	 * Extracts all property names from a flattened JSON path or a form field name.
-	 *
-	 * Examples: "user.address.city" -> ["user", "address", "city"] "items[0]" ->
-	 * ["items"] "items[1].name" -> ["items", "name"] "username" -> ["username"]
-	 */
-	private List<String> extractAllSegments(String fullPath) {
-
-		return Stream.of(fullPath.split("\\.")).map(segment -> {
-			int bracketIndex = segment.indexOf('[');
-			return bracketIndex >= 0 ? segment.substring(0, bracketIndex) : segment;
-		}).filter(segment -> !segment.isBlank()).distinct().collect(Collectors.toList());
+				.flatMap(path -> BodyPropertyPathUtils.extractNames(path).stream()).distinct().collect(Collectors.toList());
 
 	}
 
