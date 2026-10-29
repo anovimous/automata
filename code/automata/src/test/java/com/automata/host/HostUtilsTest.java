@@ -6,9 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import com.automata.testsupport.KnownBug;
 
 class HostUtilsTest {
 
@@ -27,7 +26,6 @@ class HostUtilsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-013")
 	void aSingleLabelNameIsNotAValidHost() {
 		assertFalse(HostUtils.validateHostFormat("example").isValid());
 		assertFalse(HostUtils.validateHostFormat("localhost").isValid());
@@ -46,15 +44,26 @@ class HostUtilsTest {
 	}
 
 	@Test
-	@KnownBug("BUG-013")
 	void levelOfAMultiLabelPublicSuffixRootDomainIsZero() {
 		assertEquals(0, HostUtils.identifyLevel("example.co.uk"));
 	}
 
 	@Test
-	@KnownBug("BUG-013")
 	void levelOfAnIpAddressIsNotADomainDepth() {
 		assertEquals(0, HostUtils.identifyLevel("10.0.0.1"));
+	}
+
+	@ParameterizedTest
+	@CsvSource({ "example.co.uk,0", "api.example.co.uk,1", "a.b.example.co.uk,2", "github.io,0", "example.github.io,1", "EXAMPLE.com,0",
+			"co.uk,0", "com,0", "10.0.0.1,0", "127.0.0.1,0", "api.localhost,0", "a.b.localhost,1", "xn--bcher-kva.de,0" })
+	void levelCountsTheLabelsBelowTheRegistrableDomain(String host, int level) {
+		assertEquals(level, HostUtils.identifyLevel(host), host);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "localhost", "example", "intranet", "LOCALHOST" })
+	void singleLabelNamesAreRefused(String host) {
+		assertFalse(HostUtils.validateHostFormat(host).isValid(), host);
 	}
 
 	@Test
