@@ -130,7 +130,7 @@ Body (sample `update-request.json`): `{"jobId": 42, "newState": "FAILED", "messa
 | `TOOL_START` | orchestrator, connector | the connector or the tool could not be started, or the connector did not connect to the sockets in time |
 | `TOOL_EXIT` | connector | the tool ran and exited with an error |
 | `RESULT` | orchestrator | the job finished without a result file, the file is missing, or it could not be uploaded |
-| `UNKNOWN` | orchestrator, core | nothing more is known: a worker that reports no category, a heartbeat timeout, or a failure the core records itself (`LOSTCONTACT`) |
+| `UNKNOWN` | orchestrator, core | nothing more is known: a worker that reports no category, a heartbeat timeout, a worker shut down during a job, or a failure the core records itself (`LOSTCONTACT`) |
 
 | Status | When | Worker |
 |---|---|---|
@@ -158,7 +158,7 @@ A report is accepted only for the moves in section 5. An accepted report sets `c
 - `CANCELED` — the user canceled it (the worker confirmed it, unless it was not yet queued)
 - `FINISHED` — ended with a result
 - `FAILED` — ended with an error, the message says why
-- `SELFTERMINATED` — the worker ended the job itself (timeout, connector crash)
+- `SELFTERMINATED` — the worker ended the job itself (timeout, connector crash, the worker was shut down)
 - `LOSTCONTACT` — set by the core when no worker was heard about a `RUNNING`/`PAUSED` job for 30 minutes (`HttpJobStateService.LOST_CONTACT_AFTER`)
 
 ### 5.1 What a worker may report
@@ -209,6 +209,7 @@ Also: the scheduler moves `TOQUEUE` → `QUEUED` when it publishes the message (
 - If the orchestrator cannot report a state after the retries, the report is dropped and logged. A `RUNNING`/`PAUSED` job without any contact for 30 minutes becomes `LOSTCONTACT`; a `QUEUED` job is never reaped.
 - A `FINISHED` report is sent only after the result was uploaded (with retries); if there is no result file or the upload fails, `FAILED` is reported instead.
 - The orchestrator runs one job at a time, in `TEMP_DIR/job-{id}`, which is removed when the job is over (it holds the details file, with credentials).
+- A worker that receives `SIGTERM` during a job ends the tool and reports `SELFTERMINATED` (category `UNKNOWN`, message `the worker was shut down`); one that is still preparing the job (before `RUNNING` was reported) puts the message back on the queue without a report, so another worker takes it. A worker killed without warning (`SIGKILL`, a host crash) reports nothing, and the job becomes `LOSTCONTACT` after 30 minutes.
 
 ## 7. Known gaps of the contract
 
