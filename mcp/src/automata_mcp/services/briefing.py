@@ -38,6 +38,7 @@ def context_section(context: AgentContextDetailed) -> dict[str, Any]:
         "defaultAutoApproval": context.default_auto_approval,
         "defaults": {key: value for key, value in defaults.items() if value is not None},
         "maxRate": context.max_rate,
+        "defaultJobRate": context.default_job_rate,
     }
     return {key: value for key, value in section.items() if value is not None}
 
@@ -99,10 +100,21 @@ def briefing_notes(
             "you cannot change it."
         )
     else:
-        limits = f"host rate limit {host.host_rate_limit}"
+        limits = (
+            f"host rate limit {host.host_rate_limit}, short rate limit {host.short_rate_limit} "
+            f"(SHORT jobs), long rate limit {host.long_rate_limit} (LONG jobs)"
+        )
         if context.max_rate is not None:
             limits += f", context maxRate {context.max_rate}"
-        notes.append(f"A job's rate is capped by the {limits}.")
+        notes.append(
+            f"A rate you give is refused when it is above the {limits}, or above the rate limit of "
+            "the program (you cannot see it)."
+        )
+        if context.default_job_rate is not None:
+            notes.append(
+                f"A job without a rate gets the context's default {context.default_job_rate}, "
+                "lowered to those limits."
+            )
     if host.out_of_scope:
         notes.append("The core marks this host as out of scope.")
     if tenants:

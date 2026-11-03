@@ -63,8 +63,8 @@ AI_RESULT_409 = (
     "The job must have ended before you can record a result; use wait_for_jobs, then try again."
 )
 CANCEL_409 = (
-    "Only a job in TOQUEUE, QUEUED, RUNNING or PAUSED can be canceled. A draft you no longer "
-    "want you simply do not queue; an ended job is final. get_job shows the state."
+    "Only a job in DRAFT, TOQUEUE, QUEUED, RUNNING or PAUSED can be canceled; an ended job is "
+    "final. get_job shows the state."
 )
 RESULT_409 = "The job has not ended: use wait_for_jobs, then read the result again."
 RESULT_404 = (
@@ -130,8 +130,10 @@ def register(mcp: MCPServer[AppState]) -> None:
         meant to run with a wordlist; the core does not enforce it, but such a job fails at the
         worker without one.
 
-        `rate` is at least 1 and is capped by the host limit and the context's maxRate; a host
-        with a rate limit of 0 refuses every job (tell the user). `duration` is needed unless the
+        `rate` is at least 1 and is refused when it is above the host limit, the limit of the
+        duration (short or long), the program limit or the context's maxRate; without a `rate`
+        the job gets the context's defaultJobRate, lowered to those limits. A host with a rate
+        limit of 0 refuses every job (tell the user). `duration` is needed unless the
         context has a default. `priority` is 1 to 5. A job always runs as the tenant of its target
         request. The core checks every rule and its message is shown if one is broken (the target
         must be in list_targets, job-eligible and of the context's host; the routine must be
@@ -430,11 +432,11 @@ def register(mcp: MCPServer[AppState]) -> None:
         """Cancels a job of your context that you started and no longer need. This cannot be
         undone.
 
-        A job can be canceled in TOQUEUE, QUEUED, RUNNING or PAUSED. A TOQUEUE job is canceled at
-        once; for QUEUED, RUNNING and PAUSED jobs the cancel is a request (`requestedState`
-        CANCELED) that the worker carries out the next time it polls, so check get_job. A PAUSED
-        job may have been paused by a human; canceling it is final. A DRAFT cannot be canceled
-        (just do not queue it) and an ended job is final.
+        A job can be canceled in DRAFT, TOQUEUE, QUEUED, RUNNING or PAUSED. A DRAFT or TOQUEUE job
+        is canceled at once; for QUEUED, RUNNING and PAUSED jobs the cancel is a request
+        (`requestedState` CANCELED) that the worker carries out the next time it polls, so check
+        get_job. A PAUSED job may have been paused by a human; canceling it is final. An ended job
+        is final and cannot be canceled.
         """
         state = get_state(ctx)
         with hints({CoreConflict: CANCEL_409}):
