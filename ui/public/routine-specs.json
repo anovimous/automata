@@ -1,0 +1,116 @@
+{
+  "$comment": "Automata routine custom-config mappings. The frontend loads this file at startup. Each entry under 'routines' maps a routine key (the 'key' field on a Routine entity) to a typed form spec. When the user picks a routine in the job creation form, the spec is used to render a typed form; if no spec exists for a routine, a raw JSON editor is shown instead.",
+
+  "$schema_doc": {
+    "field_types": [
+      "string", "integer", "number", "boolean",
+      "enum", "enum-multi",
+      "string-list",
+      "object", "array-of-objects"
+    ],
+    "field_metadata": {
+      "key": "Required. JSON key the value is written to.",
+      "label": "Required. Human label shown in the form.",
+      "type": "Required. One of field_types above.",
+      "required": "Optional boolean. If true, submission is blocked when empty.",
+      "default": "Optional. Pre-filled initial value when the form opens. No validation effect.",
+      "locked": "Optional boolean. If true, field shows the default and cannot be edited by the user.",
+      "min": "Optional. For integer/number fields: minimum allowed value.",
+      "max": "Optional. For integer/number fields: maximum allowed value.",
+      "pattern": "Optional. For string fields: regex string the value must match.",
+      "help": "Optional. Tooltip / helper text shown below the input.",
+      "placeholder": "Optional. Placeholder for string/number/string-list inputs.",
+      "options": "Required for enum/enum-multi. Array of { value, label } pairs.",
+      "visibleWhen": "Optional. Conditional visibility — { field: 'otherKey', equals: <val> } or { field: 'otherKey', in: [<val>, ...] }.",
+      "fields": "Required for object. Array of nested field specs.",
+      "itemFields": "Required for array-of-objects. Array of nested field specs that each list item will use."
+    }
+  },
+
+  "version": 1,
+  "routines": {
+    "sql-injection-time-based": {
+      "title": "SQL Injection (time-based)",
+      "description": "Detects SQL injection by inducing controllable delays in the database.",
+      "fields": [
+        {
+          "key": "delay",
+          "label": "Injection delay (seconds)",
+          "type": "integer",
+          "required": true,
+          "default": 5,
+          "min": 1,
+          "max": 30,
+          "help": "Seconds the payload should sleep to confirm a positive response."
+        },
+        {
+          "key": "techniques",
+          "label": "Techniques",
+          "type": "enum-multi",
+          "required": true,
+          "default": ["BOOLEAN"],
+          "options": [
+            { "value": "STACKED",  "label": "Stacked queries" },
+            { "value": "UNION",    "label": "UNION-based" },
+            { "value": "BOOLEAN",  "label": "Boolean-based" }
+          ]
+        },
+        {
+          "key": "useTamperScripts",
+          "label": "Apply tamper scripts",
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "key": "tamperScripts",
+          "label": "Tamper scripts",
+          "type": "string-list",
+          "placeholder": "space2comment",
+          "visibleWhen": { "field": "useTamperScripts", "equals": true }
+        }
+      ]
+    },
+
+    "open-redirect": {
+      "title": "Open Redirect",
+      "description": "Tests redirect parameters for unvalidated destinations.",
+      "fields": [
+        {
+          "key": "targetDomain",
+          "label": "Target domain",
+          "type": "string",
+          "required": true,
+          "default": "evil.example",
+          "placeholder": "evil.example",
+          "help": "The external host the test will try to redirect to."
+        },
+        {
+          "key": "schemes",
+          "label": "Schemes to test",
+          "type": "enum-multi",
+          "default": ["https"],
+          "options": [
+            { "value": "http",  "label": "http" },
+            { "value": "https", "label": "https" },
+            { "value": "//",    "label": "protocol-relative (//)" }
+          ]
+        },
+        {
+          "key": "followRedirects",
+          "label": "Follow redirects to verify",
+          "type": "boolean",
+          "default": true
+        },
+        {
+          "key": "maxHops",
+          "label": "Max hops",
+          "type": "integer",
+          "default": 5,
+          "min": 1,
+          "max": 20,
+          "visibleWhen": { "field": "followRedirects", "equals": true }
+        }
+      ]
+    }
+  }
+}
