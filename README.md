@@ -11,7 +11,7 @@ Status: working end to end on a developer machine (core, frontend, MCP server un
 | Repo | Role | Stack |
 |---|---|---|
 | `automata` (this one, `core/`) | Core service: REST API, domain, job engine, scheduling. The compose file of the stack is at the root of this repo | Spring Boot 3.5, Java 21 |
-| `automata-frontend` | UI for programs, hosts, requests, jobs, findings, agent contexts | React + TypeScript |
+| `automata` (this one, `ui/`) | UI for programs, hosts, requests, jobs, findings, agent contexts (was the `automata-frontend` repo, its history is kept) | React + TypeScript |
 | `automata-worker` | Orchestrator that consumes queued jobs, plus the tool connectors (`ffuf`, `masser`) | Go |
 | `automata-mcp` | MCP server the AI agent talks to; translates tool calls into core REST calls, holds no business logic | Python, official `mcp` SDK |
 | Burp extension | Sends proxy traffic to the core | |
@@ -140,7 +140,7 @@ What it cannot do is listed under [Human in the loop](#human-in-the-loop).
 
 ## Getting started
 
-Prerequisites: Docker and Docker Compose; Java 21 only if you run the core outside Docker. Run `docker compose` from the repository root. The frontend and MCP server repos are expected at the paths in `docker-compose.yml`. The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
+Prerequisites: Docker and Docker Compose; Java 21 only if you run the core outside Docker. Run `docker compose` from the repository root. The MCP server repo is expected at the path in `docker-compose.yml`. The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
 
 ```bash
 docker compose up --build -d     # postgres, rabbitmq, rustfs, core, frontend, MCP server

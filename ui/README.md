@@ -5,7 +5,7 @@ backend.
 
 ## Running locally
 
-This app is ran using the docker compose file found at the central service at `github.com/anovimous/automata`
+This app is run with the docker compose file at the root of this repository (`docker compose up --build` from the repository root)
 
 ## Concepts
 
