@@ -19,7 +19,6 @@ import { VulnerabilityMultiPicker } from "@/components/common/vulnerability-pick
 import { usePatchProgram, useProgram } from "@/hooks/usePrograms";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
-import { PROGRAM_RATE_LIMIT_PATCH_BACKEND_READY } from "@/config/features";
 import type { Platform } from "@/types/domain";
 
 const NO_PLATFORM = "__none__";
@@ -53,8 +52,11 @@ export function EditProgramDialog({
     }
   }, [open, data]);
 
+  const rateInvalid =
+    rate.trim() !== "" && (!Number.isInteger(Number(rate)) || Number(rate) < 0);
+
   async function submit() {
-    if (!data) return;
+    if (!data || rateInvalid) return;
     const trimmedLink = link.trim();
     try {
       await patchMut.mutateAsync({
@@ -65,8 +67,7 @@ export function EditProgramDialog({
           setLinkNull: !trimmedLink && !!data.link,
           platform: platform === NO_PLATFORM ? undefined : (platform as Platform),
           setPlatformNull: platform === NO_PLATFORM && !!data.platform,
-          programRateLimit:
-            PROGRAM_RATE_LIMIT_PATCH_BACKEND_READY && rate ? Number(rate) : undefined,
+          programRateLimit: rate.trim() ? Number(rate) : undefined,
           outOfScopeVulnIds: outOfScope,
         },
       });
@@ -115,13 +116,14 @@ export function EditProgramDialog({
                 type="number"
                 value={rate}
                 onChange={(e) => setRate(e.target.value)}
-                disabled={!PROGRAM_RATE_LIMIT_PATCH_BACKEND_READY}
+                min={0}
+                step={1}
               />
-              {!PROGRAM_RATE_LIMIT_PATCH_BACKEND_READY && (
-                <div className="text-[11px] text-muted-foreground">
-                  The backend doesn't store changes to this yet.
-                </div>
-              )}
+              <div className={`text-[11px] ${rateInvalid ? "text-destructive" : "text-muted-foreground"}`}>
+                {rateInvalid
+                  ? "A whole number of 0 or more."
+                  : "Can only change while no job of the program is in progress (anything but a draft or an ended job): otherwise the core answers 409."}
+              </div>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -133,7 +135,7 @@ export function EditProgramDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!name.trim() || patchMut.isPending}>
+          <Button onClick={submit} disabled={!name.trim() || rateInvalid || patchMut.isPending}>
             Save
           </Button>
         </DialogFooter>

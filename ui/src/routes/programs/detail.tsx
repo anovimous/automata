@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { Download, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Download, Pencil, Play, Plus, Search, Trash2 } from "lucide-react";
 import { useProgram } from "@/hooks/usePrograms";
 import { useHosts, useDeleteHost } from "@/hooks/useHosts";
 import { useSetTopBar } from "@/components/layout/top-bar";
@@ -41,6 +41,7 @@ export function ProgramDetailRoute() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState<number | null>(null);
+  const [selected, setSelected] = React.useState<Set<string | number>>(new Set());
 
   React.useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query), 200);
@@ -130,10 +131,43 @@ export function ProgramDetailRoute() {
         </div>
       </div>
 
+      {selected.size > 0 && (
+        <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-md border border-foreground/15 bg-foreground/5 animate-fade-in">
+          <span className="text-xs font-medium">{selected.size} selected</span>
+          <span className="text-xs text-muted-foreground">
+            — {selected.size > 1 ? "WIDE scope (this program)" : "NARROW scope"}
+          </span>
+          <div className="flex-1" />
+          <Button
+            size="sm"
+            onClick={() => {
+              const hostIds = Array.from(selected).map((v) => Number(v));
+              navigate({
+                to: "/programs/$programId/hosts/$hostId/run-job",
+                params: { programId, hostId: hostIds[0] },
+                search:
+                  hostIds.length === 1
+                    ? { kind: "single-host" }
+                    : { kind: "multiple-hosts", hostIds: hostIds.join(",") },
+              });
+            }}
+          >
+            <Play className="h-3.5 w-3.5" />
+            Run job on {selected.size} host{selected.size === 1 ? "" : "s"}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+            Clear
+          </Button>
+        </div>
+      )}
+
       <div className="border border-border rounded-lg overflow-hidden">
         <DataTable
           data={hostsQ.data?.content ?? []}
           rowKey={(r) => r.id}
+          selectable
+          selected={selected}
+          onSelectionChange={setSelected}
           isLoading={hostsQ.isLoading}
           emptyMessage="No hosts in this program yet."
           onRowClick={(r) =>

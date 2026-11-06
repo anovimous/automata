@@ -312,7 +312,8 @@ export function useWordlist(id: number | null | undefined) {
 export function useCreateWordlist() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (req: WordlistCreationRequest) => wordlistsApi.create(req),
+    mutationFn: ({ file, metadata }: { file: File; metadata?: WordlistCreationRequest }) =>
+      wordlistsApi.create(file, metadata),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: wordlistsKeys.all });
       recordActivity({ kind: "create-wordlist" });

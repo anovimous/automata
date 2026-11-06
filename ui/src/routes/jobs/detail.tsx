@@ -46,8 +46,8 @@ import { ErrorState } from "@/components/common/states";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
 import { jobsApi } from "@/api/jobs";
-import { isTerminalState } from "@/types/enums";
 import { DELETE_JOB_BACKEND_READY } from "@/config/features";
+import { FAILURE_CATEGORY_INFO } from "@/lib/jobRules";
 import { relativeTime } from "@/lib/utils";
 
 export function JobDetailRoute() {
@@ -107,11 +107,20 @@ export function JobDetailRoute() {
   const filesReady = job?.configFileStatus === "READY";
   const awaitingApproval = isAi && !job?.approved && state === "DRAFT";
   const canQueue = state === "DRAFT" && filesReady && !awaitingApproval;
+  // A draft can be canceled too. SCHEDULED is not cancelable yet (the core answers 501).
   const canCancel =
-    state === "TOQUEUE" || state === "QUEUED" || state === "RUNNING" || state === "PAUSED";
+    state === "DRAFT" ||
+    state === "TOQUEUE" ||
+    state === "QUEUED" ||
+    state === "RUNNING" ||
+    state === "PAUSED";
   // pause/resume/cancel of a job a worker holds are only requested (the worker
   // carries them out when it next polls)
   const pendingRequest = job?.requestedState && job.requestedState !== state;
+  // a cancel can't be undone, so the core refuses a pause or resume while one is pending
+  const cancelPending = job?.requestedState === "CANCELED";
+  const terminal = job?.terminal ?? false;
+  const canHaveResult = state === "FINISHED" || state === "FAILED";
 
   return (
     <PageContainer>
@@ -186,7 +195,7 @@ export function JobDetailRoute() {
                   Retry preparation
                 </Button>
               )}
-            {state === "RUNNING" && (
+            {state === "RUNNING" && !cancelPending && (
               <Button
                 variant="outline"
                 onClick={() =>
@@ -197,7 +206,7 @@ export function JobDetailRoute() {
                 Pause
               </Button>
             )}
-            {state === "PAUSED" && (
+            {state === "PAUSED" && !cancelPending && (
               <Button
                 onClick={() =>
                   safeRun("Resume", () => resumeMut.mutateAsync({ id: jobId, programId }))
@@ -207,7 +216,7 @@ export function JobDetailRoute() {
                 Resume
               </Button>
             )}
-            {canCancel && (
+            {canCancel && !cancelPending && (
               <Button
                 variant="outline"
                 onClick={() =>
@@ -218,7 +227,7 @@ export function JobDetailRoute() {
                 Cancel
               </Button>
             )}
-            {state === "FINISHED" && (
+            {canHaveResult && (
               <a href={jobsApi.resultDownloadUrl(jobId)} download={`job-${jobId}-result`}>
                 <Button>
                   <Download className="h-3.5 w-3.5" />
@@ -226,7 +235,7 @@ export function JobDetailRoute() {
                 </Button>
               </a>
             )}
-            {DELETE_JOB_BACKEND_READY && state && isTerminalState(state) && (
+            {DELETE_JOB_BACKEND_READY && terminal && (
               <Button variant="outline" size="icon" onClick={() => setDeleteOpen(true)}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -250,11 +259,34 @@ export function JobDetailRoute() {
                 </span>
               </div>
             )}
-            {job.failureMessage && (
+            {job.waitingForAction && !awaitingApproval && (
+              <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs">
+                <span className="font-medium text-warning">Waiting for you.</span>{" "}
+                <span className="text-muted-foreground">
+                  The files of this draft could not be prepared: retry the preparation.
+                </span>
+              </div>
+            )}
+            {(job.failureMessage || job.failureCategory) && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs">
-                <div className="font-medium text-destructive mb-0.5">Failure message</div>
+                <div className="font-medium text-destructive mb-0.5 flex items-center gap-2">
+                  Failure message
+                  {job.failureCategory && (
+                    <Badge
+                      variant="outline"
+                      title={FAILURE_CATEGORY_INFO[job.failureCategory].hint}
+                    >
+                      {FAILURE_CATEGORY_INFO[job.failureCategory].label}
+                    </Badge>
+                  )}
+                </div>
+                {job.failureCategory && (
+                  <div className="text-muted-foreground mb-1">
+                    {FAILURE_CATEGORY_INFO[job.failureCategory].hint}
+                  </div>
+                )}
                 <div className="font-mono whitespace-pre-wrap break-words">
-                  {job.failureMessage}
+                  {job.failureMessage ?? "The worker gave no message."}
                 </div>
               </div>
             )}
@@ -293,7 +325,7 @@ export function JobDetailRoute() {
                       <div className="whitespace-pre-wrap">{job.aiResult}</div>
                     ) : (
                       <div className="text-xs text-muted-foreground">
-                        {state && isTerminalState(state)
+                        {terminal
                           ? "The agent has not reviewed this result yet."
                           : "Set by the agent once the job has ended."}
                       </div>
@@ -362,7 +394,7 @@ export function JobDetailRoute() {
               </CardContent>
             </Card>
 
-            {state && isTerminalState(state) && <ResultCard jobId={jobId} state={state} />}
+            {canHaveResult && <ResultCard jobId={jobId} state={state as string} />}
 
             <Card>
               <CardHeader>

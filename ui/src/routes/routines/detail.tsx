@@ -58,6 +58,7 @@ export function RoutineDetailRoute() {
   const [vulnId, setVulnId] = React.useState(NO_VULN);
   const [configSchema, setConfigSchema] = React.useState("");
   const [available, setAvailable] = React.useState(true);
+  const [wordlistRequired, setWordlistRequired] = React.useState(false);
   const [allowedTargets, setAllowedTargets] = React.useState<AllowedTarget[]>([]);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
@@ -75,6 +76,7 @@ export function RoutineDetailRoute() {
         routineQ.data.configSchema ? JSON.stringify(routineQ.data.configSchema, null, 2) : "",
       );
       setAvailable(!!routineQ.data.isAvailableAtConsumer);
+      setWordlistRequired(!!routineQ.data.wordlistRequired);
       setAllowedTargets(routineQ.data.allowedTargets ?? []);
     }
   }, [routineQ.data]);
@@ -97,8 +99,10 @@ export function RoutineDetailRoute() {
     }
   }
 
+  const canSave = !schemaError && allowedTargets.length > 0;
+
   async function save() {
-    if (schemaError) return;
+    if (!canSave) return;
     try {
       await patchMut.mutateAsync({
         id,
@@ -112,7 +116,8 @@ export function RoutineDetailRoute() {
           configSchema: configSchema.trim() ? JSON.parse(configSchema) : undefined,
           setConfigSchemaNull: !configSchema.trim() && !!routineQ.data?.configSchema,
           isAvailableAtConsumer: available,
-          allowedTargets: allowedTargets.length ? allowedTargets : undefined,
+          wordlistRequired,
+          allowedTargets,
         },
       });
       toast({ title: "Routine updated", variant: "success" });
@@ -155,7 +160,7 @@ export function RoutineDetailRoute() {
         title={<span className="font-mono">{routineQ.data?.key ?? `#${id}`}</span>}
         actions={
           <>
-            <Button onClick={save} disabled={patchMut.isPending || !!schemaError}>
+            <Button onClick={save} disabled={patchMut.isPending || !canSave}>
               <Save className="h-3.5 w-3.5" />
               Save
             </Button>
@@ -242,7 +247,7 @@ export function RoutineDetailRoute() {
             )}
           </div>
           <div className="space-y-1.5">
-            <Label>Allowed targets</Label>
+            <Label>Allowed targets (at least one)</Label>
             <div className="grid grid-cols-2 gap-1.5">
               {TARGETS.map((t) => (
                 <label
@@ -261,6 +266,15 @@ export function RoutineDetailRoute() {
           <div className="flex items-center justify-between pt-2">
             <Label>Available at consumer</Label>
             <Switch checked={available} onCheckedChange={setAvailable} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Needs a wordlist</Label>
+              <div className="text-[11px] text-muted-foreground">
+                Information for people and agents creating jobs; the core doesn't enforce it.
+              </div>
+            </div>
+            <Switch checked={wordlistRequired} onCheckedChange={setWordlistRequired} />
           </div>
         </CardContent>
       </Card>

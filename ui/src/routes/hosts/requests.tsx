@@ -27,8 +27,9 @@ import { ApiError } from "@/lib/fetcher";
 import { formatBytes } from "@/lib/http";
 import { RequestContentType, RequestSource, HttpMethod } from "@/types/enums";
 import { AddToContextDialog } from "@/components/agentcontext/add-to-context-dialog";
-import { DELETE_REQUEST_BACKEND_READY, MULTI_REQUESTS_BACKEND_READY } from "@/config/features";
-import type { RequestFilter } from "@/types/domain";
+import { DELETE_REQUEST_BACKEND_READY } from "@/config/features";
+import { NOT_ELIGIBLE_REASON, isJobEligibleRequest } from "@/lib/jobRules";
+import type { RequestFilter, RequestSummary } from "@/types/domain";
 
 export function HostRequestsRoute() {
   const { programId, hostId } = useParams({ strict: false }) as {
@@ -111,7 +112,16 @@ export function HostRequestsRoute() {
   const deleteMut = useDeleteRequest();
   const rows = data?.content ?? [];
 
+  // The selection can span pages, so the rows seen so far are remembered to tell whether
+  // the selected requests can be job targets.
+  const seenRows = React.useRef(new Map<number, RequestSummary>());
+  rows.forEach((row) => seenRows.current.set(row.requestId, row));
+
   const selectedRequestIds = Array.from(selected).map((s) => Number(s));
+  const ineligibleSelected = selectedRequestIds.filter((id) => {
+    const row = seenRows.current.get(id);
+    return row ? !isJobEligibleRequest(row.contentType, row.bodySizeBytes) : false;
+  });
 
   return (
     <FullBleed>
@@ -174,8 +184,8 @@ export function HostRequestsRoute() {
         <Input
           value={search.extension ?? ""}
           onChange={(e) => updateSearch({ extension: e.target.value || undefined, page: 0 })}
-          placeholder="Extension"
-          className="max-w-[110px] font-mono"
+          placeholder=".js (with the dot)"
+          className="max-w-[150px] font-mono"
         />
         <Select
           value={search.tenantId !== undefined ? String(search.tenantId) : ""}
@@ -222,10 +232,12 @@ export function HostRequestsRoute() {
           <div className="flex-1" />
           <Button
             size="sm"
-            disabled={selected.size > 1 && !MULTI_REQUESTS_BACKEND_READY}
+            disabled={ineligibleSelected.length > 0}
             title={
-              selected.size > 1 && !MULTI_REQUESTS_BACKEND_READY
-                ? "The backend can't create jobs for several requests yet"
+              ineligibleSelected.length > 0
+                ? `Request${ineligibleSelected.length > 1 ? "s" : ""} ${ineligibleSelected
+                    .map((id) => `#${id}`)
+                    .join(", ")} can't be job targets. ${NOT_ELIGIBLE_REASON}.`
                 : undefined
             }
             onClick={() =>
@@ -304,7 +316,17 @@ export function HostRequestsRoute() {
               header: "Type",
               cell: (r) =>
                 r.contentType ? (
-                  <Badge variant="muted">{r.contentType}</Badge>
+                  <Badge
+                    variant="muted"
+                    title={
+                      isJobEligibleRequest(r.contentType, r.bodySizeBytes)
+                        ? undefined
+                        : `Can't be a job target. ${NOT_ELIGIBLE_REASON}.`
+                    }
+                  >
+                    {r.contentType}
+                    {!isJobEligibleRequest(r.contentType, r.bodySizeBytes) && " ⊘"}
+                  </Badge>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 ),

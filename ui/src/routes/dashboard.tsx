@@ -62,15 +62,17 @@ export function DashboardRoute() {
 }
 
 // =============================================================================
-// Needs attention: AI jobs waiting for approval, findings waiting for a review
+// Needs attention: drafts waiting for someone (an AI job to approve, files to retry),
+// findings waiting for a review
 // =============================================================================
 function AttentionPanel() {
-  const aiDrafts = useJobs(
-    { createdBy: "AI", currentStates: ["DRAFT"] },
+  const drafts = useJobs(
+    { currentStates: ["DRAFT"] },
     { page: 0, size: 50, sort: ["creationDate,desc"] },
     { poll: false },
   );
-  const awaiting = (aiDrafts.data?.content ?? []).filter((j) => !j.approved);
+  // computed by the core: an unapproved AI job, or a draft whose files failed
+  const awaiting = (drafts.data?.content ?? []).filter((j) => j.waitingForAction);
   const unreviewed = useFindings({ createdBy: "AI" }, { page: 0, size: 50 });
   const toReview = (unreviewed.data?.content ?? []).filter((f) => !f.humanVerdict);
 
@@ -93,9 +95,13 @@ function AttentionPanel() {
                 params={{ jobId: j.id }}
                 className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/40 transition-colors"
               >
-                <ApprovalPill approved={false} />
+                {j.createdBy === "AI" && !j.approved ? (
+                  <ApprovalPill approved={false} />
+                ) : (
+                  <Badge variant="warning">Files failed</Badge>
+                )}
                 <div className="flex-1 min-w-0 text-sm truncate">
-                  AI job #{j.id} · {j.routineKey ?? "—"}
+                  {j.createdBy === "AI" ? "AI job" : "Job"} #{j.id} · {j.routineKey ?? "—"}
                 </div>
                 <div className="text-xs text-muted-foreground tabular-nums">
                   {relativeTime(j.creationDate)}
@@ -105,7 +111,7 @@ function AttentionPanel() {
           ))}
           {awaiting.length > 5 && (
             <li className="px-4 py-2 text-xs text-muted-foreground">
-              and {awaiting.length - 5} more AI jobs awaiting approval
+              and {awaiting.length - 5} more jobs waiting for action
             </li>
           )}
           {toReview.slice(0, 5).map((f) => (

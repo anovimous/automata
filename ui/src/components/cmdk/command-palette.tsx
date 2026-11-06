@@ -99,23 +99,27 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             .catch(() => null),
         ]);
 
-        // Hosts only if we have a program context (best-effort) or no
-        // good way to do a global search; pull from the first matching program.
-        let hosts: EntityResult[] = [];
-        if (programs?.content?.length) {
-          const firstP = programs.content[0];
-          const hh = await hostsApi
-            .list(firstP.id, debounced, { page: 0, size: 5 })
-            .catch(() => null);
-          hosts =
-            hh?.content?.map((h) => ({
+        // Hosts of every program (the host list needs no program any more); the program
+        // of each result comes with it so the link can be built.
+        const hostPage = await hostsApi
+          .list(undefined, debounced, { page: 0, size: 5 })
+          .catch(() => null);
+        const hostDetails = await Promise.all(
+          (hostPage?.content ?? []).map((h) => hostsApi.get(h.id).catch(() => null)),
+        );
+        const hosts: EntityResult[] = (hostPage?.content ?? []).flatMap((h, i) => {
+          const programId = hostDetails[i]?.programId;
+          if (programId === undefined) return [];
+          return [
+            {
               kind: "host" as const,
               id: h.id,
               primary: h.host,
-              secondary: firstP.name,
-              programId: firstP.id,
-            })) ?? [];
-        }
+              secondary: programs?.content.find((p) => p.id === programId)?.name,
+              programId,
+            },
+          ];
+        });
 
         const results: EntityResult[] = [
           ...(programs?.content?.map((p) => ({

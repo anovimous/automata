@@ -13,7 +13,7 @@ interface RoutinePickerProps {
   onChange: (id: number | null, routine: RoutineSummary | null) => void;
   /**
    * Filter to routines whose allowedTargets include this value.
-   * Null = show all (used for GLOBAL jobs).
+   * Null = show all.
    */
   allowedTarget: AllowedTarget | null;
 }
@@ -33,11 +33,12 @@ export function RoutinePicker({ value, onChange, allowedTarget }: RoutinePickerP
     size: 50,
   });
 
-  // Client-side filter by allowedTarget
+  // Client-side filter: the core refuses a routine that no worker runs (not available at the
+  // consumer) and one that does not allow the kind of target of the job.
   const items = React.useMemo(() => {
-    const all = data?.content ?? [];
-    if (!allowedTarget) return all;
-    return all.filter((r) => r.allowedTargets?.includes(allowedTarget));
+    const available = (data?.content ?? []).filter((r) => r.isAvailableAtConsumer);
+    if (!allowedTarget) return available;
+    return available.filter((r) => r.allowedTargets?.includes(allowedTarget));
   }, [data, allowedTarget]);
 
   const selected = items.find((r) => r.id === value) ?? null;
@@ -109,6 +110,7 @@ export function RoutinePicker({ value, onChange, allowedTarget }: RoutinePickerP
                   <div className="font-mono text-xs font-medium truncate">{r.key}</div>
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
                     {r.overhead && <Badge variant="muted">{r.overhead}</Badge>}
+                    {r.wordlistRequired && <Badge variant="outline">needs wordlist</Badge>}
                     {r.protocol && <Badge variant="outline">{r.protocol}</Badge>}
                     {r.allowedTargets?.map((at) => (
                       <Badge key={at} variant="outline">

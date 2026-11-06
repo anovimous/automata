@@ -143,19 +143,3 @@ export function usePatchAuth() {
     },
   });
 }
-
-export function useDeleteAuth() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ tenantId }: { tenantId: number; hostId?: number; programId?: number }) =>
-      tenantsApi.deleteAuth(tenantId),
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: tenantsKeys.auth(vars.tenantId) });
-      recordActivity({
-        kind: "delete-auth",
-        hostId: vars.hostId,
-        programId: vars.programId,
-      });
-    },
-  });
-}

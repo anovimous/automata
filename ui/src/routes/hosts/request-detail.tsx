@@ -42,6 +42,7 @@ import { ApiError } from "@/lib/fetcher";
 import { formatBytes } from "@/lib/http";
 import { formatDate, relativeTime, toBase64 } from "@/lib/utils";
 import { DELETE_REQUEST_BACKEND_READY } from "@/config/features";
+import { NOT_ELIGIBLE_REASON, isJobEligibleBody } from "@/lib/jobRules";
 
 export function HostRequestDetailRoute() {
   const { programId, hostId, requestId } = useParams({ strict: false }) as {
@@ -93,6 +94,7 @@ export function HostRequestDetailRoute() {
 
   const m = metaQ.data;
   const line = m?.line;
+  const jobEligible = m ? isJobEligibleBody(m.body) : true;
 
   return (
     <FullBleed>
@@ -108,6 +110,8 @@ export function HostRequestDetailRoute() {
         actions={
           <>
             <Button
+              disabled={!!m && !jobEligible}
+              title={m && !jobEligible ? `${NOT_ELIGIBLE_REASON}.` : undefined}
               onClick={() =>
                 navigate({
                   to: "/programs/$programId/hosts/$hostId/run-job",

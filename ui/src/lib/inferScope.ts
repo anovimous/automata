@@ -1,5 +1,4 @@
 import type { AllowedTarget, HttpJobScope, SelectorType, TargetSelector } from "@/types/domain";
-import { MULTI_REQUESTS_BACKEND_READY, WIDE_MULTI_HOSTS_BACKEND_READY } from "@/config/features";
 
 /**
  * The "selection" the user makes before opening the run-job page.
@@ -26,12 +25,6 @@ export interface InferredScope {
   selector: unknown; // shape determined by selectorType (see backend embedded package)
   targetSelector: TargetSelector;
   /**
-   * Whether this selection is currently supported by the backend.
-   * Some selector classes are TODO on the backend; we still let the user fill
-   * the form but block submission with an explanatory banner.
-   */
-  backendReady: boolean;
-  /**
    * Human-readable one-line summary of what's selected.
    */
   summary: string;
@@ -57,7 +50,6 @@ export function inferScope(sel: RunJobSelection): InferredScope {
           selectorType: "SINGLE_REQUEST",
           selector: { requestId: sel.requestId },
         },
-        backendReady: true,
         summary: `1 request${sel.hostName ? ` on ${sel.hostName}` : ""}`,
         scopeLabel: "NARROW",
         selectionLabel: "Single request",
@@ -65,24 +57,16 @@ export function inferScope(sel: RunJobSelection): InferredScope {
     }
 
     case "multiple-requests": {
-      // MultipleRequestsSelector { ids, highLevelMatcher, lowLevelMatcher }
-      // For v1 we only fill the ids set. The matchers are advanced filtering
-      // the backend currently expects to be either-or; we use ids.
+      // MultipleRequestsSelector { requestIds }: every request must exist, be job eligible
+      // and belong to the host of the job.
       return {
         scope: "NARROW",
         selectorType: "MULTIPLE_REQUESTS",
-        selector: {
-          ids: sel.requestIds,
-          highLevelMatcher: { hostId: sel.hostId },
-        },
+        selector: { requestIds: sel.requestIds },
         targetSelector: {
           selectorType: "MULTIPLE_REQUESTS",
-          selector: {
-            ids: sel.requestIds,
-            highLevelMatcher: { hostId: sel.hostId },
-          },
+          selector: { requestIds: sel.requestIds },
         },
-        backendReady: MULTI_REQUESTS_BACKEND_READY,
         summary: `${sel.requestIds.length} requests${sel.hostName ? ` on ${sel.hostName}` : ""}`,
         scopeLabel: "NARROW",
         selectionLabel: `${sel.requestIds.length} requests`,
@@ -99,7 +83,6 @@ export function inferScope(sel: RunJobSelection): InferredScope {
           selectorType: "SINGLE_HOST",
           selector: { hostId: sel.hostId },
         },
-        backendReady: true,
         summary: `Host${sel.hostName ? ` ${sel.hostName}` : ` #${sel.hostId}`}`,
         scopeLabel: "NARROW",
         selectionLabel: "Single host",
@@ -107,17 +90,17 @@ export function inferScope(sel: RunJobSelection): InferredScope {
     }
 
     case "multiple-hosts": {
-      // MultipleHostsSelector — backend answers 501 (TargetSelectionService).
+      // MultipleHostsSelector { hostIds }: a WIDE job; every host must belong to the program
+      // of the job and accept jobs (a host rate limit of at least 1).
       return {
         scope: "WIDE",
         selectorType: "MULTIPLE_HOSTS",
-        selector: { ids: sel.hostIds },
+        selector: { hostIds: sel.hostIds },
         targetSelector: {
           selectorType: "MULTIPLE_HOSTS",
-          selector: { ids: sel.hostIds },
+          selector: { hostIds: sel.hostIds },
         },
-        backendReady: WIDE_MULTI_HOSTS_BACKEND_READY,
-        summary: `${sel.hostIds.length} hosts in 1 program`,
+        summary: `${sel.hostIds.length} hosts of one program`,
         scopeLabel: "WIDE",
         selectionLabel: `${sel.hostIds.length} hosts`,
       };

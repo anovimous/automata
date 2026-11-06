@@ -41,9 +41,4 @@ export const tenantsApi = {
       body: req,
       responseType: "void",
     }),
-  deleteAuth: (tenantId: number) =>
-    apiFetch<void>(`${BASE}/${tenantId}/authentication`, {
-      method: "DELETE",
-      responseType: "void",
-    }),
 };

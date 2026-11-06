@@ -18,7 +18,7 @@ import {
 import { useHost, usePatchHost } from "@/hooks/useHosts";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
-import { HOST_RATE_LIMIT_PATCH_BACKEND_READY } from "@/config/features";
+import { hostLimitsProblem } from "@/lib/hostRules";
 
 export function EditHostDialog({
   open,
@@ -35,7 +35,6 @@ export function EditHostDialog({
   const patchMut = usePatchHost();
   const { toast } = useToast();
 
-  const [host, setHost] = React.useState("");
   const [scope, setScope] = React.useState<"WILDCARD" | "FQDN">("FQDN");
   const [rl, setRl] = React.useState("");
   const [srl, setSrl] = React.useState("");
@@ -46,7 +45,6 @@ export function EditHostDialog({
 
   React.useEffect(() => {
     if (open && data) {
-      setHost(data.host);
       setScope(data.scope);
       setRl(data.hostRateLimit?.toString() ?? "");
       setSrl(data.shortRateLimit?.toString() ?? "");
@@ -57,21 +55,20 @@ export function EditHostDialog({
     }
   }, [open, data]);
 
+  const limitsProblem = hostLimitsProblem(rl, srl, lrl);
+
   async function submit() {
+    if (limitsProblem) return;
     try {
       await patchMut.mutateAsync({
         id: hostId,
         programId,
+        hostName: data?.host,
         req: {
-          host: host.trim() || undefined,
           scope,
-          ...(HOST_RATE_LIMIT_PATCH_BACKEND_READY
-            ? {
-                hostRateLimit: rl ? Number(rl) : undefined,
-                shortRateLimit: srl ? Number(srl) : undefined,
-                longRateLimit: lrl ? Number(lrl) : undefined,
-              }
-            : {}),
+          hostRateLimit: Number(rl),
+          shortRateLimit: Number(srl),
+          longRateLimit: Number(lrl),
           description,
           technologies: technologies
             .split(",")
@@ -97,12 +94,10 @@ export function EditHostDialog({
         <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
           <div className="space-y-1.5">
             <Label htmlFor="host">Host</Label>
-            <Input
-              id="host"
-              value={host}
-              onChange={(e) => setHost(e.target.value)}
-              className="font-mono"
-            />
+            <Input id="host" value={data?.host ?? ""} readOnly className="font-mono" />
+            <div className="text-[11px] text-muted-foreground">
+              The name of a host (and so its level) can't be changed.
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>Scope</Label>
@@ -118,38 +113,34 @@ export function EditHostDialog({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label>Rate (req/s)</Label>
+              <Label>Host (req/s)</Label>
               <Input
                 type="number"
                 value={rl}
                 onChange={(e) => setRl(e.target.value)}
-                disabled={!HOST_RATE_LIMIT_PATCH_BACKEND_READY}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Short burst</Label>
+              <Label>Short jobs (req/s)</Label>
               <Input
                 type="number"
                 value={srl}
                 onChange={(e) => setSrl(e.target.value)}
-                disabled={!HOST_RATE_LIMIT_PATCH_BACKEND_READY}
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Long burst</Label>
+              <Label>Long jobs (req/s)</Label>
               <Input
                 type="number"
                 value={lrl}
                 onChange={(e) => setLrl(e.target.value)}
-                disabled={!HOST_RATE_LIMIT_PATCH_BACKEND_READY}
               />
             </div>
           </div>
-          {!HOST_RATE_LIMIT_PATCH_BACKEND_READY && (
-            <div className="text-[11px] text-muted-foreground -mt-1">
-              The backend doesn't store changes to the rate limits yet.
-            </div>
-          )}
+          <div className="text-[11px] text-muted-foreground -mt-1">
+            {limitsProblem ??
+              "The limits can only change while no job acts on the host (its own jobs, or wide jobs of its program) other than drafts and ended ones: otherwise the core answers 409."}
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="h-desc">Description</Label>
             <Textarea
@@ -184,7 +175,7 @@ export function EditHostDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={patchMut.isPending}>
+          <Button onClick={submit} disabled={patchMut.isPending || !!limitsProblem}>
             Save
           </Button>
         </DialogFooter>

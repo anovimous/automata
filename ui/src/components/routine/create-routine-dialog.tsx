@@ -51,6 +51,7 @@ export function CreateRoutineDialog({
   const [resultContentType, setResultContentType] = React.useState<ResultContentType>("JSON");
   const [configSchema, setConfigSchema] = React.useState("");
   const [available, setAvailable] = React.useState(true);
+  const [wordlistRequired, setWordlistRequired] = React.useState(false);
   const [allowedTargets, setAllowedTargets] = React.useState<AllowedTarget[]>([]);
 
   const vulns = useVulnerabilities({ pageable: { page: 0, size: 200 } });
@@ -67,6 +68,7 @@ export function CreateRoutineDialog({
       setResultContentType("JSON");
       setConfigSchema("");
       setAvailable(true);
+      setWordlistRequired(false);
       setAllowedTargets([]);
     }
   }, [open]);
@@ -80,19 +82,23 @@ export function CreateRoutineDialog({
     }
   }
 
+  const canSubmit =
+    !!key.trim() && !schemaError && protocol !== "" && allowedTargets.length > 0;
+
   async function submit() {
-    if (!key.trim() || schemaError) return;
+    if (!canSubmit) return;
     try {
       await createMut.mutateAsync({
         key: key.trim(),
         description: description.trim() || undefined,
         overhead: overhead || undefined,
-        protocol: protocol || undefined,
+        protocol,
         vulnerabilityId: vulnId !== NO_VULN ? Number(vulnId) : undefined,
         resultContentType,
         configSchema: configSchema.trim() ? JSON.parse(configSchema) : undefined,
         isAvailableAtConsumer: available,
-        allowedTargets: allowedTargets.length ? allowedTargets : undefined,
+        wordlistRequired,
+        allowedTargets,
       });
       toast({ title: "Routine created", variant: "success" });
       onOpenChange(false);
@@ -151,7 +157,7 @@ export function CreateRoutineDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Protocol</Label>
+              <Label>Protocol (required)</Label>
               <Select value={protocol} onValueChange={(v) => setProtocol(v as Protocol)}>
                 <SelectTrigger>
                   <SelectValue placeholder="—" />
@@ -209,7 +215,7 @@ export function CreateRoutineDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label>Allowed targets</Label>
+            <Label>Allowed targets (at least one)</Label>
             <div className="grid grid-cols-2 gap-1.5">
               {TARGETS.map((t) => (
                 <label
@@ -229,6 +235,15 @@ export function CreateRoutineDialog({
             <Label htmlFor="r-avail">Available at consumer</Label>
             <Switch id="r-avail" checked={available} onCheckedChange={setAvailable} />
           </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="r-wl">Needs a wordlist</Label>
+              <div className="text-[11px] text-muted-foreground">
+                Information for people and agents creating jobs; the core doesn't enforce it.
+              </div>
+            </div>
+            <Switch id="r-wl" checked={wordlistRequired} onCheckedChange={setWordlistRequired} />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -236,7 +251,7 @@ export function CreateRoutineDialog({
           </Button>
           <Button
             onClick={submit}
-            disabled={!key.trim() || !!schemaError || createMut.isPending}
+            disabled={!canSubmit || createMut.isPending}
           >
             Create
           </Button>

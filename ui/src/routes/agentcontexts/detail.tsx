@@ -1,3 +1,4 @@
+import { contextDefaultsProblem } from "@/lib/jobRules";
 import * as React from "react";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { ArrowLeft, Copy, Plus, Save, Trash2, X } from "lucide-react";
@@ -127,8 +128,10 @@ export function AgentContextDetailRoute() {
     }
   }
 
+  const defaultsProblem = contextDefaultsProblem(maxRate, defaultJobRate, priority);
+
   function save() {
-    if (!ctx) return;
+    if (!ctx || defaultsProblem) return;
     return run("Context saved", () =>
       patchMut.mutateAsync({
         id: contextId,
@@ -235,7 +238,7 @@ export function AgentContextDetailRoute() {
         }
         actions={
           <>
-            <Button onClick={save} disabled={patchMut.isPending || !ctx}>
+            <Button onClick={save} disabled={patchMut.isPending || !ctx || !!defaultsProblem}>
               <Save className="h-3.5 w-3.5" />
               Save
             </Button>
@@ -322,9 +325,11 @@ export function AgentContextDetailRoute() {
                     </Select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Default priority</Label>
+                    <Label>Default priority (1-5)</Label>
                     <Input
                       type="number"
+                      min={1}
+                      max={5}
                       value={priority}
                       onChange={(e) => setPriority(e.target.value)}
                       placeholder="1"
@@ -348,6 +353,11 @@ export function AgentContextDetailRoute() {
                       onChange={(e) => setDefaultJobRate(e.target.value)}
                     />
                   </div>
+                  {defaultsProblem && (
+                    <div className="col-span-2 text-[11px] text-destructive">
+                      {defaultsProblem}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -615,7 +625,7 @@ export function AgentContextDetailRoute() {
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title="Delete agent context?"
-        description="The agent loses access. Jobs it already created stay."
+        description="The agent loses access. The core refuses (409) while jobs or findings of the agent still refer to the context."
         destructive
         confirmLabel="Delete"
         onConfirm={async () => {

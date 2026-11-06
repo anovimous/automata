@@ -17,8 +17,6 @@ import { cn } from "@/lib/cn";
 import { FEATURES } from "@/config/features";
 
 const FEATURE_LABELS: Record<keyof typeof FEATURES, string> = {
-  WIDE_MULTI_HOSTS_BACKEND_READY: "WIDE jobs (multi-host selector)",
-  MULTI_REQUESTS_BACKEND_READY: "Multi-request NARROW jobs",
   JOB_SCHEDULING_BACKEND_READY: "Job scheduling",
   DELETE_PROGRAM_BACKEND_READY: "Delete a program",
   DELETE_HOST_BACKEND_READY: "Delete a host",
@@ -26,9 +24,6 @@ const FEATURE_LABELS: Record<keyof typeof FEATURES, string> = {
   DELETE_ROUTINE_BACKEND_READY: "Delete a routine",
   DELETE_JOB_BACKEND_READY: "Delete a job",
   DELETE_RESPONSE_BACKEND_READY: "Delete a response",
-  PROGRAM_RATE_LIMIT_PATCH_BACKEND_READY: "Edit program rate limit",
-  HOST_RATE_LIMIT_PATCH_BACKEND_READY: "Edit host rate limits",
-  DELETE_TENANT_AUTH_BACKEND_READY: "Delete tenant authentication",
 };
 
 export function SettingsRoute() {
@@ -94,7 +89,7 @@ export function SettingsRoute() {
           <CardContent>
             <p className="text-xs text-muted-foreground mb-3">
               Some operations are hidden or blocked in the UI because the backend
-              doesn't support them yet (it answers 500/501 or ignores the call). Edit{" "}
+              doesn't support them yet (it answers 501 not implemented). Edit{" "}
               <code className="font-mono">src/config/features.ts</code> to enable these
               once the backend changes are deployed.
             </p>

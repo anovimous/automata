@@ -110,6 +110,8 @@ export function CreateProgramDialog({
                 onChange={(e) => setRate(e.target.value)}
                 placeholder="req/s"
                 type="number"
+                min={0}
+                step={1}
               />
             </div>
           </div>

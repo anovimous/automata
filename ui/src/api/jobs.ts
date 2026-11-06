@@ -55,7 +55,7 @@ export const jobsApi = {
     apiFetch<void>(`${BASE}/${pausedJobId}/resume`, { method: "POST", responseType: "void" }),
   cancel: (id: number) =>
     apiFetch<void>(`${BASE}/${id}/cancel`, { method: "POST", responseType: "void" }),
-  /** The backend answers 501 (not implemented) today. */
+  /** The core answers 501 (not implemented) today. */
   delete: (id: number) =>
     apiFetch<void>(`${BASE}/${id}`, { method: "DELETE", responseType: "void" }),
 

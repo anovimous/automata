@@ -28,6 +28,18 @@ export type JobCreator = z.infer<typeof JobCreator>;
 export const ConfigFileStatus = z.enum(["PREPARING", "READY", "FAILED"]);
 export type ConfigFileStatus = z.infer<typeof ConfigFileStatus>;
 
+// What kind of failure a worker reported with a FAILED or SELFTERMINATED job.
+export const FailureCategory = z.enum([
+  "PREPARATION",
+  "POLL",
+  "INVALID_CONFIG",
+  "TOOL_START",
+  "TOOL_EXIT",
+  "RESULT",
+  "UNKNOWN",
+]);
+export type FailureCategory = z.infer<typeof FailureCategory>;
+
 export const Verbosity = z.enum(["SUMMARIZED", "NORMAL", "VERBOSE"]);
 export type Verbosity = z.infer<typeof Verbosity>;
 

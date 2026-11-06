@@ -14,6 +14,7 @@ import type {
   ComparatorSchema,
   ConfigFileStatus,
   Duration,
+  FailureCategory,
   FindingCreator,
   FindingStatus,
   HostScope,
@@ -45,6 +46,7 @@ export type {
   ComparatorSchema,
   ConfigFileStatus,
   Duration,
+  FailureCategory,
   FindingCreator,
   FindingStatus,
   HostScope,
@@ -136,17 +138,18 @@ export interface HostSummary {
   outOfScope: boolean;
 }
 
+/** All three limits are required (0 or more, `hostRateLimit >= short + long`). */
 export interface HostCreationRequest {
   host: string;
   scope: HostScope;
-  hostRateLimit?: number;
-  shortRateLimit?: number;
-  longRateLimit?: number;
+  hostRateLimit: number;
+  shortRateLimit: number;
+  longRateLimit: number;
   programId: number;
 }
 
+/** The name of a host (and so its level) can't be changed. */
 export interface PatchHostRequest {
-  host?: string;
   scope?: HostScope;
   hostRateLimit?: number;
   shortRateLimit?: number;
@@ -175,7 +178,7 @@ export interface TenantSummary {
 
 export interface TenantCreationRequest {
   name: string;
-  email?: string;
+  email: string;
   hostId: number;
 }
 
@@ -251,9 +254,11 @@ export interface RoutineDetailed {
   description?: string | null;
   updatedAt?: string | null;
   isAvailableAtConsumer: boolean;
+  /** Information for callers: the routine is meant to run with a wordlist (not enforced by the core). */
+  wordlistRequired: boolean;
   overhead?: Overhead | null;
-  protocol?: Protocol | null;
-  allowedTargets?: AllowedTarget[] | null;
+  protocol: Protocol;
+  allowedTargets: AllowedTarget[];
   vulnerabilityId?: number | null;
   /** JSON Schema that `customConfig` of a job is validated against. */
   configSchema?: unknown;
@@ -265,18 +270,22 @@ export interface RoutineSummary {
   creationDate?: string | null;
   key: string;
   isAvailableAtConsumer: boolean;
+  wordlistRequired: boolean;
   overhead?: Overhead | null;
-  protocol?: Protocol | null;
-  allowedTargets?: AllowedTarget[] | null;
+  protocol: Protocol;
+  allowedTargets: AllowedTarget[];
 }
 
 export interface RoutineCreationRequest {
   key: string;
   description?: string;
   isAvailableAtConsumer?: boolean;
+  wordlistRequired?: boolean;
   overhead?: Overhead;
-  protocol?: Protocol;
-  allowedTargets?: AllowedTarget[];
+  /** Required by the backend. */
+  protocol: Protocol;
+  /** Required by the backend. */
+  allowedTargets: AllowedTarget[];
   vulnerabilityId?: number;
   configSchema?: unknown;
   /** Required by the backend. */
@@ -287,6 +296,7 @@ export interface RoutinePatchRequest {
   description?: string;
   setDescriptionNull?: boolean;
   isAvailableAtConsumer?: boolean;
+  wordlistRequired?: boolean;
   overhead?: Overhead;
   protocol?: Protocol;
   allowedTargets?: AllowedTarget[];
@@ -304,12 +314,14 @@ export interface Comparator {
   creationDate?: string | null;
   name: string;
   schema?: ComparatorSchema | null;
+  modifiers: ModifierDetailed[];
 }
 
 export interface ComparatorCreationRequest {
   name: string;
   schema?: ComparatorSchema;
-  modifierIds?: number[];
+  /** At least one, every one existing and available. */
+  modifierIds: number[];
 }
 
 export interface ComparatorPatchRequest {
@@ -336,10 +348,10 @@ export interface ModifierDetailed {
 
 export interface ModifierCreationRequest {
   target: ModifierTarget;
-  description?: string;
-  priority?: number;
+  description: string;
+  priority: number;
   schema?: ComparatorSchema;
-  isAvailable?: boolean;
+  isAvailable: boolean;
 }
 
 export interface ModifierPatchRequest {
@@ -350,32 +362,38 @@ export interface ModifierPatchRequest {
 // -----------------------------------------------------------------------------
 // Wordlists
 // -----------------------------------------------------------------------------
+/** A wordlist is its file (kept by the core); the file never changes. */
 export interface WordlistDetailed {
   id: number;
   name?: string | null;
-  path: string;
-  numberOfLines?: number | null;
+  description?: string | null;
+  numberOfLines: number;
+  sizeBytes: number;
+  /** SHA-256 of the file, lower case hex. */
+  sha256: string;
 }
 
 export interface WordlistSummary {
   id: number;
   name?: string | null;
-  numberOfLines?: number | null;
+  description?: string | null;
+  numberOfLines: number;
+  sizeBytes: number;
 }
 
+/** The `metadata` part of the multipart upload; `name` falls back to the file name. */
 export interface WordlistCreationRequest {
-  path: string;
   name?: string;
-  numberOfLines?: number;
+  description?: string;
   vulnIds?: number[];
 }
 
+/** Only these can change; the file and what comes from it can't. `vulnIds` replaces the links. */
 export interface WordlistPatchRequest {
-  path?: string;
   name?: string;
   setNameNull?: boolean;
-  numberOfLines?: number;
-  setNumberOfLinesNull?: boolean;
+  description?: string;
+  setDescriptionNull?: boolean;
   vulnIds?: number[];
 }
 
@@ -560,12 +578,18 @@ export interface HttpJobResponse {
   program?: { id: number; name?: string | null } | null;
   routine?: { id: number; key?: string | null } | null;
   failureMessage?: string | null;
+  /** Set with `failureMessage` when the job ended FAILED or SELFTERMINATED. */
+  failureCategory?: FailureCategory | null;
   configFileStatus?: ConfigFileStatus | null;
   configFileFailure?: string | null;
   aiDescription?: string | null;
   aiResult?: string | null;
   createdBy: JobCreator;
   approved: boolean;
+  /** The job is in a state it never leaves (computed by the core). */
+  terminal: boolean;
+  /** A draft that needs someone: an unapproved AI job, or one whose files failed. */
+  waitingForAction: boolean;
   agentContextUuid?: string | null;
 }
 
@@ -580,27 +604,31 @@ export interface HttpJobSummary {
   routineKey?: string | null;
   createdBy: JobCreator;
   approved: boolean;
+  terminal: boolean;
+  waitingForAction: boolean;
 }
 
 export interface GenericHttpJobDetails {
-  verbosity?: Verbosity;
-  priority?: number;
-  rate?: number;
-  routineId?: number;
+  verbosity: Verbosity;
+  /** 1-5 (4 and up are eager). Not defaulted by the core: always send it. */
+  priority: number;
+  /** At least 1, and within the limits of the host / program / duration. */
+  rate: number;
+  routineId: number;
   wordlistsIds?: number[];
-  targetSelector?: TargetSelector;
+  targetSelector: TargetSelector;
   matchAndReplace?: MatchAndReplace[];
   customConfig?: unknown;
 }
 
 export interface NarrowHttpJobDetails {
-  duration?: Duration;
-  hostId?: number;
+  duration: Duration;
+  hostId: number;
   tenantId?: number;
 }
 
 export interface WideHttpJobDetails {
-  programId?: number;
+  programId: number;
 }
 
 export interface HttpJobCreationRequest {
@@ -649,13 +677,13 @@ export interface FindingDetailed extends FindingSummary {
 export interface FindingCreationRequest {
   requestId: number;
   jobId?: number;
-  vulnerabilityId?: number;
+  vulnerabilityId: number;
   /** CVSS, 0-10. */
   severity: number;
   status: FindingStatus;
   /** 0-10. */
   confidence: number;
-  evidence?: string;
+  evidence: string;
   /** Required when `status` is CONFIRMED. */
   pocReproductionSteps?: string;
   createdBy: FindingCreator;

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { hostLimitsProblem } from "@/lib/hostRules";
 import {
   Select,
   SelectContent,
@@ -48,16 +49,18 @@ export function CreateHostDialog({
     }
   }, [open]);
 
+  const limitsProblem = hostLimitsProblem(rateLimit, shortRl, longRl);
+
   async function submit() {
-    if (!host.trim()) return;
+    if (!host.trim() || limitsProblem) return;
     try {
       await createMut.mutateAsync({
         host: host.trim(),
         scope,
         programId,
-        hostRateLimit: rateLimit ? Number(rateLimit) : undefined,
-        shortRateLimit: shortRl ? Number(shortRl) : undefined,
-        longRateLimit: longRl ? Number(longRl) : undefined,
+        hostRateLimit: Number(rateLimit),
+        shortRateLimit: Number(shortRl),
+        longRateLimit: Number(longRl),
       });
       toast({ title: "Host created", variant: "success" });
       onOpenChange(false);
@@ -83,7 +86,7 @@ export function CreateHostDialog({
               id="host"
               value={host}
               onChange={(e) => setHost(e.target.value)}
-              placeholder="api.example.com  or  *.example.com"
+              placeholder="api.example.com"
               className="font-mono"
               autoFocus
             />
@@ -100,44 +103,55 @@ export function CreateHostDialog({
               </SelectContent>
             </Select>
           </div>
+          <div className="text-[11px] text-muted-foreground -mt-1">
+            A bare domain name (it needs a dot, no <code>*.</code> prefix): for a wildcard enter{" "}
+            <code>example.com</code> and pick the Wildcard scope. The name can't be changed later.
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="rl">Rate (req/s)</Label>
+              <Label htmlFor="rl">Host (req/s)</Label>
               <Input
                 id="rl"
                 type="number"
                 value={rateLimit}
                 onChange={(e) => setRateLimit(e.target.value)}
-                placeholder="—"
+                placeholder="0"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="srl">Short burst</Label>
+              <Label htmlFor="srl">Short jobs (req/s)</Label>
               <Input
                 id="srl"
                 type="number"
                 value={shortRl}
                 onChange={(e) => setShortRl(e.target.value)}
-                placeholder="—"
+                placeholder="0"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="lrl">Long burst</Label>
+              <Label htmlFor="lrl">Long jobs (req/s)</Label>
               <Input
                 id="lrl"
                 type="number"
                 value={longRl}
                 onChange={(e) => setLongRl(e.target.value)}
-                placeholder="—"
+                placeholder="0"
               />
             </div>
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            {limitsProblem ??
+              "The host rate must cover the short plus the long job rate. A host with a rate of 0 can't run jobs."}
           </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!host.trim() || createMut.isPending}>
+          <Button
+            onClick={submit}
+            disabled={!host.trim() || !!limitsProblem || createMut.isPending}
+          >
             Create
           </Button>
         </DialogFooter>

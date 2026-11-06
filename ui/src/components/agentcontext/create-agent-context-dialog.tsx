@@ -1,3 +1,4 @@
+import { contextDefaultsProblem } from "@/lib/jobRules";
 import * as React from "react";
 import {
   Dialog,
@@ -77,8 +78,10 @@ export function CreateAgentContextDialog({
   // tenants belong to the host: forget the picked ones when the host changes
   React.useEffect(() => setTenantIds([]), [hostId]);
 
+  const defaultsProblem = contextDefaultsProblem(maxRate, defaultJobRate, priority);
+
   async function submit() {
-    if (!name.trim() || hostId === null || !maxRate || !defaultJobRate) return;
+    if (!name.trim() || hostId === null || defaultsProblem) return;
     try {
       const id = await createMut.mutateAsync({
         name: name.trim(),
@@ -230,9 +233,11 @@ export function CreateAgentContextDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Priority</Label>
+              <Label>Priority (1-5)</Label>
               <Input
                 type="number"
+                min={1}
+                max={5}
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 placeholder="1"
@@ -261,6 +266,9 @@ export function CreateAgentContextDialog({
               />
             </div>
           </div>
+          {defaultsProblem && maxRate !== "" && defaultJobRate !== "" && (
+            <div className="text-[11px] text-destructive">{defaultsProblem}</div>
+          )}
           <div className="text-[11px] text-muted-foreground">
             A job needs a duration: set a default here, or the agent must give one each time. A
             rate the agent gives is refused above the max rate and above the limits of the host,
@@ -275,7 +283,7 @@ export function CreateAgentContextDialog({
           <Button
             onClick={submit}
             disabled={
-              !name.trim() || hostId === null || !maxRate || !defaultJobRate || createMut.isPending
+              !name.trim() || hostId === null || !!defaultsProblem || createMut.isPending
             }
           >
             Create

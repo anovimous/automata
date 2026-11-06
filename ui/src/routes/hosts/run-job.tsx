@@ -1,7 +1,8 @@
 import * as React from "react";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { ArrowLeft, FileText, Play, Save, X } from "lucide-react";
-import { useHost } from "@/hooks/useHosts";
+import { useQueries } from "@tanstack/react-query";
+import { useHost, hostsKeys } from "@/hooks/useHosts";
 import { useProgram } from "@/hooks/usePrograms";
 import { useTenants } from "@/hooks/useTenants";
 import { useRoutine } from "@/hooks/useResources";
@@ -53,8 +54,21 @@ import type {
 } from "@/types/domain";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
-import { jobsApi, requestsApi } from "@/api";
-import { base64ToBytes, bytesToBase64, concatBytes } from "@/lib/http";
+import { hostsApi, jobsApi, requestsApi } from "@/api";
+import {
+  NOT_ELIGIBLE_REASON,
+  EAGER_PRIORITY,
+  MAX_JOB_PRIORITY,
+  MIN_JOB_PRIORITY,
+  hostAcceptsJobs,
+  isJobEligibleBody,
+  narrowRateLimits,
+  priorityProblem,
+  rateProblem,
+  tightestLimit,
+  wideRateLimits,
+} from "@/lib/jobRules";
+import { base64ToBytes, bytesToBase64, concatBytes, formatBytes } from "@/lib/http";
 
 type RunJobSearch = {
   kind?: string;
@@ -183,7 +197,7 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
 
   // ---- Generic config ----
   const [verbosity, setVerbosity] = React.useState<Verbosity>("NORMAL");
-  const [priority, setPriority] = React.useState<string>("");
+  const [priority, setPriority] = React.useState<string>("1");
   const [rate, setRate] = React.useState<string>("");
   const [mrRules, setMrRules] = React.useState<MatchAndReplace[]>([]);
 
@@ -216,14 +230,18 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
         label: programQ.data?.name ?? `#${programId}`,
         to: `/programs/${programId}` as string,
       },
-      {
-        label: hostQ.data?.host ?? `Host #${hostId}`,
-        to: `/programs/${programId}/hosts/${hostId}` as string,
-      },
+      ...(selection.kind === "multiple-hosts"
+        ? []
+        : [
+            {
+              label: hostQ.data?.host ?? `Host #${hostId}`,
+              to: `/programs/${programId}/hosts/${hostId}` as string,
+            },
+          ]),
       { label: "Run job" },
     ],
     null,
-    [programQ.data?.name, hostQ.data?.host, programId, hostId],
+    [programQ.data?.name, hostQ.data?.host, programId, hostId, selection.kind],
   );
 
   // ---- Mutations ----
@@ -239,9 +257,9 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
       httpJobScope: scope.scope,
       genericDetails: {
         verbosity,
-        priority: priority ? Number(priority) : undefined,
-        rate: rate ? Number(rate) : undefined,
-        routineId: routineId ?? undefined,
+        priority: Number(priority),
+        rate: Number(rate),
+        routineId: routineId as number,
         wordlistsIds: wordlistIds.length ? wordlistIds : undefined,
         targetSelector: scope.targetSelector,
         matchAndReplace: mrRules.length ? mrRules : undefined,
@@ -262,10 +280,69 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
     return base;
   }
 
-  const canSubmit =
-    scope.backendReady &&
-    routineId !== null &&
-    (spec ? validationErrors.length === 0 : true);
+  // ---- What the core will check, shown before sending ----
+  const rateLimits = React.useMemo(() => {
+    if (scope.scope === "WIDE") return wideRateLimits(programQ.data);
+    return hostQ.data ? narrowRateLimits(hostQ.data, programQ.data, duration) : [];
+  }, [scope.scope, programQ.data, hostQ.data, duration]);
+  const tightest = tightestLimit(rateLimits);
+
+  // A wide job's hosts all have to accept jobs; a narrow job's host does.
+  const wideHostIds = selection.kind === "multiple-hosts" ? selection.hostIds : [];
+  const wideHostQs = useQueries({
+    queries: wideHostIds.map((id) => ({
+      queryKey: hostsKeys.detail(id),
+      queryFn: () => hostsApi.get(id),
+    })),
+  });
+  const closedHosts: string[] =
+    scope.scope === "WIDE"
+      ? wideHostQs.flatMap((q) => (q.data && !hostAcceptsJobs(q.data) ? [q.data.host] : []))
+      : hostQ.data && !hostAcceptsJobs(hostQ.data)
+        ? [hostQ.data.host]
+        : [];
+
+  // Only a request without a body, or with a JSON or form body, can be a job target.
+  const targetRequestIds =
+    selection.kind === "single-request"
+      ? [selection.requestId]
+      : selection.kind === "multiple-requests"
+        ? selection.requestIds
+        : [];
+  const requestMetaQs = useQueries({
+    queries: targetRequestIds.map((id) => ({
+      queryKey: ["requests", "metadata", id],
+      queryFn: () => requestsApi.metadata(id),
+    })),
+  });
+  const ineligibleRequests = requestMetaQs.flatMap((q) =>
+    q.data && !isJobEligibleBody(q.data.body) ? [q.data.requestId] : [],
+  );
+
+  const problems: string[] = [];
+  if (routineId === null) problems.push("Pick a routine.");
+  if (spec && validationErrors.length > 0) problems.push("The configuration has errors.");
+  const ratePb = rateProblem(rate, rateLimits);
+  if (ratePb) problems.push(ratePb);
+  const priorityPb = priorityProblem(priority);
+  if (priorityPb) problems.push(priorityPb);
+  if (closedHosts.length > 0) {
+    problems.push(
+      closedHosts.length === 1 && scope.scope === "NARROW"
+        ? "This host has a rate limit of 0, so it is closed to jobs."
+        : `Host${closedHosts.length > 1 ? "s" : ""} ${closedHosts.join(", ")} ha${
+            closedHosts.length > 1 ? "ve" : "s"
+          } a rate limit of 0, so ${closedHosts.length > 1 ? "they are" : "it is"} closed to jobs.`,
+    );
+  }
+  if (ineligibleRequests.length > 0) {
+    problems.push(
+      `Request${ineligibleRequests.length > 1 ? "s" : ""} ${ineligibleRequests
+        .map((id) => `#${id}`)
+        .join(", ")} can't be job targets. ${NOT_ELIGIBLE_REASON}.`,
+    );
+  }
+  const canSubmit = problems.length === 0;
 
   async function saveDraft() {
     if (!canSubmit) return;
@@ -343,6 +420,19 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
         {/* Main column */}
         <div className="space-y-4">
           <TargetSummary scope={scope} />
+
+          {problems.length > 0 && (
+            <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2">
+              <div className="text-xs font-medium text-warning mb-1">
+                Before the job can be saved
+              </div>
+              <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                {problems.map((p) => (
+                  <li key={p}>{p}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Routine */}
           <Card>
@@ -450,6 +540,7 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
             <Card>
               <CardHeader>
                 <CardTitle>Wordlists</CardTitle>
+                {routineDetailQ.data?.wordlistRequired && <Badge variant="outline">needed</Badge>}
                 <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
                   <input
                     type="checkbox"
@@ -461,6 +552,17 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
                 </label>
               </CardHeader>
               <CardContent>
+                {routineDetailQ.data?.wordlistRequired && wordlistIds.length === 0 && (
+                  <div className="text-xs text-warning mb-2">
+                    This routine is meant to run with a wordlist; the job will probably fail
+                    without one.
+                  </div>
+                )}
+                {routineKey === "fuzz" && wordlistIds.length > 1 && (
+                  <div className="text-xs text-warning mb-2">
+                    ffuf takes exactly one wordlist: a job with several fails at the worker.
+                  </div>
+                )}
                 {visibleWordlists.length === 0 ? (
                   <div className="text-xs text-muted-foreground">
                     No wordlists{" "}
@@ -492,6 +594,9 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
                         >
                           <FileText className="h-3 w-3" />
                           <span className="font-mono">{w.name || `#${w.id}`}</span>
+                          <span className="text-muted-foreground">
+                            {w.numberOfLines.toLocaleString()} lines · {formatBytes(w.sizeBytes)}
+                          </span>
                           {sel && <X className="h-3 w-3" />}
                         </button>
                       );
@@ -535,22 +640,38 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Priority</Label>
+                <Label>
+                  Priority ({MIN_JOB_PRIORITY}-{MAX_JOB_PRIORITY})
+                </Label>
                 <Input
                   type="number"
+                  min={MIN_JOB_PRIORITY}
+                  max={MAX_JOB_PRIORITY}
+                  step={1}
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
-                  placeholder="—"
                 />
+                <div className="text-[11px] text-muted-foreground">
+                  {EAGER_PRIORITY} and above are dispatched before all the others.
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>Rate (req/s)</Label>
                 <Input
                   type="number"
+                  min={1}
+                  step={1}
                   value={rate}
                   onChange={(e) => setRate(e.target.value)}
-                  placeholder="—"
+                  placeholder={tightest ? `1 - ${tightest.value}` : "required"}
                 />
+                <div className="text-[11px] text-muted-foreground">
+                  {tightest
+                    ? `At most ${tightest.value} (${tightest.name}). ${rateLimits
+                        .map((l) => `${l.name}: ${l.value}`)
+                        .join(" · ")}`
+                    : "Required, at least 1."}
+                </div>
               </div>
             </CardContent>
           </Card>

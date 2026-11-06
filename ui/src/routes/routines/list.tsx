@@ -128,6 +128,16 @@ export function RoutinesListRoute() {
                 ),
             },
             {
+              key: "wordlist",
+              header: "Wordlist",
+              cell: (r) =>
+                r.wordlistRequired ? (
+                  <Badge variant="outline">Needed</Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                ),
+            },
+            {
               key: "actions",
               header: "",
               align: "right",

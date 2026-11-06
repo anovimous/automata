@@ -1,3 +1,4 @@
+import { hostAcceptsJobs } from "@/lib/jobRules";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { Play } from "lucide-react";
 import { useHost } from "@/hooks/useHosts";
@@ -46,6 +47,12 @@ export function HostJobsRoute() {
         }
         actions={
           <Button
+            disabled={!hostAcceptsJobs(hostQ.data)}
+            title={
+              hostAcceptsJobs(hostQ.data)
+                ? undefined
+                : "This host has a rate limit of 0: it is closed to jobs"
+            }
             onClick={() =>
               navigate({
                 to: "/programs/$programId/hosts/$hostId/run-job",

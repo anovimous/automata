@@ -33,6 +33,7 @@ import { ApiError } from "@/lib/fetcher";
 import { cn } from "@/lib/cn";
 import { exportApi } from "@/api";
 import { DELETE_HOST_BACKEND_READY } from "@/config/features";
+import { hostAcceptsJobs } from "@/lib/jobRules";
 import { useAgentContexts } from "@/hooks/useAgentContexts";
 import { useFindings } from "@/hooks/useFindings";
 import { useEqualizations } from "@/hooks/useRequests";
@@ -105,10 +106,15 @@ export function HostDetailRoute() {
             ) : (
               <Badge variant="success">In scope</Badge>
             )}
-            {hostQ.data?.hostRateLimit !== undefined && hostQ.data?.hostRateLimit !== null && (
-              <span className="text-xs text-muted-foreground">
-                Rate: {hostQ.data.hostRateLimit} req/s
-              </span>
+            {hostQ.data && !hostAcceptsJobs(hostQ.data) ? (
+              <Badge variant="warning">Closed to jobs (rate limit 0)</Badge>
+            ) : (
+              hostQ.data?.hostRateLimit !== undefined &&
+              hostQ.data?.hostRateLimit !== null && (
+                <span className="text-xs text-muted-foreground">
+                  Rate: {hostQ.data.hostRateLimit} req/s
+                </span>
+              )
             )}
           </div>
         }
@@ -116,6 +122,12 @@ export function HostDetailRoute() {
           <>
             <Button
               variant="default"
+              disabled={!hostAcceptsJobs(hostQ.data)}
+              title={
+                hostAcceptsJobs(hostQ.data)
+                  ? undefined
+                  : "This host has a rate limit of 0: it is closed to jobs"
+              }
               onClick={() =>
                 navigate({
                   to: "/programs/$programId/hosts/$hostId/run-job",
@@ -157,9 +169,9 @@ export function HostDetailRoute() {
       {/* Host quick info */}
       <Card className="mb-5">
         <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4">
-          <KV label="Rate limit" value={hostQ.data?.hostRateLimit ?? "—"} />
-          <KV label="Short burst" value={hostQ.data?.shortRateLimit ?? "—"} />
-          <KV label="Long burst" value={hostQ.data?.longRateLimit ?? "—"} />
+          <KV label="Rate limit (req/s)" value={hostQ.data?.hostRateLimit ?? "—"} />
+          <KV label="Short jobs (req/s)" value={hostQ.data?.shortRateLimit ?? "—"} />
+          <KV label="Long jobs (req/s)" value={hostQ.data?.longRateLimit ?? "—"} />
           <KV label="Level" value={hostQ.data?.level ?? "—"} />
           {(hostQ.data?.description ||
             (hostQ.data?.technologies?.length ?? 0) > 0 ||

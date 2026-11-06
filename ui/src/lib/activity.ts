@@ -23,7 +23,6 @@ export type ActivityKind =
   | "delete-tenant"
   | "create-auth"
   | "patch-auth"
-  | "delete-auth"
   | "add-request"
   | "delete-request"
   | "associate-response"

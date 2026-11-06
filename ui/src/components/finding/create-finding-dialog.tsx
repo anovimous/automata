@@ -69,6 +69,7 @@ export function CreateFindingDialog({
   if (!vulnId) problems.push("Pick the vulnerability.");
   if (!(sev >= 0 && sev <= 10)) problems.push("Severity is between 0 and 10.");
   if (!(conf >= 0 && conf <= 10)) problems.push("Confidence is between 0 and 10.");
+  if (!evidence.trim()) problems.push("Evidence is required.");
   if (status === "CONFIRMED" && !poc.trim())
     problems.push("A confirmed finding needs reproduction steps.");
 
@@ -82,7 +83,7 @@ export function CreateFindingDialog({
         severity: sev,
         confidence: conf,
         status,
-        evidence: evidence.trim() || undefined,
+        evidence: evidence.trim(),
         pocReproductionSteps: poc.trim() || undefined,
         createdBy: "USER",
       });
@@ -177,7 +178,7 @@ export function CreateFindingDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label>Evidence</Label>
+            <Label>Evidence (required)</Label>
             <Textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3} />
           </div>
           <div className="space-y-1.5">

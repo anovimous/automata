@@ -9,6 +9,7 @@ import {
 import { useSetTopBar } from "@/components/layout/top-bar";
 import { PageContainer, PageHeader } from "@/components/layout/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import {
@@ -125,14 +126,38 @@ export function ComparatorDetailRoute() {
           <CardHeader>
             <CardTitle>Modifiers</CardTitle>
           </CardHeader>
-          <CardContent className="text-xs text-muted-foreground space-y-2">
-            <p>
-              The modifiers of a comparator are chosen when it is created. The API doesn't
-              return them afterwards and has no route to change them.
-            </p>
-            <Link to="/modifiers" className="inline-block hover:underline text-foreground">
-              Browse modifiers
-            </Link>
+          <CardContent className="p-0">
+            {(compQ.data?.modifiers ?? []).length > 0 ? (
+              <ul className="divide-y divide-border">
+                {[...(compQ.data?.modifiers ?? [])]
+                  .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+                  .map((m) => (
+                    <li key={m.id} className="px-4 py-2.5 text-xs flex items-start gap-3">
+                      <Link
+                        to="/modifiers/$id"
+                        params={{ id: m.id }}
+                        className="font-mono font-medium hover:underline"
+                      >
+                        {m.target}
+                      </Link>
+                      <span className="flex-1 text-muted-foreground">{m.description ?? "—"}</span>
+                      <span className="font-mono tabular-nums text-muted-foreground">
+                        priority {m.priority ?? "—"}
+                      </span>
+                      {m.isAvailable === false && <Badge variant="warning">unavailable</Badge>}
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <div className="p-4 text-xs text-muted-foreground">No modifier.</div>
+            )}
+            <div className="px-4 py-3 border-t border-border text-xs text-muted-foreground">
+              The modifiers are chosen when the comparator is created; the API has no route to
+              change them afterwards.{" "}
+              <Link to="/modifiers" className="text-foreground hover:underline">
+                Browse modifiers
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

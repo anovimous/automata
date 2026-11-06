@@ -53,6 +53,7 @@ export function usePatchHost() {
       id: number;
       req: PatchHostRequest;
       programId?: number;
+      hostName?: string;
     }) => hostsApi.patch(id, req),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: hostsKeys.all });
@@ -60,7 +61,7 @@ export function usePatchHost() {
         kind: "patch-host",
         hostId: vars.id,
         programId: vars.programId,
-        hostName: vars.req.host,
+        hostName: vars.hostName,
       });
     },
   });

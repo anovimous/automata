@@ -89,7 +89,11 @@ export function HostEqualitySetsRoute() {
         programId,
         hostName: hostQ.data?.host,
       });
-      toast({ title: "Equalization run", variant: "success" });
+      toast({
+        title: "Equalization started",
+        description: "It runs in the background; the sets appear when it ends.",
+        variant: "success",
+      });
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : "Run failed";
       toast({ title: "Run failed", description: msg, variant: "destructive" });

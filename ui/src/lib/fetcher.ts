@@ -40,6 +40,8 @@ function buildQuery(params?: QueryParams): string {
 export interface FetchOptions {
   query?: QueryParams;
   body?: unknown;
+  // A multipart body (file upload). The browser sets the Content-Type with its boundary.
+  formData?: FormData;
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   // For endpoints that return non-JSON (e.g. blob downloads, raw text)
   responseType?: "json" | "blob" | "text" | "void";
@@ -64,7 +66,8 @@ async function readError(res: Response): Promise<{ message: string; body: unknow
     } else {
       const text = await res.text();
       body = text;
-      if (text) message = text.slice(0, 200);
+      // Validation errors list every violation, so keep a generous part of the text.
+      if (text) message = text.slice(0, 1000);
     }
   } catch {
     /* ignore */
@@ -80,12 +83,14 @@ export async function apiFetch<T = unknown>(
   const init: RequestInit = {
     method: opts.method || "GET",
     headers: {
-      ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(opts.body !== undefined && !opts.formData ? { "Content-Type": "application/json" } : {}),
       ...(opts.headers || {}),
     },
     signal: opts.signal,
   };
-  if (opts.body !== undefined) {
+  if (opts.formData) {
+    init.body = opts.formData;
+  } else if (opts.body !== undefined) {
     init.body = JSON.stringify(opts.body);
   }
 

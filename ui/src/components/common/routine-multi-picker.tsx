@@ -28,6 +28,12 @@ export function RoutineMultiPicker({
         >
           <Checkbox checked={selected.has(r.id)} onCheckedChange={() => toggle(r.id)} />
           <span className="font-mono text-xs flex-1 truncate">{r.key}</span>
+          {r.wordlistRequired && <Badge variant="outline">wordlist</Badge>}
+          {!r.isAvailableAtConsumer && (
+            <Badge variant="warning" title="No worker runs it: an agent can't create jobs with it">
+              unavailable
+            </Badge>
+          )}
           {r.overhead && <Badge variant="muted">{r.overhead}</Badge>}
         </label>
       ))}

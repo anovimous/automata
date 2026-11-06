@@ -9,7 +9,6 @@ import {
   useAuth,
   useCreateAuth,
   usePatchAuth,
-  useDeleteAuth,
   usePatchTenant,
 } from "@/hooks/useTenants";
 import { useSetTopBar } from "@/components/layout/top-bar";
@@ -22,7 +21,6 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
 import { formatDate } from "@/lib/utils";
-import { DELETE_TENANT_AUTH_BACKEND_READY } from "@/config/features";
 import type { AuthNameValuePair, StaticData } from "@/types/domain";
 
 export function HostTenantDetailRoute() {
@@ -42,7 +40,6 @@ export function HostTenantDetailRoute() {
   const deleteTenant = useDeleteTenant();
   const createAuth = useCreateAuth();
   const patchAuth = usePatchAuth();
-  const deleteAuth = useDeleteAuth();
 
   const [deleteTenantOpen, setDeleteTenantOpen] = React.useState(false);
   const [name, setName] = React.useState("");
@@ -82,7 +79,7 @@ export function HostTenantDetailRoute() {
         id: tenantId,
         req: {
           name: name.trim() || undefined,
-          email: email.trim() || undefined,
+          email: email.trim(),
         },
         hostId,
         programId,
@@ -121,7 +118,11 @@ export function HostTenantDetailRoute() {
         <Card>
           <CardHeader>
             <CardTitle>Identity</CardTitle>
-            <Button onClick={saveTenant} disabled={patchTenant.isPending} size="sm">
+            <Button
+              onClick={saveTenant}
+              disabled={patchTenant.isPending || !name.trim() || !email.trim()}
+              size="sm"
+            >
               <Save className="h-3.5 w-3.5" />
               Save
             </Button>
@@ -137,7 +138,7 @@ export function HostTenantDetailRoute() {
                 id="t-email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="—"
+                placeholder="alice@example.com"
               />
             </div>
           </CardContent>
@@ -154,25 +155,6 @@ export function HostTenantDetailRoute() {
                 <Badge variant="muted">Not configured</Badge>
               )}
             </div>
-            {hasAuth && DELETE_TENANT_AUTH_BACKEND_READY && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive"
-                onClick={async () => {
-                  try {
-                    await deleteAuth.mutateAsync({ tenantId, hostId, programId });
-                    toast({ title: "Auth removed", variant: "success" });
-                  } catch (e) {
-                    const msg = e instanceof ApiError ? e.message : "Delete failed";
-                    toast({ title: "Delete failed", description: msg, variant: "destructive" });
-                  }
-                }}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Remove
-              </Button>
-            )}
           </CardHeader>
           <CardContent>
             <AuthEditor

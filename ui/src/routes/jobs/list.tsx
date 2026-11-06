@@ -256,6 +256,11 @@ export function JobsListContent({
                   {r.createdBy === "AI" && r.currentState === "DRAFT" && (
                     <ApprovalPill approved={r.approved} />
                   )}
+                  {r.waitingForAction && r.approved && (
+                    <Badge variant="warning" title="The files of this draft could not be prepared">
+                      Files failed
+                    </Badge>
+                  )}
                 </div>
               ),
             },

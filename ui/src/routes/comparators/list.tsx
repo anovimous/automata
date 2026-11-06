@@ -98,6 +98,19 @@ export function ComparatorsListRoute() {
                 ),
             },
             {
+              key: "modifiers",
+              header: "Modifiers",
+              cell: (r) => (
+                <div className="flex flex-wrap gap-1">
+                  {r.modifiers.map((m) => (
+                    <Badge key={m.id} variant="muted" className="text-[9px]">
+                      {m.target}
+                    </Badge>
+                  ))}
+                </div>
+              ),
+            },
+            {
               key: "created",
               header: "Created",
               cell: (r) => (

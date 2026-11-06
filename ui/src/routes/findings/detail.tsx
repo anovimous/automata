@@ -140,7 +140,7 @@ export function FindingDetailRoute() {
         description={vulnQ.data?.name}
         actions={
           <>
-            <Button onClick={save} disabled={patchMut.isPending}>
+            <Button onClick={save} disabled={patchMut.isPending || !evidence.trim()}>
               <Save className="h-3.5 w-3.5" />
               Save
             </Button>
@@ -198,7 +198,7 @@ export function FindingDetailRoute() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Evidence</Label>
+                  <Label>Evidence (required)</Label>
                   <Textarea
                     value={evidence}
                     onChange={(e) => setEvidence(e.target.value)}
