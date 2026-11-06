@@ -37,7 +37,7 @@ services:
       retries: 5
 
   rustfs:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.4
     container_name: automata-rustfs
     environment:
       RUSTFS_ROOT_USER: automata
@@ -56,7 +56,7 @@ services:
       retries: 5
 
   rustfs-init:
-    image: minio/mc:latest
+    image: amazon/aws-cli:2.39.1
     container_name: automata-rustfs-init
     networks:
       - backend
@@ -67,20 +67,15 @@ services:
       REQUEST_BODIES_BUCKET: request-bodies
       RESPONSE_BODIES_BUCKET: response-bodies
       WORDLISTS_BUCKET: wordlists
-      RUSTFS_PASSWORD: ${RUSTFS_PASSWORD:?set_RUSTFS_PASSWORD_in_the_env_file}
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set rustfs http://rustfs:9000 automata $${RUSTFS_PASSWORD} &&
-        mc mb --ignore-existing rustfs/job-configuration &&
-        mc anonymous set public rustfs/job-configuration &&
-        mc mb --ignore-existing rustfs/job-results &&
-        mc anonymous set public rustfs/job-results &&
-        mc mb --ignore-existing rustfs/$${REQUEST_BODIES_BUCKET} &&
-        mc anonymous set public rustfs/$${REQUEST_BODIES_BUCKET} &&
-        mc mb --ignore-existing rustfs/$${RESPONSE_BODIES_BUCKET} &&
-        mc anonymous set public rustfs/$${RESPONSE_BODIES_BUCKET} &&
-        mc mb --ignore-existing rustfs/$${WORDLISTS_BUCKET}
-      "
+      # The aws cli reads these (the endpoint, the region and the credentials of RustFS)
+      AWS_ENDPOINT_URL: http://rustfs:9000
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: automata
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_PASSWORD:?set_RUSTFS_PASSWORD_in_the_env_file}
+      AWS_PAGER: ""
+    volumes:
+      - ./core/scripts/init-rustfs-buckets.sh:/init-rustfs-buckets.sh:ro
+    entrypoint: ["/bin/sh", "/init-rustfs-buckets.sh"]
 
   app:
     build: ./core
