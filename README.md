@@ -98,7 +98,7 @@ The agent is useful because it is fast, and safe because it is boxed in. The lim
 - **Request / Response**: any content type is accepted. The head is parsed into method, path, version, extension, headers, query parameters and path variables; JSON and form bodies (and JSON responses) are flattened to one row per property. The raw message is kept; multipart request bodies and non-JSON response bodies are stored as files in object storage. A request has at most one response. Sources: `MANUAL`, `BURP`, `WAYBACK`, `AI`. Bodies are read through `metadata`, `raw` and `body/stream` routes.
 - **Equality sets and comparators**: requests of a host are grouped into `RequestEqualitySet`s by a `Comparator` made of `Modifier`s (method, path, query string, body, hashed with murmur3). This area is still being refactored. Equality sets are **not** job targets; they group requests and serve as items of an agent context.
 - **Routine**: a reusable playbook. A unique `key` maps to a worker connector, plus overhead, protocol, allowed target cardinalities, a JSON `configSchema` that validates a job's `customConfig`, whether a wordlist is required, and the result content type.
-- **Vulnerability**: a hierarchical taxonomy. **Wordlist**: an immutable uploaded file (sha256, size, line count) in a private bucket; workers download and cache it by hash.
+- **Vulnerability**: a hierarchical taxonomy. **Wordlist**: an immutable uploaded file (sha256, size, line count) in a public bucket; workers download and cache it by hash.
 - **Finding**: a vulnerability finding with CVSS severity, confidence, `SUGGESTED`/`CONFIRMED` status, PoC steps (required to confirm) and a human verdict (`TRUE_POSITIVE`/`FALSE_POSITIVE`).
 
 ---
