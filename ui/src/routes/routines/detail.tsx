@@ -12,6 +12,9 @@ import { PageContainer, PageHeader } from "@/components/layout/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label, Textarea } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { MonacoJsonEditor } from "@/components/run-job/MonacoJsonEditor";
+import { DELETE_ROUTINE_BACKEND_READY } from "@/config/features";
 import {
   Select,
   SelectContent,
@@ -30,6 +33,8 @@ import type {
   Protocol,
 } from "@/types/domain";
 
+const NO_VULN = "__none__";
+
 const TARGETS: AllowedTarget[] = [
   "SINGLE_HOST",
   "MULTILPLE_HOSTS",
@@ -45,13 +50,15 @@ export function RoutineDetailRoute() {
   const routineQ = useRoutine(id);
   const patchMut = usePatchRoutine();
   const deleteMut = useDeleteRoutine();
-  const vulns = useVulnerabilities({ page: 0, size: 200 });
+  const vulns = useVulnerabilities({ pageable: { page: 0, size: 200 } });
 
   const [description, setDescription] = React.useState("");
   const [overhead, setOverhead] = React.useState<Overhead | "">("");
   const [protocol, setProtocol] = React.useState<Protocol | "">("");
-  const [vulnId, setVulnId] = React.useState("");
+  const [vulnId, setVulnId] = React.useState(NO_VULN);
+  const [configSchema, setConfigSchema] = React.useState("");
   const [available, setAvailable] = React.useState(true);
+  const [wordlistRequired, setWordlistRequired] = React.useState(false);
   const [allowedTargets, setAllowedTargets] = React.useState<AllowedTarget[]>([]);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
@@ -63,9 +70,13 @@ export function RoutineDetailRoute() {
       setVulnId(
         routineQ.data.vulnerabilityId !== null && routineQ.data.vulnerabilityId !== undefined
           ? String(routineQ.data.vulnerabilityId)
-          : "",
+          : NO_VULN,
+      );
+      setConfigSchema(
+        routineQ.data.configSchema ? JSON.stringify(routineQ.data.configSchema, null, 2) : "",
       );
       setAvailable(!!routineQ.data.isAvailableAtConsumer);
+      setWordlistRequired(!!routineQ.data.wordlistRequired);
       setAllowedTargets(routineQ.data.allowedTargets ?? []);
     }
   }, [routineQ.data]);
@@ -79,17 +90,34 @@ export function RoutineDetailRoute() {
     [routineQ.data?.key, id],
   );
 
+  let schemaError: string | null = null;
+  if (configSchema.trim()) {
+    try {
+      JSON.parse(configSchema);
+    } catch (e) {
+      schemaError = e instanceof Error ? e.message : "Invalid JSON";
+    }
+  }
+
+  const canSave = !schemaError && allowedTargets.length > 0;
+
   async function save() {
+    if (!canSave) return;
     try {
       await patchMut.mutateAsync({
         id,
         req: {
           description: description || undefined,
+          setDescriptionNull: !description && !!routineQ.data?.description,
           overhead: overhead || undefined,
           protocol: protocol || undefined,
-          vulnerabilityId: vulnId ? Number(vulnId) : undefined,
+          vulnerabilityId: vulnId !== NO_VULN ? Number(vulnId) : undefined,
+          setVulnerabilityNull: vulnId === NO_VULN && !!routineQ.data?.vulnerabilityId,
+          configSchema: configSchema.trim() ? JSON.parse(configSchema) : undefined,
+          setConfigSchemaNull: !configSchema.trim() && !!routineQ.data?.configSchema,
           isAvailableAtConsumer: available,
-          allowedTargets: allowedTargets.length ? allowedTargets : undefined,
+          wordlistRequired,
+          allowedTargets,
         },
       });
       toast({ title: "Routine updated", variant: "success" });
@@ -132,13 +160,15 @@ export function RoutineDetailRoute() {
         title={<span className="font-mono">{routineQ.data?.key ?? `#${id}`}</span>}
         actions={
           <>
-            <Button onClick={save} disabled={patchMut.isPending}>
+            <Button onClick={save} disabled={patchMut.isPending || !canSave}>
               <Save className="h-3.5 w-3.5" />
               Save
             </Button>
-            <Button variant="outline" size="icon" onClick={() => setDeleteOpen(true)}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            {DELETE_ROUTINE_BACKEND_READY && (
+              <Button variant="outline" size="icon" onClick={() => setDeleteOpen(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </>
         }
       />
@@ -189,6 +219,7 @@ export function RoutineDetailRoute() {
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_VULN}>—</SelectItem>
                   {vulns.data?.content.map((v) => (
                     <SelectItem key={v.id} value={String(v.id)}>
                       {v.name}
@@ -198,8 +229,25 @@ export function RoutineDetailRoute() {
               </Select>
             </div>
           </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            Result content type:
+            <Badge variant="outline">{routineQ.data?.resultContentType ?? "—"}</Badge>
+            <span>(fixed when the routine is created)</span>
+          </div>
           <div className="space-y-1.5">
-            <Label>Allowed targets</Label>
+            <Label>Config schema (JSON Schema)</Label>
+            <MonacoJsonEditor value={configSchema} onChange={setConfigSchema} height="200px" />
+            {schemaError ? (
+              <div className="text-[11px] text-destructive">{schemaError}</div>
+            ) : (
+              <div className="text-[11px] text-muted-foreground">
+                The custom config of every job of this routine is validated against it. Empty
+                means no validation.
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Allowed targets (at least one)</Label>
             <div className="grid grid-cols-2 gap-1.5">
               {TARGETS.map((t) => (
                 <label
@@ -218,6 +266,15 @@ export function RoutineDetailRoute() {
           <div className="flex items-center justify-between pt-2">
             <Label>Available at consumer</Label>
             <Switch checked={available} onCheckedChange={setAvailable} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Needs a wordlist</Label>
+              <div className="text-[11px] text-muted-foreground">
+                Information for people and agents creating jobs; the core doesn't enforce it.
+              </div>
+            </div>
+            <Switch checked={wordlistRequired} onCheckedChange={setWordlistRequired} />
           </div>
         </CardContent>
       </Card>

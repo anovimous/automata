@@ -18,14 +18,16 @@ import { HostTenantsRoute } from "./hosts/tenants";
 import { HostTenantDetailRoute } from "./hosts/tenant-detail";
 import { HostRequestsRoute } from "./hosts/requests";
 import { HostRequestDetailRoute } from "./hosts/request-detail";
-import { HostEqualizeRoute } from "./hosts/equalize";
 import { HostEqualitySetsRoute } from "./hosts/equality-sets";
 import { HostEqualitySetDetailRoute } from "./hosts/equality-set-detail";
 import { HostJobsRoute } from "./hosts/jobs";
 import { RunJobRoute } from "./hosts/run-job";
 import { JobsListRoute } from "./jobs/list";
 import { JobDetailRoute } from "./jobs/detail";
-import { GlobalRunJobRoute } from "./jobs/run-global";
+import { FindingsListRoute, type FindingsSearch } from "./findings/list";
+import { FindingDetailRoute } from "./findings/detail";
+import { AgentContextsListRoute } from "./agentcontexts/list";
+import { AgentContextDetailRoute } from "./agentcontexts/detail";
 import { RoutinesListRoute } from "./routines/list";
 import { RoutineDetailRoute } from "./routines/detail";
 import { VulnerabilitiesListRoute } from "./vulnerabilities/list";
@@ -184,17 +186,6 @@ const hostRequestDetailRoute = createRoute({
   component: HostRequestDetailRoute,
 });
 
-const hostEqualizeRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/programs/$programId/hosts/$hostId/equalize",
-  parseParams: (p) => ({ programId: Number(p.programId), hostId: Number(p.hostId) }),
-  stringifyParams: (p) => ({
-    programId: String(p.programId),
-    hostId: String(p.hostId),
-  }),
-  component: HostEqualizeRoute,
-});
-
 const hostEqualitySetsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/programs/$programId/hosts/$hostId/equality-sets",
@@ -244,12 +235,10 @@ const runJobRoute = createRoute({
   }),
   validateSearch: (s: Record<string, unknown>): {
     requestIds?: string;
-    equalitySetIds?: string;
     hostIds?: string;
     kind?: string;
   } => ({
     requestIds: typeof s.requestIds === "string" ? s.requestIds : undefined,
-    equalitySetIds: typeof s.equalitySetIds === "string" ? s.equalitySetIds : undefined,
     hostIds: typeof s.hostIds === "string" ? s.hostIds : undefined,
     kind: typeof s.kind === "string" ? s.kind : undefined,
   }),
@@ -269,6 +258,8 @@ const jobsListRoute = createRoute({
     hostId?: number;
     routineId?: number;
     tab?: string;
+    createdBy?: string;
+    agentContextId?: number;
   } => ({
     page: s.page ? Number(s.page) : undefined,
     size: s.size ? Number(s.size) : undefined,
@@ -278,6 +269,8 @@ const jobsListRoute = createRoute({
     hostId: s.hostId ? Number(s.hostId) : undefined,
     routineId: s.routineId ? Number(s.routineId) : undefined,
     tab: typeof s.tab === "string" ? s.tab : undefined,
+    createdBy: typeof s.createdBy === "string" ? s.createdBy : undefined,
+    agentContextId: s.agentContextId ? Number(s.agentContextId) : undefined,
   }),
   component: JobsListRoute,
 });
@@ -290,10 +283,54 @@ const jobDetailRoute = createRoute({
   component: JobDetailRoute,
 });
 
-const globalRunJobRoute = createRoute({
+// ----- Findings -----
+const findingsListRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/jobs/run-global",
-  component: GlobalRunJobRoute,
+  path: "/findings",
+  validateSearch: (s: Record<string, unknown>): FindingsSearch => ({
+    page: s.page ? Number(s.page) : undefined,
+    size: s.size ? Number(s.size) : undefined,
+    hostId: s.hostId ? Number(s.hostId) : undefined,
+    requestId: s.requestId ? Number(s.requestId) : undefined,
+    jobId: s.jobId ? Number(s.jobId) : undefined,
+    status: typeof s.status === "string" ? s.status : undefined,
+    verdict: typeof s.verdict === "string" ? s.verdict : undefined,
+    createdBy: typeof s.createdBy === "string" ? s.createdBy : undefined,
+    create: s.create === true || s.create === "true" ? true : undefined,
+  }),
+  component: FindingsListRoute,
+});
+
+const findingDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/findings/$findingId",
+  parseParams: (p) => ({ findingId: Number(p.findingId) }),
+  stringifyParams: (p) => ({ findingId: String(p.findingId) }),
+  component: FindingDetailRoute,
+});
+
+// ----- Agent contexts -----
+const agentContextsListRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/agent-contexts",
+  validateSearch: (s: Record<string, unknown>): {
+    hostId?: number;
+    page?: number;
+    size?: number;
+  } => ({
+    hostId: s.hostId ? Number(s.hostId) : undefined,
+    page: s.page ? Number(s.page) : undefined,
+    size: s.size ? Number(s.size) : undefined,
+  }),
+  component: AgentContextsListRoute,
+});
+
+const agentContextDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/agent-contexts/$contextId",
+  parseParams: (p) => ({ contextId: Number(p.contextId) }),
+  stringifyParams: (p) => ({ contextId: String(p.contextId) }),
+  component: AgentContextDetailRoute,
 });
 
 // ----- Resources -----
@@ -382,14 +419,16 @@ const routeTree = rootRoute.addChildren([
   hostTenantDetailRoute,
   hostRequestsRoute,
   hostRequestDetailRoute,
-  hostEqualizeRoute,
   hostEqualitySetsRoute,
   hostEqualitySetDetailRoute,
   hostJobsRoute,
   runJobRoute,
   jobsListRoute,
   jobDetailRoute,
-  globalRunJobRoute,
+  findingsListRoute,
+  findingDetailRoute,
+  agentContextsListRoute,
+  agentContextDetailRoute,
   routinesListRoute,
   routineDetailRoute,
   vulnsListRoute,

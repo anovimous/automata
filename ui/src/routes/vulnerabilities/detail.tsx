@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import {
   useDeleteVulnerability,
@@ -23,24 +23,27 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
 
+const NO_PARENT = "__none__";
+
 export function VulnerabilityDetailRoute() {
   const { id } = useParams({ strict: false }) as { id: number };
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const vulnQ = useVulnerability(id);
-  const vulns = useVulnerabilities({ page: 0, size: 200 });
+  const vulns = useVulnerabilities({ pageable: { page: 0, size: 200 } });
+  const children = useVulnerabilities({ parentVulnId: id, pageable: { page: 0, size: 100 } });
   const patchMut = usePatchVulnerability();
   const deleteMut = useDeleteVulnerability();
 
   const [name, setName] = React.useState("");
-  const [parentId, setParentId] = React.useState<string>("");
+  const [parentId, setParentId] = React.useState<string>(NO_PARENT);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (vulnQ.data) {
       setName(vulnQ.data.name);
-      setParentId(vulnQ.data.parentId ? String(vulnQ.data.parentId) : "");
+      setParentId(vulnQ.data.parentId ? String(vulnQ.data.parentId) : NO_PARENT);
     }
   }, [vulnQ.data]);
 
@@ -75,7 +78,8 @@ export function VulnerabilityDetailRoute() {
                     id,
                     req: {
                       name: name.trim() || undefined,
-                      parentId: parentId ? Number(parentId) : undefined,
+                      parentVulnerabilityId: parentId === NO_PARENT ? undefined : Number(parentId),
+                      setParentNull: parentId === NO_PARENT && !!vulnQ.data?.parentId,
                     },
                   });
                   toast({ title: "Saved", variant: "success" });
@@ -112,6 +116,7 @@ export function VulnerabilityDetailRoute() {
                 <SelectValue placeholder="—" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value={NO_PARENT}>— (top level)</SelectItem>
                 {vulns.data?.content
                   .filter((v) => v.id !== id)
                   .map((v) => (
@@ -122,6 +127,31 @@ export function VulnerabilityDetailRoute() {
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-4">
+        <CardHeader>
+          <CardTitle>Children</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {children.data && children.data.content.length > 0 ? (
+            <ul className="space-y-1">
+              {children.data.content.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    to="/vulnerabilities/$id"
+                    params={{ id: c.id }}
+                    className="text-sm hover:underline"
+                  >
+                    {c.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-xs text-muted-foreground">No child vulnerabilities.</div>
+          )}
         </CardContent>
       </Card>
 

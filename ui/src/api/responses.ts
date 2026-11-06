@@ -1,7 +1,12 @@
-import { apiFetch } from "@/lib/fetcher";
+import { apiFetch, apiUrl } from "@/lib/fetcher";
 import type { Pageable } from "@/types/pagination";
 import { pageableToParams, type PageHolder } from "@/types/pagination";
-import type { RawResponseDto, ResponseDto, ResponseFilter } from "@/types/domain";
+import type {
+  ResponseFilter,
+  ResponseMetadata,
+  ResponseRaw,
+  ResponseSummary,
+} from "@/types/domain";
 
 const BASE = "/api/responses";
 
@@ -17,11 +22,14 @@ function filterToParams(f: ResponseFilter | undefined): Record<string, string | 
 
 export const responsesApi = {
   list: (filter?: ResponseFilter, pageable?: Pageable) =>
-    apiFetch<PageHolder<ResponseDto>>(BASE, {
+    apiFetch<PageHolder<ResponseSummary>>(BASE, {
       query: { ...filterToParams(filter), ...pageableToParams(pageable) },
     }),
-  get: (id: number) => apiFetch<ResponseDto>(`${BASE}/${id}`),
-  getRaw: (id: number) => apiFetch<RawResponseDto>(`${BASE}/${id}/raw`),
+  metadata: (id: number) => apiFetch<ResponseMetadata>(`${BASE}/${id}/metadata`),
+  raw: (id: number) => apiFetch<ResponseRaw>(`${BASE}/${id}/raw`),
+  bodyUrl: (id: number) => apiUrl(`${BASE}/${id}/body/stream`),
+  bodyBlob: (id: number) =>
+    apiFetch<Blob>(`${BASE}/${id}/body/stream`, { responseType: "blob" }),
   delete: (id: number) =>
     apiFetch<void>(`${BASE}/${id}`, { method: "DELETE", responseType: "void" }),
 };

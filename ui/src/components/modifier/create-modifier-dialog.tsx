@@ -50,14 +50,18 @@ export function CreateModifierDialog({
     }
   }, [open]);
 
+  const priorityValid = priority.trim() !== "" && Number.isInteger(Number(priority));
+  const canSubmit = description.trim() !== "" && priorityValid;
+
   async function submit() {
+    if (!canSubmit) return;
     try {
       await createMut.mutateAsync({
         target,
-        description: description.trim() || undefined,
-        priority: priority ? Number(priority) : undefined,
+        description: description.trim(),
+        priority: Number(priority),
         schema: schema || undefined,
-        available,
+        isAvailable: available,
       });
       toast({ title: "Modifier created", variant: "success" });
       onOpenChange(false);
@@ -89,7 +93,7 @@ export function CreateModifierDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Description</Label>
+            <Label>Description (required)</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -99,12 +103,13 @@ export function CreateModifierDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Priority</Label>
+              <Label>Priority (required)</Label>
               <Input
                 type="number"
+                step={1}
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                placeholder="—"
+                placeholder="1"
               />
             </div>
             <div className="space-y-1.5">
@@ -129,7 +134,7 @@ export function CreateModifierDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={createMut.isPending}>
+          <Button onClick={submit} disabled={!canSubmit || createMut.isPending}>
             Create
           </Button>
         </DialogFooter>

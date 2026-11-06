@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { CreateRoutineDialog } from "@/components/routine/create-routine-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
+import { DELETE_ROUTINE_BACKEND_READY } from "@/config/features";
 
 export function RoutinesListRoute() {
   useSetTopBar([{ label: "Routines" }]);
@@ -127,10 +128,21 @@ export function RoutinesListRoute() {
                 ),
             },
             {
+              key: "wordlist",
+              header: "Wordlist",
+              cell: (r) =>
+                r.wordlistRequired ? (
+                  <Badge variant="outline">Needed</Badge>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                ),
+            },
+            {
               key: "actions",
               header: "",
               align: "right",
-              cell: (r) => (
+              cell: (r) =>
+                !DELETE_ROUTINE_BACKEND_READY ? null : (
                 <Button
                   variant="ghost"
                   size="icon-sm"

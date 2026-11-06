@@ -1,12 +1,27 @@
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
-import { Activity, Cpu, FileText, Triangle, Layers, ArrowRight } from "lucide-react";
+import {
+  Activity,
+  Cpu,
+  FileText,
+  Triangle,
+  Layers,
+  ArrowRight,
+  Bot,
+  ShieldAlert,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { JobStatePill, JobScopePill } from "@/components/job/pills";
+import {
+  ApprovalPill,
+  JobStatePill,
+  JobScopePill,
+  SeverityPill,
+} from "@/components/job/pills";
 import { EmptyState } from "@/components/common/states";
 import { useJobs } from "@/hooks/useJobs";
+import { useFindings } from "@/hooks/useFindings";
 import { usePrograms } from "@/hooks/usePrograms";
 import { useHost } from "@/hooks/useHosts";
 import { useProgram } from "@/hooks/usePrograms";
@@ -33,6 +48,7 @@ export function DashboardRoute() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
+          <AttentionPanel />
           <ActiveJobsPanel />
           <RecentDraftsPanel />
         </div>
@@ -42,6 +58,83 @@ export function DashboardRoute() {
         </div>
       </div>
     </div>
+  );
+}
+
+// =============================================================================
+// Needs attention: drafts waiting for someone (an AI job to approve, files to retry),
+// findings waiting for a review
+// =============================================================================
+function AttentionPanel() {
+  const drafts = useJobs(
+    { currentStates: ["DRAFT"] },
+    { page: 0, size: 50, sort: ["creationDate,desc"] },
+    { poll: false },
+  );
+  // computed by the core: an unapproved AI job, or a draft whose files failed
+  const awaiting = (drafts.data?.content ?? []).filter((j) => j.waitingForAction);
+  const unreviewed = useFindings({ createdBy: "AI" }, { page: 0, size: 50 });
+  const toReview = (unreviewed.data?.content ?? []).filter((f) => !f.humanVerdict);
+
+  if (awaiting.length === 0 && toReview.length === 0) return null;
+
+  return (
+    <Card className="border-warning/30">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Bot className="h-3.5 w-3.5 text-warning" />
+          <CardTitle>Needs your attention</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <ul className="divide-y divide-border">
+          {awaiting.slice(0, 5).map((j) => (
+            <li key={`job-${j.id}`}>
+              <Link
+                to="/jobs/$jobId"
+                params={{ jobId: j.id }}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/40 transition-colors"
+              >
+                {j.createdBy === "AI" && !j.approved ? (
+                  <ApprovalPill approved={false} />
+                ) : (
+                  <Badge variant="warning">Files failed</Badge>
+                )}
+                <div className="flex-1 min-w-0 text-sm truncate">
+                  {j.createdBy === "AI" ? "AI job" : "Job"} #{j.id} · {j.routineKey ?? "—"}
+                </div>
+                <div className="text-xs text-muted-foreground tabular-nums">
+                  {relativeTime(j.creationDate)}
+                </div>
+              </Link>
+            </li>
+          ))}
+          {awaiting.length > 5 && (
+            <li className="px-4 py-2 text-xs text-muted-foreground">
+              and {awaiting.length - 5} more jobs waiting for action
+            </li>
+          )}
+          {toReview.slice(0, 5).map((f) => (
+            <li key={`finding-${f.id}`}>
+              <Link
+                to="/findings/$findingId"
+                params={{ findingId: f.id }}
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/40 transition-colors"
+              >
+                <ShieldAlert className="h-3.5 w-3.5 text-muted-foreground" />
+                <SeverityPill severity={f.severity} />
+                <div className="flex-1 min-w-0 text-sm truncate">
+                  AI finding #{f.id} to review
+                </div>
+                <div className="text-xs text-muted-foreground tabular-nums">
+                  {relativeTime(f.creationDate)}
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -181,7 +274,7 @@ function CountsPanel() {
     { poll: false },
   );
   const failedJobs = useJobs(
-    { currentStates: ["FAILED", "TERMINATED"] },
+    { currentStates: ["FAILED", "SELFTERMINATED", "LOSTCONTACT"] },
     { page: 0, size: 1 },
     { poll: false },
   );

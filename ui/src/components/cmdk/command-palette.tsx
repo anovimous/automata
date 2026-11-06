@@ -10,6 +10,8 @@ import {
   GitCompare,
   Wrench,
   FileText,
+  Bot,
+  ShieldAlert,
   Settings,
   Plus,
   Play,
@@ -92,26 +94,32 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
           comparatorsApi
             .list({ query: debounced, pageable: { page: 0, size: 5 } })
             .catch(() => null),
-          vulnerabilitiesApi.list({ page: 0, size: 5 }).catch(() => null),
+          vulnerabilitiesApi
+            .list({ query: debounced, pageable: { page: 0, size: 5 } })
+            .catch(() => null),
         ]);
 
-        // Hosts only if we have a program context (best-effort) or no
-        // good way to do a global search; pull from the first matching program.
-        let hosts: EntityResult[] = [];
-        if (programs?.content?.length) {
-          const firstP = programs.content[0];
-          const hh = await hostsApi
-            .list(firstP.id, debounced, { page: 0, size: 5 })
-            .catch(() => null);
-          hosts =
-            hh?.content?.map((h) => ({
+        // Hosts of every program (the host list needs no program any more); the program
+        // of each result comes with it so the link can be built.
+        const hostPage = await hostsApi
+          .list(undefined, debounced, { page: 0, size: 5 })
+          .catch(() => null);
+        const hostDetails = await Promise.all(
+          (hostPage?.content ?? []).map((h) => hostsApi.get(h.id).catch(() => null)),
+        );
+        const hosts: EntityResult[] = (hostPage?.content ?? []).flatMap((h, i) => {
+          const programId = hostDetails[i]?.programId;
+          if (programId === undefined) return [];
+          return [
+            {
               kind: "host" as const,
               id: h.id,
               primary: h.host,
-              secondary: firstP.name,
-              programId: firstP.id,
-            })) ?? [];
-        }
+              secondary: programs?.content.find((p) => p.id === programId)?.name,
+              programId,
+            },
+          ];
+        });
 
         const results: EntityResult[] = [
           ...(programs?.content?.map((p) => ({
@@ -125,7 +133,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             kind: "routine" as const,
             id: r.id,
             primary: r.key,
-            secondary: r.description ?? undefined,
+            secondary: r.protocol ?? undefined,
           })) ?? []),
           ...(comparators?.content?.map((c) => ({
             kind: "comparator" as const,
@@ -133,13 +141,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             primary: c.name,
             secondary: c.schema ?? undefined,
           })) ?? []),
-          ...((vulns?.content ?? [])
-            .filter((v) => v.name.toLowerCase().includes(debounced.toLowerCase()))
-            .map((v) => ({
-              kind: "vulnerability" as const,
-              id: v.id,
-              primary: v.name,
-            }))),
+          ...(vulns?.content?.map((v) => ({
+            kind: "vulnerability" as const,
+            id: v.id,
+            primary: v.name,
+          })) ?? []),
         ];
 
         if (!cancelled) setEntityResults(results);
@@ -226,9 +232,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             />
             <PaletteItem
               icon={Shuffle}
-              label="Equalize requests"
+              label="Equalizations"
               onSelect={() =>
-                go("/programs/$programId/hosts/$hostId/equalize", {
+                go("/programs/$programId/hosts/$hostId/equality-sets", {
                   programId: ctxProgramId!,
                   hostId: ctxHostId!,
                 })
@@ -270,6 +276,16 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             icon={FileText}
             label="Wordlists"
             onSelect={() => go("/wordlists")}
+          />
+          <PaletteItem
+            icon={ShieldAlert}
+            label="Findings"
+            onSelect={() => go("/findings")}
+          />
+          <PaletteItem
+            icon={Bot}
+            label="Agent contexts"
+            onSelect={() => go("/agent-contexts")}
           />
           <PaletteItem icon={Settings} label="Settings" onSelect={() => go("/settings")} />
         </Command.Group>
@@ -321,11 +337,6 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             icon={Plus}
             label="New program"
             onSelect={() => go("/programs")}
-          />
-          <PaletteItem
-            icon={Play}
-            label="Run global job"
-            onSelect={() => go("/jobs/run-global")}
           />
           <PaletteItem
             icon={RefreshCw}

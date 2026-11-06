@@ -9,9 +9,9 @@ import {
 import { useSetTopBar } from "@/components/layout/top-bar";
 import { PageContainer, PageHeader } from "@/components/layout/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -76,6 +76,7 @@ export function ComparatorDetailRoute() {
                     req: {
                       name: name.trim() || undefined,
                       schema: schema || undefined,
+                      setSchemaNull: !schema && !!compQ.data?.schema,
                     },
                   });
                   toast({ title: "Saved", variant: "success" });
@@ -124,30 +125,39 @@ export function ComparatorDetailRoute() {
         <Card>
           <CardHeader>
             <CardTitle>Modifiers</CardTitle>
-            <Badge variant="muted">{compQ.data?.modifiers?.length ?? 0}</Badge>
           </CardHeader>
-          <CardContent>
-            {compQ.data?.modifiers?.length ? (
-              <ul className="space-y-1">
-                {compQ.data.modifiers.map((m) => (
-                  <li key={m.id} className="text-xs flex items-center gap-2">
-                    <Link
-                      to="/modifiers/$id"
-                      params={{ id: m.id }}
-                      className="font-mono hover:underline"
-                    >
-                      #{m.id}
-                    </Link>
-                    <Badge variant="outline">{m.target}</Badge>
-                    {m.description && (
-                      <span className="text-muted-foreground truncate">{m.description}</span>
-                    )}
-                  </li>
-                ))}
+          <CardContent className="p-0">
+            {(compQ.data?.modifiers ?? []).length > 0 ? (
+              <ul className="divide-y divide-border">
+                {[...(compQ.data?.modifiers ?? [])]
+                  .sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))
+                  .map((m) => (
+                    <li key={m.id} className="px-4 py-2.5 text-xs flex items-start gap-3">
+                      <Link
+                        to="/modifiers/$id"
+                        params={{ id: m.id }}
+                        className="font-mono font-medium hover:underline"
+                      >
+                        {m.target}
+                      </Link>
+                      <span className="flex-1 text-muted-foreground">{m.description ?? "—"}</span>
+                      <span className="font-mono tabular-nums text-muted-foreground">
+                        priority {m.priority ?? "—"}
+                      </span>
+                      {m.isAvailable === false && <Badge variant="warning">unavailable</Badge>}
+                    </li>
+                  ))}
               </ul>
             ) : (
-              <div className="text-xs text-muted-foreground">No modifiers attached.</div>
+              <div className="p-4 text-xs text-muted-foreground">No modifier.</div>
             )}
+            <div className="px-4 py-3 border-t border-border text-xs text-muted-foreground">
+              The modifiers are chosen when the comparator is created; the API has no route to
+              change them afterwards.{" "}
+              <Link to="/modifiers" className="text-foreground hover:underline">
+                Browse modifiers
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

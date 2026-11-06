@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/fetcher";
+import { apiFetch, apiUrl } from "@/lib/fetcher";
 import type { Pageable } from "@/types/pagination";
 import { pageableToParams, type PageHolder } from "@/types/pagination";
 import type {
@@ -6,9 +6,10 @@ import type {
   ComparatorCreationRequest,
   ComparatorPatchRequest,
   ComparatorSchema as ComparatorSchemaType,
-  Modifier,
   ModifierCreationRequest,
+  ModifierDetailed,
   ModifierPatchRequest,
+  ModifierSummary,
   ModifierTarget,
   WordlistCreationRequest,
   WordlistDetailed,
@@ -23,16 +24,12 @@ const WL = "/api/wordlists";
 export const comparatorsApi = {
   list: (params?: {
     query?: string;
-    programId?: number;
-    hostId?: number;
     schema?: ComparatorSchemaType;
     pageable?: Pageable;
   }) =>
     apiFetch<PageHolder<Comparator>>(COMP, {
       query: {
         query: params?.query,
-        programId: params?.programId,
-        hostId: params?.hostId,
         schema: params?.schema,
         ...pageableToParams(params?.pageable),
       },
@@ -52,14 +49,14 @@ export const modifiersApi = {
     schema?: ComparatorSchemaType;
     pageable?: Pageable;
   }) =>
-    apiFetch<PageHolder<Modifier>>(MOD, {
+    apiFetch<PageHolder<ModifierSummary>>(MOD, {
       query: {
         target: params?.target,
         schema: params?.schema,
         ...pageableToParams(params?.pageable),
       },
     }),
-  get: (id: number) => apiFetch<Modifier>(`${MOD}/${id}`),
+  get: (id: number) => apiFetch<ModifierDetailed>(`${MOD}/${id}`),
   create: (req: ModifierCreationRequest) =>
     apiFetch<void>(MOD, { method: "POST", body: req, responseType: "void" }),
   patch: (id: number, req: ModifierPatchRequest) =>
@@ -78,8 +75,21 @@ export const wordlistsApi = {
       },
     }),
   get: (id: number) => apiFetch<WordlistDetailed>(`${WL}/${id}`),
-  create: (req: WordlistCreationRequest) =>
-    apiFetch<void>(WL, { method: "POST", body: req, responseType: "void" }),
+  /**
+   * Multipart upload: the file is the part `file`, the other properties the JSON part
+   * `metadata`. The core reads the file once (sha256, size, lines) and answers 409 when
+   * it is already a wordlist, 400 for an empty or binary file, 413 above 512 MB.
+   */
+  create: (file: File, metadata?: WordlistCreationRequest) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (metadata) {
+      form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+    }
+    return apiFetch<void>(WL, { method: "POST", formData: form, responseType: "void" });
+  },
+  /** The file as an attachment (`<a href download>`). */
+  contentUrl: (id: number) => apiUrl(`${WL}/${id}/content`),
   patch: (id: number, req: WordlistPatchRequest) =>
     apiFetch<void>(`${WL}/${id}`, { method: "PATCH", body: req, responseType: "void" }),
   delete: (id: number) =>

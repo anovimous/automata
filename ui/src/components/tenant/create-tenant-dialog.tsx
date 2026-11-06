@@ -38,11 +38,11 @@ export function CreateTenantDialog({
   }, [open]);
 
   async function submit() {
-    if (!name.trim()) return;
+    if (!name.trim() || !email.trim()) return;
     try {
       await createMut.mutateAsync({
         name: name.trim(),
-        email: email.trim() || undefined,
+        email: email.trim(),
         hostId,
         programId,
         hostName,
@@ -73,7 +73,7 @@ export function CreateTenantDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="t-email">Email</Label>
+            <Label htmlFor="t-email">Email (required)</Label>
             <Input
               id="t-email"
               value={email}
@@ -86,7 +86,10 @@ export function CreateTenantDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!name.trim() || createMut.isPending}>
+          <Button
+            onClick={submit}
+            disabled={!name.trim() || !email.trim() || createMut.isPending}
+          >
             Create
           </Button>
         </DialogFooter>

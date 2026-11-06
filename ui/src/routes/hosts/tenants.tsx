@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { CreateTenantDialog } from "@/components/tenant/create-tenant-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
+import { formatDate } from "@/lib/utils";
 
 export function HostTenantsRoute() {
   const { programId, hostId } = useParams({ strict: false }) as {
@@ -94,12 +95,10 @@ export function HostTenantsRoute() {
               ),
             },
             {
-              key: "email",
-              header: "Email",
+              key: "created",
+              header: "Created",
               cell: (r) => (
-                <span className="font-mono text-xs text-muted-foreground">
-                  {r.email ?? "—"}
-                </span>
+                <span className="text-muted-foreground">{formatDate(r.creationDate)}</span>
               ),
             },
             {

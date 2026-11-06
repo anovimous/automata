@@ -14,11 +14,17 @@ import { clearActivity } from "@/lib/activity";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import {
-  JOB_SCHEDULING_BACKEND_READY,
-  MULTI_EQUALITY_SETS_BACKEND_READY,
-  WIDE_MULTI_HOSTS_BACKEND_READY,
-} from "@/config/features";
+import { FEATURES } from "@/config/features";
+
+const FEATURE_LABELS: Record<keyof typeof FEATURES, string> = {
+  JOB_SCHEDULING_BACKEND_READY: "Job scheduling",
+  DELETE_PROGRAM_BACKEND_READY: "Delete a program",
+  DELETE_HOST_BACKEND_READY: "Delete a host",
+  DELETE_REQUEST_BACKEND_READY: "Delete a request",
+  DELETE_ROUTINE_BACKEND_READY: "Delete a routine",
+  DELETE_JOB_BACKEND_READY: "Delete a job",
+  DELETE_RESPONSE_BACKEND_READY: "Delete a response",
+};
 
 export function SettingsRoute() {
   useSetTopBar([{ label: "Settings" }]);
@@ -82,21 +88,15 @@ export function SettingsRoute() {
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground mb-3">
-              Some selector types and operations are blocked in the UI because the
-              backend support for them is not yet ready. Edit{" "}
+              Some operations are hidden or blocked in the UI because the backend
+              doesn't support them yet (it answers 501 not implemented). Edit{" "}
               <code className="font-mono">src/config/features.ts</code> to enable these
               once the backend changes are deployed.
             </p>
             <div className="space-y-2 text-sm">
-              <FeatureRow
-                label="WIDE multi-hosts selector"
-                ready={WIDE_MULTI_HOSTS_BACKEND_READY}
-              />
-              <FeatureRow
-                label="Multiple equality sets selector"
-                ready={MULTI_EQUALITY_SETS_BACKEND_READY}
-              />
-              <FeatureRow label="Job scheduling" ready={JOB_SCHEDULING_BACKEND_READY} />
+              {(Object.keys(FEATURES) as (keyof typeof FEATURES)[]).map((key) => (
+                <FeatureRow key={key} label={FEATURE_LABELS[key]} ready={FEATURES[key]} />
+              ))}
             </div>
           </CardContent>
         </Card>

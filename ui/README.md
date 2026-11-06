@@ -14,16 +14,39 @@ This app is ran using the docker compose file found at the central service at `g
 The data model maps directly to the backend:
 
 - **Programs** are the top-level scope (BugCrowd, HackerOne, Intigriti, or
-  custom). Each program has hosts.
-- **Hosts** belong to one program. They can be FQDNs or wildcards and carry
-  per-host rate limits.
-- **Tenants** are auth-bearing identities scoped to a host. Each tenant has
-  optional Static (`headers`, `cookies`, `queryParameters`) or Dynamic
-  (JS/Groovy `code`) auth data.
-- **Requests** belong to a host. They store parsed method/path/contentType
-  plus the original raw bytes (added MANUAL or WAYBACK).
-- **Equality sets** are groups of requests that a comparator considers
-  equivalent. They are produced by running `equalize`.
+  custom). Each program has hosts and a list of out-of-scope vulnerabilities.
+- **Hosts** belong to one program. They can be FQDNs or wildcards (a wildcard is entered as
+  the bare domain with the Wildcard scope), carry three rate limits (all required: host, short
+  jobs, long jobs; a host with 0 is closed to jobs), and a description, technologies and notes
+  (shown to AI agents). The name of a host can't be changed.
+- **Tenants** are auth-bearing identities scoped to a host. Each tenant has an
+  optional static auth set (`headers`, `cookies`, `queryParameters`).
+- **Requests** belong to a host. They store the parsed request line and headers
+  plus the raw bytes; bodies are read through the metadata / raw / body-stream
+  routes whether stored inline or as a file. The UI shows each request with its
+  response (headers, raw message, body preview and download).
+- **Equalizations** apply a comparator to the requests of a host and group the
+  equivalent ones into **equality sets**.
+- **Jobs** run a routine on a host, a request, several requests of a host (NARROW) or
+  several hosts of a program (WIDE, selected on the program page). A user creates a draft
+  (rate and priority are required, the rate within the limits of the host, the program and the
+  duration), the job files are prepared, and the job is queued. Jobs created by an AI agent need
+  a human approval first. A request is a job target only when it has no body or a JSON / form
+  body.
+- **Wordlists** are files uploaded to the core (up to 512 MB); a routine's job picks them by id
+  and the workers download them.
+- **Findings** are vulnerabilities reported by a user or by an AI agent, with a
+  human true/false-positive review.
+- **Agent contexts** scope an AI agent to one host: the requests / equality sets
+  it may work on, the routines it may run and the tenants it may use.
+
+The routes that only the AI agent calls (`/api/agent-contexts/uuid/...`,
+`/api/external/ai/...`, `POST /api/jobs/http/{id}/ai-result`) and the ones for
+Burp and the workers (`/api/external/...`) have no UI on purpose.
+
+`docs/rest-api-review.md` maps every REST route to its screen and lists the
+backend problems found while wiring them; `src/config/features.ts` turns off the
+controls whose backend support is missing.
 
 ### Custom configs and `public/routine-specs.json`
 
@@ -62,5 +85,10 @@ To add a routine spec:
 
 ## Things not in v1
 
-- Job scheduling UI (the backend endpoints are commented out)
-- Per-member listing of an equality set (backend does not expose this endpoint)
+See `docs/rest-api-review.md` (sections 3 and 4) for the full list. The main ones:
+
+- Job scheduling.
+- Browsing the equality sets of a host: the API has no route that lists them, so a set is
+  opened by id.
+- Deleting programs, hosts, requests, routines, jobs and responses: the backend answers 501.
+- Changing the modifiers of a comparator, and seeing the vulnerabilities of a wordlist.

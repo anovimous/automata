@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
-import { useModifiers, useDeleteModifier } from "@/hooks/useResources";
+import { useModifiers, useModifierDetails, useDeleteModifier } from "@/hooks/useResources";
 import { useSetTopBar } from "@/components/layout/top-bar";
 import { PageContainer, PageHeader } from "@/components/layout/page";
 import { DataTable } from "@/components/data-table/data-table";
@@ -41,6 +41,7 @@ export function ModifiersListRoute() {
     schema: schema || undefined,
     pageable: { page, size },
   });
+  const details = useModifierDetails((data?.content ?? []).map((m) => m.id));
   const deleteMut = useDeleteModifier();
 
   return (
@@ -124,8 +125,8 @@ export function ModifiersListRoute() {
               key: "schema",
               header: "Schema",
               cell: (r) =>
-                r.schema ? (
-                  <Badge variant="muted">{r.schema}</Badge>
+                details.get(r.id)?.schema ? (
+                  <Badge variant="muted">{details.get(r.id)?.schema}</Badge>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 ),
@@ -136,7 +137,7 @@ export function ModifiersListRoute() {
               align: "right",
               cell: (r) => (
                 <span className="font-mono tabular-nums text-muted-foreground">
-                  {r.priority ?? "—"}
+                  {details.get(r.id)?.priority ?? "—"}
                 </span>
               ),
             },
@@ -145,7 +146,7 @@ export function ModifiersListRoute() {
               header: "Description",
               cell: (r) => (
                 <span className="text-xs text-muted-foreground truncate block max-w-[40ch]">
-                  {r.description ?? "—"}
+                  {details.get(r.id)?.description ?? "—"}
                 </span>
               ),
             },
@@ -153,7 +154,7 @@ export function ModifiersListRoute() {
               key: "avail",
               header: "Available",
               cell: (r) =>
-                r.available ? (
+                details.get(r.id)?.isAvailable ? (
                   <Badge variant="success">●</Badge>
                 ) : (
                   <span className="text-muted-foreground">—</span>

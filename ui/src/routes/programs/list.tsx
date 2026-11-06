@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/toast";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { CreateProgramDialog } from "@/components/program/create-program-dialog";
 import { relativeTime } from "@/lib/utils";
+import { DELETE_PROGRAM_BACKEND_READY } from "@/config/features";
 import { ApiError } from "@/lib/fetcher";
 
 export function ProgramsListRoute() {
@@ -92,16 +93,6 @@ export function ProgramsListRoute() {
                 ),
             },
             {
-              key: "rate",
-              header: "Rate limit",
-              align: "right",
-              cell: (r) => (
-                <span className="font-mono tabular-nums text-muted-foreground">
-                  {r.programRateLimit ?? "—"}
-                </span>
-              ),
-            },
-            {
               key: "added",
               header: "Added",
               cell: (r) => (
@@ -112,7 +103,8 @@ export function ProgramsListRoute() {
               key: "actions",
               header: "",
               align: "right",
-              cell: (r) => (
+              cell: (r) =>
+                !DELETE_PROGRAM_BACKEND_READY ? null : (
                 <Button
                   variant="ghost"
                   size="icon-sm"

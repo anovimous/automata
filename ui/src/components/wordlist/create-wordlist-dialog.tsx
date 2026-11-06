@@ -8,17 +8,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useCreateWordlist, useVulnerabilities } from "@/hooks/useResources";
+import { Input, Label, Textarea } from "@/components/ui/input";
+import { VulnerabilityMultiPicker } from "@/components/common/vulnerability-picker";
+import { useCreateWordlist } from "@/hooks/useResources";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
+import { formatBytes } from "@/lib/http";
+
+/** The core refuses a file above this (spring.servlet.multipart.max-file-size). */
+export const MAX_WORDLIST_BYTES = 512 * 1024 * 1024;
+export const MAX_WORDLIST_NAME = 255;
+export const MAX_WORDLIST_DESCRIPTION = 1000;
 
 export function CreateWordlistDialog({
   open,
@@ -27,28 +27,43 @@ export function CreateWordlistDialog({
   open: boolean;
   onOpenChange: (o: boolean) => void;
 }) {
+  const [file, setFile] = React.useState<File | null>(null);
   const [name, setName] = React.useState("");
-  const [path, setPath] = React.useState("");
-  const [vulnId, setVulnId] = React.useState("");
+  const [description, setDescription] = React.useState("");
+  const [vulnIds, setVulnIds] = React.useState<number[]>([]);
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const createMut = useCreateWordlist();
-  const vulns = useVulnerabilities({ page: 0, size: 200 });
   const { toast } = useToast();
 
   React.useEffect(() => {
     if (open) {
+      setFile(null);
       setName("");
-      setPath("");
-      setVulnId("");
+      setDescription("");
+      setVulnIds([]);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }, [open]);
 
+  const problems: string[] = [];
+  if (!file) problems.push("Pick the wordlist file.");
+  else if (file.size === 0) problems.push("The file is empty.");
+  else if (file.size > MAX_WORDLIST_BYTES)
+    problems.push(`The file is above the ${formatBytes(MAX_WORDLIST_BYTES)} limit.`);
+  if (name.length > MAX_WORDLIST_NAME) problems.push(`The name is at most ${MAX_WORDLIST_NAME} characters.`);
+  if (description.length > MAX_WORDLIST_DESCRIPTION)
+    problems.push(`The description is at most ${MAX_WORDLIST_DESCRIPTION} characters.`);
+
   async function submit() {
-    if (!name.trim() || !path.trim()) return;
+    if (!file || problems.length > 0) return;
     try {
       await createMut.mutateAsync({
-        name: name.trim(),
-        path: path.trim(),
-        vulnerabilityId: vulnId ? Number(vulnId) : undefined,
+        file,
+        metadata: {
+          name: name.trim() || undefined,
+          description: description.trim() || undefined,
+          vulnIds: vulnIds.length > 0 ? vulnIds : undefined,
+        },
       });
       toast({ title: "Wordlist created", variant: "success" });
       onOpenChange(false);
@@ -64,54 +79,66 @@ export function CreateWordlistDialog({
         <DialogHeader>
           <DialogTitle>New wordlist</DialogTitle>
           <DialogDescription>
-            Wordlists are pointers to files already present in the consumer environment.
+            Upload a text file of up to 512 MB. The core keeps it, and cannot change it later; a
+            file that is already a wordlist is refused.
           </DialogDescription>
         </DialogHeader>
         <div className="px-5 py-4 space-y-3">
           <div className="space-y-1.5">
-            <Label>Name</Label>
+            <Label htmlFor="wl-file">File</Label>
+            <input
+              id="wl-file"
+              ref={inputRef}
+              type="file"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                setFile(f);
+                if (f && !name.trim()) setName(f.name);
+              }}
+              className="block w-full text-xs file:mr-3 file:rounded-md file:border file:border-border file:bg-muted file:px-3 file:py-1.5 file:text-xs"
+            />
+            {file && (
+              <div className="text-[11px] text-muted-foreground font-mono">
+                {file.name} · {formatBytes(file.size)}
+              </div>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Name (optional, the file name by default)</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="common-paths"
               className="font-mono"
-              autoFocus
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Path</Label>
-            <Input
-              value={path}
-              onChange={(e) => setPath(e.target.value)}
-              placeholder="/wordlists/common.txt"
-              className="font-mono"
+            <Label>Description (optional)</Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              placeholder="What it is good for."
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Vulnerability (optional)</Label>
-            <Select value={vulnId} onValueChange={setVulnId}>
-              <SelectTrigger>
-                <SelectValue placeholder="—" />
-              </SelectTrigger>
-              <SelectContent>
-                {vulns.data?.content.map((v) => (
-                  <SelectItem key={v.id} value={String(v.id)}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Vulnerabilities (optional)</Label>
+            <VulnerabilityMultiPicker value={vulnIds} onChange={setVulnIds} />
           </div>
+          {file && problems.length > 0 && (
+            <ul className="text-[11px] text-destructive list-disc pl-4 space-y-0.5">
+              {problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={submit}
-            disabled={!name.trim() || !path.trim() || createMut.isPending}
-          >
-            Create
+          <Button onClick={submit} disabled={problems.length > 0 || createMut.isPending}>
+            {createMut.isPending ? "Uploading…" : "Upload"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -33,7 +33,7 @@ export function ModifierDetailRoute() {
   React.useEffect(() => {
     if (modQ.data) {
       setDescription(modQ.data.description ?? "");
-      setAvailable(!!modQ.data.available);
+      setAvailable(!!modQ.data.isAvailable);
     }
   }, [modQ.data]);
 
@@ -109,7 +109,7 @@ export function ModifierDetailRoute() {
             />
           </div>
           <div className="flex items-center justify-between pt-2">
-            <Label>Available at consumer</Label>
+            <Label>Available</Label>
             <Switch checked={available} onCheckedChange={setAvailable} />
           </div>
           <div className="text-[11px] text-muted-foreground pt-1">

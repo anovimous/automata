@@ -1,9 +1,11 @@
-import type { HttpJobScope, SelectorType, TargetSelector } from "@/types/domain";
+import type { AllowedTarget, HttpJobScope, SelectorType, TargetSelector } from "@/types/domain";
 
 /**
  * The "selection" the user makes before opening the run-job page.
  *
  * Selections are mutually exclusive — exactly one of these branches is filled.
+ * Equality sets are not job targets: the AI agent works on them through an agent
+ * context, and a user job targets a host or request(s).
  */
 export type RunJobSelection =
   | { kind: "single-host"; programId: number; hostId: number; hostName?: string }
@@ -15,34 +17,13 @@ export type RunJobSelection =
       requestIds: number[];
       hostName?: string;
     }
-  | {
-      kind: "single-equality-set";
-      programId: number;
-      hostId: number;
-      equalitySetId: number;
-      hostName?: string;
-    }
-  | {
-      kind: "multiple-equality-sets";
-      programId: number;
-      hostId: number;
-      equalitySetIds: number[];
-      hostName?: string;
-    }
-  | { kind: "multiple-hosts"; programId: number; hostIds: number[] } // WIDE
-  | { kind: "global" }; // GLOBAL — no preselected hosts
+  | { kind: "multiple-hosts"; programId: number; hostIds: number[] }; // WIDE
 
 export interface InferredScope {
   scope: HttpJobScope;
-  selectorType: SelectorType | null; // null only for GLOBAL with empty selector
+  selectorType: SelectorType;
   selector: unknown; // shape determined by selectorType (see backend embedded package)
-  targetSelector: TargetSelector | null;
-  /**
-   * Whether this selection is currently supported by the backend.
-   * Some selector classes are TODO on the backend; we still let the user fill
-   * the form but block submission with an explanatory banner.
-   */
-  backendReady: boolean;
+  targetSelector: TargetSelector;
   /**
    * Human-readable one-line summary of what's selected.
    */
@@ -50,7 +31,7 @@ export interface InferredScope {
   /**
    * One-word badge label for the scope pill.
    */
-  scopeLabel: "NARROW" | "WIDE" | "GLOBAL";
+  scopeLabel: HttpJobScope;
   /**
    * Granular sub-kind shown next to the scope pill.
    */
@@ -69,7 +50,6 @@ export function inferScope(sel: RunJobSelection): InferredScope {
           selectorType: "SINGLE_REQUEST",
           selector: { requestId: sel.requestId },
         },
-        backendReady: true,
         summary: `1 request${sel.hostName ? ` on ${sel.hostName}` : ""}`,
         scopeLabel: "NARROW",
         selectionLabel: "Single request",
@@ -77,24 +57,16 @@ export function inferScope(sel: RunJobSelection): InferredScope {
     }
 
     case "multiple-requests": {
-      // MultipleRequestsSelector { ids, highLevelMatcher, lowLevelMatcher }
-      // For v1 we only fill the ids set. The matchers are advanced filtering
-      // the backend currently expects to be either-or; we use ids.
+      // MultipleRequestsSelector { requestIds }: every request must exist, be job eligible
+      // and belong to the host of the job.
       return {
         scope: "NARROW",
         selectorType: "MULTIPLE_REQUESTS",
-        selector: {
-          ids: sel.requestIds,
-          highLevelMatcher: { hostId: sel.hostId },
-        },
+        selector: { requestIds: sel.requestIds },
         targetSelector: {
           selectorType: "MULTIPLE_REQUESTS",
-          selector: {
-            ids: sel.requestIds,
-            highLevelMatcher: { hostId: sel.hostId },
-          },
+          selector: { requestIds: sel.requestIds },
         },
-        backendReady: true,
         summary: `${sel.requestIds.length} requests${sel.hostName ? ` on ${sel.hostName}` : ""}`,
         scopeLabel: "NARROW",
         selectionLabel: `${sel.requestIds.length} requests`,
@@ -111,78 +83,29 @@ export function inferScope(sel: RunJobSelection): InferredScope {
           selectorType: "SINGLE_HOST",
           selector: { hostId: sel.hostId },
         },
-        backendReady: true,
         summary: `Host${sel.hostName ? ` ${sel.hostName}` : ` #${sel.hostId}`}`,
         scopeLabel: "NARROW",
         selectionLabel: "Single host",
       };
     }
 
-    case "single-equality-set": {
-      // SingleEqualitySetSelector { equalitySetId: Long }
-      return {
-        scope: "NARROW",
-        selectorType: "SINGLE_EQUALITY_SET",
-        selector: { equalitySetId: sel.equalitySetId },
-        targetSelector: {
-          selectorType: "SINGLE_EQUALITY_SET",
-          selector: { equalitySetId: sel.equalitySetId },
-        },
-        backendReady: true,
-        summary: `Equality set #${sel.equalitySetId}${sel.hostName ? ` on ${sel.hostName}` : ""}`,
-        scopeLabel: "NARROW",
-        selectionLabel: "Single equality set",
-      };
-    }
-
-    case "multiple-equality-sets": {
-      // MultipleEqualitySetsSelector — backend has it stubbed out (// TODO).
-      return {
-        scope: "NARROW",
-        selectorType: "MULTIPLE_EQUALITY_SETS",
-        selector: { ids: sel.equalitySetIds },
-        targetSelector: {
-          selectorType: "MULTIPLE_EQUALITY_SETS",
-          selector: { ids: sel.equalitySetIds },
-        },
-        backendReady: false,
-        summary: `${sel.equalitySetIds.length} equality sets${sel.hostName ? ` on ${sel.hostName}` : ""}`,
-        scopeLabel: "NARROW",
-        selectionLabel: `${sel.equalitySetIds.length} equality sets`,
-      };
-    }
-
     case "multiple-hosts": {
-      // MultipleHostsSelector — backend has it stubbed out (// TODO).
+      // MultipleHostsSelector { hostIds }: a WIDE job; every host must belong to the program
+      // of the job and accept jobs (a host rate limit of at least 1).
       return {
         scope: "WIDE",
         selectorType: "MULTIPLE_HOSTS",
-        selector: { ids: sel.hostIds },
+        selector: { hostIds: sel.hostIds },
         targetSelector: {
           selectorType: "MULTIPLE_HOSTS",
-          selector: { ids: sel.hostIds },
+          selector: { hostIds: sel.hostIds },
         },
-        backendReady: false,
-        summary: `${sel.hostIds.length} hosts in 1 program`,
+        summary: `${sel.hostIds.length} hosts of one program`,
         scopeLabel: "WIDE",
         selectionLabel: `${sel.hostIds.length} hosts`,
       };
     }
 
-    case "global": {
-      // GLOBAL — no targetSelector required on the wire; backend has
-      // GlobalHttpJobDetailsDto as an empty object.
-      return {
-        scope: "GLOBAL",
-        selectorType: null,
-        selector: null,
-        targetSelector: null,
-        backendReady: true,
-        summary: "All in-scope targets, across programs",
-        scopeLabel: "GLOBAL",
-        selectionLabel: "Global",
-      };
-    }
   }
 }
 
@@ -192,23 +115,15 @@ export function inferScope(sel: RunJobSelection): InferredScope {
  *
  * Note: backend enum value is "MULTILPLE_HOSTS" (sic).
  */
-export function allowedTargetForSelection(
-  sel: RunJobSelection,
-): "SINGLE_HOST" | "MULTILPLE_HOSTS" | "SINGLE_REQUEST" | "MULTIPLE_REQUESTS" | null {
+export function allowedTargetForSelection(sel: RunJobSelection): AllowedTarget {
   switch (sel.kind) {
     case "single-host":
       return "SINGLE_HOST";
     case "multiple-hosts":
       return "MULTILPLE_HOSTS";
     case "single-request":
-    case "single-equality-set":
       return "SINGLE_REQUEST";
     case "multiple-requests":
-    case "multiple-equality-sets":
       return "MULTIPLE_REQUESTS";
-    case "global":
-      // Global jobs don't have a single allowed-target match.
-      // Show all routines; user picks.
-      return null;
   }
 }

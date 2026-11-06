@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { CreateComparatorDialog } from "@/components/comparator/create-comparator-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
+import { formatDate } from "@/lib/utils";
 
 export function ComparatorsListRoute() {
   useSetTopBar([{ label: "Comparators" }]);
@@ -99,20 +100,21 @@ export function ComparatorsListRoute() {
             {
               key: "modifiers",
               header: "Modifiers",
-              align: "right",
               cell: (r) => (
-                <span className="font-mono tabular-nums text-muted-foreground">
-                  {r.modifiers?.length ?? 0}
-                </span>
+                <div className="flex flex-wrap gap-1">
+                  {r.modifiers.map((m) => (
+                    <Badge key={m.id} variant="muted" className="text-[9px]">
+                      {m.target}
+                    </Badge>
+                  ))}
+                </div>
               ),
             },
             {
-              key: "scope",
-              header: "Scope",
+              key: "created",
+              header: "Created",
               cell: (r) => (
-                <span className="text-xs text-muted-foreground truncate">
-                  {r.host?.host ?? r.program?.name ?? "—"}
-                </span>
+                <span className="text-muted-foreground">{formatDate(r.creationDate)}</span>
               ),
             },
             {

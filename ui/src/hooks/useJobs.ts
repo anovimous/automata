@@ -54,6 +54,7 @@ export function useJob(id: number | null | undefined) {
     refetchInterval: (q) => {
       const data = q.state.data;
       if (!data) return false;
+      if (data.configFileStatus === "PREPARING") return POLL_MS;
       return isActiveState(data.currentState) ? POLL_MS : false;
     },
   });
@@ -92,6 +93,40 @@ export function useQueueJob() {
       qc.invalidateQueries({ queryKey: jobsKeys.all });
       recordActivity({
         kind: "queue-job",
+        programId: vars.programId,
+        hostId: vars.hostId,
+        meta: { jobId: vars.id },
+      });
+    },
+  });
+}
+
+export function useApproveJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: number; programId?: number; hostId?: number }) =>
+      jobsApi.approve(id),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: jobsKeys.all });
+      recordActivity({
+        kind: "approve-job",
+        programId: vars.programId,
+        hostId: vars.hostId,
+        meta: { jobId: vars.id },
+      });
+    },
+  });
+}
+
+export function useRetryJobPreparation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: number; programId?: number; hostId?: number }) =>
+      jobsApi.retryPreparation(id),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: jobsKeys.all });
+      recordActivity({
+        kind: "retry-job-preparation",
         programId: vars.programId,
         hostId: vars.hostId,
         meta: { jobId: vars.id },

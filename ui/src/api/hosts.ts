@@ -11,7 +11,8 @@ import type {
 const BASE = "/api/hosts";
 
 export const hostsApi = {
-  list: (programId: number, query?: string, pageable?: Pageable) =>
+  /** Without `programId` the hosts of every program are searched. */
+  list: (programId: number | undefined, query?: string, pageable?: Pageable) =>
     apiFetch<PageHolder<HostSummary>>(BASE, {
       query: { programId, query, ...pageableToParams(pageable) },
     }),

@@ -23,6 +23,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { CreateWordlistDialog } from "@/components/wordlist/create-wordlist-dialog";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
+import { formatBytes } from "@/lib/http";
 
 export function WordlistsListRoute() {
   useSetTopBar([{ label: "Wordlists" }]);
@@ -42,7 +43,7 @@ export function WordlistsListRoute() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const vulns = useVulnerabilities({ page: 0, size: 200 });
+  const vulns = useVulnerabilities({ pageable: { page: 0, size: 200 } });
   const { data, isLoading } = useWordlists({
     query: debounced || undefined,
     vulnId: vulnId ? Number(vulnId) : undefined,
@@ -54,7 +55,7 @@ export function WordlistsListRoute() {
     <PageContainer>
       <PageHeader
         title="Wordlists"
-        description="Pointers to wordlist files used by routines."
+        description="Files kept by the core and handed to the workers by the jobs that use them."
         actions={
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-3.5 w-3.5" />
@@ -109,34 +110,38 @@ export function WordlistsListRoute() {
                   params={{ id: r.id }}
                   className="font-mono text-xs font-medium hover:underline"
                 >
-                  {r.name}
+                  {r.name ?? `#${r.id}`}
                 </Link>
               ),
             },
             {
-              key: "path",
-              header: "Path",
+              key: "description",
+              header: "Description",
               cell: (r) => (
-                <span className="font-mono text-xs text-muted-foreground truncate block max-w-[50ch]">
-                  {r.path}
+                <span className="text-muted-foreground truncate block max-w-[48ch]">
+                  {r.description || "—"}
                 </span>
               ),
             },
             {
-              key: "vuln",
-              header: "Vulnerability",
-              cell: (r) =>
-                r.vulnerabilityId ? (
-                  <Link
-                    to="/vulnerabilities/$id"
-                    params={{ id: r.vulnerabilityId }}
-                    className="text-xs hover:underline"
-                  >
-                    #{r.vulnerabilityId}
-                  </Link>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                ),
+              key: "lines",
+              header: "Lines",
+              align: "right",
+              cell: (r) => (
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {r.numberOfLines.toLocaleString()}
+                </span>
+              ),
+            },
+            {
+              key: "size",
+              header: "Size",
+              align: "right",
+              cell: (r) => (
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  {formatBytes(r.sizeBytes)}
+                </span>
+              ),
             },
             {
               key: "actions",

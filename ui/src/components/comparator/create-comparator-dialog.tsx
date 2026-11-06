@@ -18,6 +18,7 @@ import {
 import { Checkbox } from "@/components/ui/primitives";
 import {
   useCreateComparator,
+  useModifierDetails,
   useModifiers,
 } from "@/hooks/useResources";
 import { useToast } from "@/components/ui/toast";
@@ -36,6 +37,7 @@ export function CreateComparatorDialog({
   const [modifierIds, setModifierIds] = React.useState<number[]>([]);
   const createMut = useCreateComparator();
   const modifiers = useModifiers({ pageable: { page: 0, size: 100 } });
+  const details = useModifierDetails((modifiers.data?.content ?? []).map((m) => m.id));
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -46,13 +48,18 @@ export function CreateComparatorDialog({
     }
   }, [open]);
 
+  // The core refuses a modifier which is not available (400), so only those are offered.
+  const availableModifiers = (modifiers.data?.content ?? []).filter(
+    (m) => details.get(m.id)?.isAvailable !== false,
+  );
+
   async function submit() {
-    if (!name.trim()) return;
+    if (!name.trim() || modifierIds.length === 0) return;
     try {
       await createMut.mutateAsync({
         name: name.trim(),
         schema: schema || undefined,
-        modifierIds: modifierIds.length ? modifierIds : undefined,
+        modifierIds,
       });
       toast({ title: "Comparator created", variant: "success" });
       onOpenChange(false);
@@ -90,12 +97,12 @@ export function CreateComparatorDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Modifiers</Label>
+            <Label>Modifiers (at least one)</Label>
             <div className="space-y-1 max-h-44 overflow-y-auto border border-border rounded-md p-2">
-              {modifiers.data?.content.length === 0 && (
+              {availableModifiers.length === 0 && (
                 <div className="text-xs text-muted-foreground">No modifiers available.</div>
               )}
-              {modifiers.data?.content.map((m) => (
+              {availableModifiers.map((m) => (
                 <label
                   key={m.id}
                   className="flex items-center gap-2 text-xs cursor-pointer"
@@ -105,8 +112,10 @@ export function CreateComparatorDialog({
                     onCheckedChange={() => toggle(m.id)}
                   />
                   <span className="font-mono">{m.target}</span>
-                  {m.description && (
-                    <span className="text-muted-foreground truncate">{m.description}</span>
+                  {details.get(m.id)?.description && (
+                    <span className="text-muted-foreground truncate">
+                      {details.get(m.id)?.description}
+                    </span>
                   )}
                 </label>
               ))}
@@ -117,7 +126,10 @@ export function CreateComparatorDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!name.trim() || createMut.isPending}>
+          <Button
+            onClick={submit}
+            disabled={!name.trim() || modifierIds.length === 0 || createMut.isPending}
+          >
             Create
           </Button>
         </DialogFooter>
