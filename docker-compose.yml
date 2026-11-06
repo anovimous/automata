@@ -109,7 +109,7 @@ services:
       # Tmp storage for job config files
       TMP_FILES_PATH: /app/files
 
-      # Bucket of the wordlist files (private, created by rustfs-init; the worker downloads from it)
+      # Bucket of the wordlist files (public, created by rustfs-init; the worker downloads from it)
       WORDLISTS_BUCKET: wordlists
     networks:
       - backend
