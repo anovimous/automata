@@ -1,0 +1,37 @@
+{
+  "content": [
+    {
+      "id": 31,
+      "creationDate": "2026-10-22T10:00:00Z",
+      "scope": "NARROW",
+      "currentState": "DRAFT",
+      "priority": 1,
+      "rate": 20,
+      "routineId": 1,
+      "routineKey": "fuzz",
+      "createdBy": "AI",
+      "approved": false,
+      "terminal": false,
+      "waitingForAction": true
+    },
+    {
+      "id": 30,
+      "creationDate": "2026-10-21T10:00:00Z",
+      "scope": "NARROW",
+      "currentState": "FINISHED",
+      "priority": 1,
+      "rate": 10,
+      "routineId": 2,
+      "routineKey": "masser",
+      "createdBy": "AI",
+      "approved": true,
+      "terminal": true,
+      "waitingForAction": false
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 2,
+  "totalPages": 1,
+  "last": true
+}

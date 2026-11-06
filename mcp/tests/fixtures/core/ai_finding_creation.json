@@ -1,0 +1,11 @@
+{
+  "requestId": 7,
+  "jobId": 31,
+  "vulnerabilityId": 12,
+  "severity": 7.5,
+  "status": "CONFIRMED",
+  "confidence": 8.0,
+  "evidence": "GET /api/users/2 returned tenant B's profile",
+  "pocReproductionSteps": "1. Log in as A. 2. GET /api/users/2.",
+  "aiDescription": "BOLA"
+}

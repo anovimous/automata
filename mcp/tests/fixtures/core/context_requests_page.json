@@ -1,0 +1,29 @@
+{
+  "content": [
+    {
+      "requestId": 21,
+      "method": "GET",
+      "computatedPath": "/api/users/{id}",
+      "equalitySetId": 55,
+      "tenantId": 4,
+      "resolvedTarget": true,
+      "automataJobEligible": true,
+      "insertionDate": "2026-10-20"
+    },
+    {
+      "requestId": 19,
+      "method": "GET",
+      "computatedPath": "/api/users/{id}",
+      "equalitySetId": 55,
+      "tenantId": null,
+      "resolvedTarget": false,
+      "automataJobEligible": true,
+      "insertionDate": "2026-10-18"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 2,
+  "totalPages": 1,
+  "last": true
+}
