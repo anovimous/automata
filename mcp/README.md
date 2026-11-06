@@ -28,7 +28,7 @@ AUTOMATA_TRANSPORT=streamable-http uv run automata-mcp  # HTTP on 0.0.0.0:8000, 
 
 Set `AUTOMATA_CORE_URL` to the core (default `http://localhost:8080`). The server starts even when the
 core is down and says so in its log (stderr); its tools report the problem when they are used.
-Example client entry for stdio: command `uv`, args `["--directory", "/path/to/automata-mcp", "run",
+Example client entry for stdio: command `uv`, args `["--directory", "/path/to/automata/mcp", "run",
 "automata-mcp"]`, env `AUTOMATA_CORE_URL`.
 
 ## Docker
@@ -49,8 +49,8 @@ network. For stdio use `uv run automata-mcp` instead (see Run).
 
 ### With the core (docker compose)
 
-The core's `docker-compose.yml` has an `automata-mcp` service that builds this image from
-`../../../automata-mcp`. `docker compose up --build` in the core repo starts it with the rest:
+The `docker-compose.yml` at the root of this repository has an `automata-mcp` service that builds
+this image from `./mcp`. `docker compose up --build` at the repository root starts it with the rest:
 
 - from the host: `http://localhost:8000/mcp` (the port is published on `127.0.0.1` only, since there is
   no authentication);
