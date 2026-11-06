@@ -21,11 +21,8 @@ make_public() {
   echo "bucket $1 is public"
 }
 
-# Public buckets
-for bucket in job-configuration job-results "$REQUEST_BODIES_BUCKET" "$RESPONSE_BODIES_BUCKET"; do
+# All the buckets are public
+for bucket in job-configuration job-results "$REQUEST_BODIES_BUCKET" "$RESPONSE_BODIES_BUCKET" "$WORDLISTS_BUCKET"; do
   create_bucket "$bucket"
   make_public "$bucket"
 done
-
-# Private bucket
-create_bucket "$WORDLISTS_BUCKET"
