@@ -127,7 +127,7 @@ services:
       rustfs-init:
         condition: service_completed_successfully
   frontend:
-    build: ../automata-frontend
+    build: ./ui
     container_name: automata-frontend
     ports:
       - "3000:80"
