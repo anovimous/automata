@@ -2,21 +2,37 @@
 
 A framework for automating security testing of HTTP APIs. It stores the attack surface (programs, hosts, tenants, requests and responses parsed down to the parameter), runs testing tools against it as rate-governed **jobs** executed by distributed workers, and lets an **AI agent** do the repetitive testing inside limits a human sets, with a human approving what matters and reviewing every finding.
 
-Status: working end to end on a developer machine (core, frontend, MCP server under `docker compose`; the Go worker runs from its own repo). It has **no authentication** and is not meant to be exposed to a network yet.
+Status: working end to end on a developer machine (core, frontend, MCP server under `docker compose`; the Go worker runs from its own repo). It has **no authentication** and is not meant to be exposed to a public network yet: the compose file publishes the app, frontend, RabbitMQ and RustFS ports on all interfaces, keeps the service credentials in plain text, and makes the job configuration, job result, request body and response body buckets public.
+
+## Index
+
+- [Components](#components)
+- [Architecture](#architecture)
+- [How a test runs](#how-a-test-runs)
+  - [Human in the loop](#human-in-the-loop)
+- [Domain model](#domain-model)
+- [Jobs](#jobs)
+  - [States](#states)
+  - [Distributed workers](#distributed-workers)
+- [AI agent](#ai-agent)
+- [Request ingestion](#request-ingestion)
+- [Deployment](#deployment)
+- [Where this is going](#where-this-is-going)
 
 ---
 
-## Repositories
+## Components
 
-| Repo | Role | Stack |
+| Component | Role | Stack |
 |---|---|---|
-| `automata` (this one, `core/`) | Core service: REST API, domain, job engine, scheduling. The compose file of the stack is at the root of this repo | Spring Boot 3.5, Java 21 |
-| `automata` (this one, `ui/`) | UI for programs, hosts, requests, jobs, findings, agent contexts (was the `automata-frontend` repo, its history is kept) | React + TypeScript |
-| `automata-worker` | Orchestrator that consumes queued jobs, plus the tool connectors (`ffuf`, `masser`) | Go |
-| `automata` (this one, `mcp/`) | MCP server the AI agent talks to; translates tool calls into core REST calls, holds no business logic (was the `automata-mcp` repo, its history is kept) | Python, official `mcp` SDK |
-| Burp extension | Sends proxy traffic to the core | |
+| [`core/`](core) | Core service: REST API, domain, job engine, scheduling | Spring Boot 3.5, Java 21 |
+| [`ui/`](ui) | UI for programs, hosts, requests, jobs, findings, agent contexts | React + TypeScript |
+| [`mcp/`](mcp) | MCP server the AI agent talks to; translates tool calls into core REST calls, holds no business logic | Python, official `mcp` SDK |
+| [automata-worker](https://github.com/anovimous/automata-worker) | Orchestrator that consumes queued jobs, plus the tool connectors (`ffuf`, `masser`). Lives in its own repository | Go |
 
-Core and worker only talk through a documented contract (`core/docs/worker-contract.md`, checked by tests on both sides). Core and MCP server only talk through the agent-facing routes (`/api/agent-contexts/uuid/{uuid}/...`).
+`core/`, `ui/` and `mcp/` are in this repository, and the `docker-compose.yml` at its root builds them.
+
+Core and worker only talk through a documented contract (`core/docs/worker-contract.md`, checked by tests on both sides).
 
 ---
 
@@ -80,7 +96,7 @@ The agent is useful because it is fast, and safe because it is boxed in. The lim
 - **Host**: an FQDN or wildcard (a name needs a dot; `level` is the number of labels below the registrable domain). It has a description, technologies and notes (read by the AI) and three limits: `hostRateLimit`, `shortRateLimit`, `longRateLimit` (`host >= short + long`). A host with limit 0 is closed to jobs.
 - **Tenant**: an authenticated identity on a host with static authentication data (headers, cookies, query parameters). Dynamic token generation was removed.
 - **Request / Response**: any content type is accepted. The head is parsed into method, path, version, extension, headers, query parameters and path variables; JSON and form bodies (and JSON responses) are flattened to one row per property. The raw message is kept; multipart request bodies and non-JSON response bodies are stored as files in object storage. A request has at most one response. Sources: `MANUAL`, `BURP`, `WAYBACK`, `AI`. Bodies are read through `metadata`, `raw` and `body/stream` routes.
-- **Equality sets and comparators**: requests of a host are grouped into `RequestEqualitySet`s by a `Comparator` made of `Modifier`s (method, path, query string, body, hashed with murmur3). This area is still being refactored (the body hash strategy is known to be broken). Equality sets are **not** job targets; they group requests and serve as items of an agent context.
+- **Equality sets and comparators**: requests of a host are grouped into `RequestEqualitySet`s by a `Comparator` made of `Modifier`s (method, path, query string, body, hashed with murmur3). This area is still being refactored. Equality sets are **not** job targets; they group requests and serve as items of an agent context.
 - **Routine**: a reusable playbook. A unique `key` maps to a worker connector, plus overhead, protocol, allowed target cardinalities, a JSON `configSchema` that validates a job's `customConfig`, whether a wordlist is required, and the result content type.
 - **Vulnerability**: a hierarchical taxonomy. **Wordlist**: an immutable uploaded file (sha256, size, line count) in a private bucket; workers download and cache it by hash.
 - **Finding**: a vulnerability finding with CVSS severity, confidence, `SUGGESTED`/`CONFIRMED` status, PoC steps (required to confirm) and a human verdict (`TRUE_POSITIVE`/`FALSE_POSITIVE`).
@@ -119,7 +135,7 @@ The core never runs a tool. The tools run in a fleet of independent **orchestrat
 
 ## AI agent
 
-The agent never talks to the core directly. It uses the MCP server (38 tools, a workflow prompt, two resources), which only translates tool calls into the core's context-scoped REST routes and holds no business logic. What it can do:
+The agent never talks to the core directly. It uses the MCP server (37 tools, a workflow prompt, two resources), which only translates tool calls into the core's context-scoped REST routes and holds no business logic. What it can do:
 
 - **Read** (inside its context): resolved requests, the host, the tenants with their static auth data, request and response metadata, raw messages and bodies, and the read-only job history of a request.
 - **Add**: requests it discovers (with a response, optionally for a tenant of its context) and wordlists.
@@ -138,20 +154,20 @@ What it cannot do is listed under [Human in the loop](#human-in-the-loop).
 
 ---
 
-## Getting started
+## Deployment
 
-Prerequisites: Docker and Docker Compose; Java 21 only if you run the core outside Docker. Run `docker compose` from the repository root. The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
+Prerequisites: Docker and Docker Compose. Run `docker compose` from the repository root. The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
 
 ```bash
 docker compose up --build -d     # postgres, rabbitmq, rustfs, core, frontend, MCP server
 docker compose down              # stop; add -v to also drop the data
 ```
 
+- Frontend `http://localhost:3000`
 - Core API `http://localhost:8080` (OpenAPI UI via springdoc)
 - MCP server (streamable HTTP) `http://127.0.0.1:8000/mcp`
 - RabbitMQ management `http://localhost:15672`, RustFS console `http://localhost:9001` (credentials in `docker-compose.yml`)
 
-To run only the core: start the backing services (`docker compose up -d postgres rabbitmq rustfs rustfs-init`), set the environment variables listed in `core/.claude/CLAUDE.md` and run `./mvnw spring-boot:run` in `core/`. Tests: `./mvnw test` in `core/`. If an old dev volume refuses to start (tables without Flyway history), recreate it with `docker compose down -v`.
 
 `core/scripts/import-wordlists.sh` uploads a directory of existing wordlists.
 
