@@ -2,7 +2,7 @@
 
 A framework for automating security testing of HTTP APIs. It stores the attack surface (programs, hosts, tenants, requests and responses parsed down to the parameter), runs testing tools against it as rate-governed **jobs** executed by distributed workers, and lets an **AI agent** do the repetitive testing inside limits a human sets, with a human approving what matters and reviewing every finding.
 
-Status: working end to end on a developer machine (core, frontend, MCP server under `docker compose`; the Go worker runs from its own repo). It has **no authentication** and is not meant to be exposed to a public network yet: the compose file publishes the app, frontend, RabbitMQ and RustFS ports on all interfaces, keeps the service credentials in plain text, and makes the job configuration, job result, request body and response body buckets public.
+Status: working end to end on a developer machine (core, frontend, MCP server under `docker compose`; the Go worker runs from its own repo). It has **no authentication** and is not meant to be exposed to a public network yet: the compose file publishes the app, frontend, RabbitMQ and RustFS ports on all interfaces, takes the passwords of PostgreSQL, RabbitMQ and RustFS (one each) from a `.env` file, and makes the job configuration, job result, request body and response body buckets public.
 
 ## Index
 
@@ -156,7 +156,11 @@ What it cannot do is listed under [Human in the loop](#human-in-the-loop).
 
 ## Deployment
 
-Prerequisites: Docker and Docker Compose. Run `docker compose` from the repository root. The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
+Prerequisites: Docker and Docker Compose. Run `docker compose` from the repository root.
+
+Before the first start, copy `.env.example` to `.env` and set `POSTGRES_PASSWORD`, `RABBITMQ_PASSWORD` and `RUSTFS_PASSWORD`, a different one for each; compose refuses to start without them. Keep `.env` out of git. A password is stored in its volume when the volume is created, so after changing one recreate the volumes with `docker compose down -v`.
+
+The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
 
 ```bash
 docker compose up --build -d     # postgres, rabbitmq, rustfs, core, frontend, MCP server
@@ -166,7 +170,7 @@ docker compose down              # stop; add -v to also drop the data
 - Frontend `http://localhost:3000`
 - Core API `http://localhost:8080` (OpenAPI UI via springdoc)
 - MCP server (streamable HTTP) `http://127.0.0.1:8000/mcp`
-- RabbitMQ management `http://localhost:15672`, RustFS console `http://localhost:9001` (credentials in `docker-compose.yml`)
+- RabbitMQ management `http://localhost:15672`, RustFS console `http://localhost:9001` (user `automata`, the `RABBITMQ_PASSWORD` and `RUSTFS_PASSWORD` of your `.env`)
 
 
 `core/scripts/import-wordlists.sh` uploads a directory of existing wordlists.
