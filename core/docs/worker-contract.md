@@ -59,7 +59,7 @@ The core writes it with the application's Jackson mapper (`FAIL_ON_UNKNOWN_PROPE
 | `genericConfig.matchAndReplace` | array of `{targetType, rule, targetKey, value}` | `targetType` is `HEADER` only; `rule` is `ADD` \| `REPLACE` \| `DELETE` |
 | `customConfig` | any JSON, or `null` | checked by the core against the routine's `configSchema` when the job is created, see 3.3 |
 
-The file holds credentials (`auth`). The `job-configuration` and `job-results` buckets are public today (known, see the review file); the `wordlists` bucket is public too.
+The file holds credentials (`auth`). All the buckets are private: the core and the orchestrator sign their requests with the RustFS credentials.
 
 The connectors never see `wordlists`: before it starts one, the orchestrator rewrites its copy of the file in the job directory so that it has `wordlistsPaths` (an array of absolute local paths, in the order of `wordlists`) instead of `wordlists`. Everything else in the file is kept as it is. The worker's own sample of that form is `details-file-resolved.json`.
 
@@ -215,7 +215,7 @@ Also: the scheduler moves `TOQUEUE` → `QUEUED` when it publishes the message (
 
 Not changed here, listed so nobody assumes otherwise (details in `.claude/components-code-review.md`):
 
-- The `wordlists` bucket is public: anyone who can reach RustFS can read, replace or delete a wordlist file. The orchestrator checks the SHA-256 and the size of every file it downloads, so a replaced file fails the job (`PREPARATION`) instead of being used. A user cancel during a wordlist download is only applied by the first poll after the job has started.
+- The core and the orchestrator both hold the full (root) RustFS credentials. A user cancel during a wordlist download is only applied by the first poll after the job has started.
 - No version field in any payload; compatibility is only checked by the sample tests.
 - `auth.data.queryParameters` and the match-and-replace `DELETE` rule are not applied by the connectors.
-- Buckets are public and the HTTP endpoints have no authentication.
+- The HTTP endpoints have no authentication.
