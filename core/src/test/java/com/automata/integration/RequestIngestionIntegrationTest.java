@@ -37,7 +37,6 @@ import com.automata.request.path.PathVariableRepository;
 import com.automata.response.ResponseService;
 import com.automata.storage.BodyObjectStorage;
 import com.automata.tenant.Tenant;
-import com.automata.testsupport.KnownBug;
 
 import jakarta.persistence.EntityNotFoundException;
 
@@ -276,22 +275,18 @@ class RequestIngestionIntegrationTest {
 	ResponseService responseService;
 
 	@Test
-	@KnownBug("BUG-031")
-	void aSecondResponseOnTheSameRequestDoesNotEndInARawDatabaseError() {
+	void aSecondResponseOnTheSameRequestIsRefusedAsAConflictAndTheFirstOneIsKept() {
 		String response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
 		Request saved = requestService.addRawRequestWithResponse(dto(get("/a", ""), response, null));
 		fx.clear();
 		Request reloaded = requestRepo.findById(saved.getId()).orElseThrow();
 
-		// the unique constraint of response.request_id answers with a DataIntegrityViolationException (HTTP 500): the
-		// second response must replace the first or be refused with a clear conflict
-		try {
-			responseService.addResponseToRequest(b64(response), reloaded);
-			em.flush();
-		} catch (org.springframework.dao.DataIntegrityViolationException e) {
-			throw new AssertionError("raw database error: " + e.getMessage(), e);
-		} catch (RuntimeException expectedDomainError) {
-			// a clear refusal is fine too
-		}
+		// the unique constraint of response.request_id must not be reached (a raw database error is HTTP 500): the
+		// second response is refused with ResponseAlreadyExistsException (HTTP 409)
+		com.automata.response.common.exception.ResponseAlreadyExistsException e = assertThrows(
+				com.automata.response.common.exception.ResponseAlreadyExistsException.class,
+				() -> responseService.addResponseToRequest(b64(response), reloaded));
+
+		assertTrue(e.getMessage().contains("already has a response"));
 	}
 }
