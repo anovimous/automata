@@ -4,7 +4,7 @@ The routes `automata-mcp` calls, the payloads it sends and reads, and what is kn
 plan (`docs/implementation-plan.md`, sections 6 and 7) says what to build; this file says what the
 code of the core actually does and where the client and the models implement it.
 
-**Source:** the core repo (`/home/haidar/dev/automata/code/automata`), branch `staging` at commit
+**Source:** the core (`core/` of this repository since 2026-11-06; then the repo `/home/haidar/dev/automata/code/automata`), branch `staging` at commit
 `d7e0297`, read on 2026-10-26 (controllers, DTO records, `GlobalExceptionHandler`, `JacksonConfig`).
 Nothing here was run against a live core. Keep this file in line with the core: a change to a route,
 a payload or a rule on one side must be checked against the other side.
