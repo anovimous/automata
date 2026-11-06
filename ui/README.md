@@ -1,11 +1,13 @@
-# Automata frontend
+# UI
 
 A React + TypeScript single-page application for the **Automata** security-testing
 backend.
 
-## Running locally
+## Run
 
-This app is run with the docker compose file at the root of this repository (`docker compose up --build` from the repository root)
+The UI runs with the rest of the stack: `docker compose up --build` at the root of this repository
+builds this folder and serves it with nginx at `http://localhost:3000`. nginx proxies `/api/` to the
+core (`http://app:8080`).
 
 ## Concepts
 
@@ -71,8 +73,7 @@ To add a routine spec:
 1. Open `public/routine-specs.json` and add an entry under `routines`.
 2. The key must match the routine's `key` field exactly (e.g.
    `"sql-injection-time-based"`).
-3. In dev the file reloads on save. In Docker, either rebuild the image or
-   bind-mount the file (see above).
+3. The file is copied into the image, so rebuild it (`docker compose up --build`) to see the change.
 
 ## Keyboard shortcuts
 

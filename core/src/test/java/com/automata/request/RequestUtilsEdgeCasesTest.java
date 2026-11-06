@@ -24,7 +24,6 @@ import com.automata.request.common.enums.Method;
 import com.automata.request.common.enums.PropertyValueType;
 import com.automata.request.common.enums.RequestContentType;
 import com.automata.request.common.enums.Source;
-import com.automata.testsupport.KnownBug;
 
 /** Parsing of the request line, URL and headers, and the composition of a request back from its parts. */
 class RequestUtilsEdgeCasesTest {

@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: automatadb
       POSTGRES_USER: automata
-      POSTGRES_PASSWORD: OjN86GXh6bLX9ltp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set_POSTGRES_PASSWORD_in_the_env_file}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -22,7 +22,7 @@ services:
     container_name: automata-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: automata
-      RABBITMQ_DEFAULT_PASS: OjN86GXh6bLX9ltp
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set_RABBITMQ_PASSWORD_in_the_env_file}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -37,11 +37,11 @@ services:
       retries: 5
 
   rustfs:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.4
     container_name: automata-rustfs
     environment:
       RUSTFS_ROOT_USER: automata
-      RUSTFS_ROOT_PASSWORD: OjN86GXh6bLX9ltp
+      RUSTFS_ROOT_PASSWORD: ${RUSTFS_PASSWORD:?set_RUSTFS_PASSWORD_in_the_env_file}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -56,7 +56,7 @@ services:
       retries: 5
 
   rustfs-init:
-    image: minio/mc:latest
+    image: amazon/aws-cli:2.39.1
     container_name: automata-rustfs-init
     networks:
       - backend
@@ -67,19 +67,15 @@ services:
       REQUEST_BODIES_BUCKET: request-bodies
       RESPONSE_BODIES_BUCKET: response-bodies
       WORDLISTS_BUCKET: wordlists
-    entrypoint: >
-      /bin/sh -c "
-        mc alias set rustfs http://rustfs:9000 automata OjN86GXh6bLX9ltp &&
-        mc mb --ignore-existing rustfs/job-configuration &&
-        mc anonymous set public rustfs/job-configuration &&
-        mc mb --ignore-existing rustfs/job-results &&
-        mc anonymous set public rustfs/job-results &&
-        mc mb --ignore-existing rustfs/$${REQUEST_BODIES_BUCKET} &&
-        mc anonymous set public rustfs/$${REQUEST_BODIES_BUCKET} &&
-        mc mb --ignore-existing rustfs/$${RESPONSE_BODIES_BUCKET} &&
-        mc anonymous set public rustfs/$${RESPONSE_BODIES_BUCKET} &&
-        mc mb --ignore-existing rustfs/$${WORDLISTS_BUCKET}
-      "
+      # The aws cli reads these (the endpoint, the region and the credentials of RustFS)
+      AWS_ENDPOINT_URL: http://rustfs:9000
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: automata
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_PASSWORD:?set_RUSTFS_PASSWORD_in_the_env_file}
+      AWS_PAGER: ""
+    volumes:
+      - ./core/scripts/init-rustfs-buckets.sh:/init-rustfs-buckets.sh:ro
+    entrypoint: ["/bin/sh", "/init-rustfs-buckets.sh"]
 
   app:
     build: ./core
@@ -92,18 +88,18 @@ services:
       # Postgres
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/automatadb
       SPRING_DATASOURCE_USERNAME: automata
-      SPRING_DATASOURCE_PASSWORD: OjN86GXh6bLX9ltp
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?set_POSTGRES_PASSWORD_in_the_env_file}
 
       # RabbitMQ
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: automata
-      SPRING_RABBITMQ_PASSWORD: OjN86GXh6bLX9ltp
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?set_RABBITMQ_PASSWORD_in_the_env_file}
 
       # RustFS
       RUSTFS_ENDPOINT: http://rustfs:9000
       RUSTFS_ACCESS_KEY: automata
-      RUSTFS_SECRET_KEY: OjN86GXh6bLX9ltp
+      RUSTFS_SECRET_KEY: ${RUSTFS_PASSWORD:?set_RUSTFS_PASSWORD_in_the_env_file}
       RUSTFS_REGION: us-east-1
 
       # Buckets for request / response bodies stored as files (created by rustfs-init)
