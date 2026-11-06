@@ -1,0 +1,19 @@
+{
+  "id": 5,
+  "creationDate": "2026-10-22T12:00:00Z",
+  "requestId": 7,
+  "hostId": 2,
+  "jobId": 31,
+  "vulnerabilityId": 12,
+  "severity": 7.5,
+  "status": "CONFIRMED",
+  "confidence": 8.0,
+  "evidence": "GET /api/users/2 with tenant A's token returned tenant B's profile (200, 412 bytes)",
+  "pocReproductionSteps": "1. Log in as A. 2. GET /api/users/2.",
+  "createdBy": "AI",
+  "origin": "THIS_CONTEXT",
+  "aiDescription": "BOLA on /api/users/{id}",
+  "humanVerdict": "TRUE_POSITIVE",
+  "humanComment": "Reproduced",
+  "reviewedAt": "2026-10-23T08:00:00Z"
+}

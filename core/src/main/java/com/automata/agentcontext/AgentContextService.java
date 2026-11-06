@@ -1,0 +1,538 @@
+package com.automata.agentcontext;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.automata.agentcontext.common.dto.AgentContextCreationRequest;
+import com.automata.agentcontext.common.dto.AgentContextItemAddRequest;
+import com.automata.agentcontext.common.dto.AgentContextPatchRequest;
+import com.automata.agentcontext.common.dto.AgentContextTenantResponse;
+import com.automata.agentcontext.common.dto.ContextRequestSummary;
+import com.automata.agentcontext.common.dto.ResolvedTarget;
+import com.automata.agentcontext.common.enums.AgentContextItemType;
+import com.automata.agentcontext.common.enums.RepresentativeStrategy;
+import com.automata.common.exception.InUseException;
+import com.automata.common.utils.Phrases;
+import com.automata.finding.FindingRepository;
+import com.automata.host.Host;
+import com.automata.host.HostRepository;
+import com.automata.job.repository.HttpJobRepository;
+import com.automata.job.utils.HttpJobUtils;
+import com.automata.request.Request;
+import com.automata.request.RequestRepository;
+import com.automata.request.RequestTenantPair;
+import com.automata.request.equalityset.RequestEqualityRelation;
+import com.automata.request.equalityset.RequestEqualityRelationRepository;
+import com.automata.request.equalityset.RequestEqualityRelationSummaryInternalDto;
+import com.automata.request.equalityset.RequestEqualitySet;
+import com.automata.request.equalityset.RequestEqualitySetRepository;
+import com.automata.routine.Routine;
+import com.automata.routine.RoutineRepository;
+import com.automata.tenant.Tenant;
+import com.automata.tenant.TenantRepository;
+
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class AgentContextService {
+
+	private final AgentContextRepository contextRepo;
+
+	private final AgentContextItemRepository itemRepo;
+
+	private final HostRepository hostRepo;
+
+	private final RoutineRepository routineRepo;
+
+	private final RequestRepository requestRepo;
+
+	private final TenantRepository tenantRepo;
+
+	private final HttpJobRepository jobRepo;
+
+	private final FindingRepository findingRepo;
+
+	private final RequestEqualitySetRepository equalitySetRepo;
+
+	private final RequestEqualityRelationRepository equalityRelationRepo;
+
+	@Transactional(readOnly = true)
+	public AgentContext getContext(Long contextId) {
+		return contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+	}
+
+	@Transactional(readOnly = true)
+	public AgentContext getContextByUuid(java.util.UUID uuid) {
+		return contextRepo.findByUuid(uuid)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+	}
+
+	@Transactional(readOnly = true)
+	public Page<AgentContext> getContextsByHost(Long hostId, Pageable pageable) {
+		return contextRepo.findByHostId(hostId, pageable);
+	}
+
+	@Transactional
+	public AgentContext createContext(AgentContextCreationRequest request) {
+
+		if (request.maxRate() == null)
+			throw new IllegalArgumentException("maxRate is required");
+
+		if (request.defaultJobRate() == null)
+			throw new IllegalArgumentException("defaultJobRate is required");
+
+		requireValidDefaults(request.defaultPriority(), request.maxRate(), request.defaultJobRate());
+
+		requireDefaultJobRateWithinMax(request.defaultJobRate(), request.maxRate());
+
+		Host host = hostRepo.findById(request.hostId())
+				.orElseThrow(() -> new EntityNotFoundException("Host not found"));
+
+		List<Routine> allowedRoutines = new ArrayList<>();
+		if (request.allowedRoutineIds() != null)
+			allowedRoutines = this.resolveRoutines(request.allowedRoutineIds());
+
+		AgentContext context = AgentContext.builder().name(request.name()).description(request.description())
+				.host(host).defaultAutoApproval(request.defaultAutoApproval())
+				.representativeStrategy(request.representativeStrategy()).allowedRoutines(allowedRoutines)
+				.defaultDuration(request.defaultDuration()).defaultVerbosity(request.defaultVerbosity())
+				.defaultPriority(request.defaultPriority()).maxRate(request.maxRate()).defaultJobRate(request.defaultJobRate())
+				.tenants(this.resolveTenants(host, request.tenantIds())).build();
+
+		return contextRepo.save(context);
+
+	}
+
+	// The defaults of a context become the values of the jobs of its agent, so they follow the rules of jobs
+	void requireValidDefaults(Integer defaultPriority, Integer maxRate, Integer defaultJobRate) {
+		HttpJobUtils.requireValidPriority(defaultPriority, "defaultPriority");
+		HttpJobUtils.requireValidRate(maxRate, "maxRate");
+		HttpJobUtils.requireValidRate(defaultJobRate, "defaultJobRate");
+	}
+
+	// The agent gets the default rate when it asks for none, so it can't be above what the agent may ask for
+	void requireDefaultJobRateWithinMax(int defaultJobRate, int maxRate) {
+		if (defaultJobRate > maxRate)
+			throw new IllegalArgumentException(
+					"defaultJobRate (" + defaultJobRate + ") can't be above maxRate (" + maxRate + ")");
+	}
+
+	// Every tenant must exist and belong to the host of the context
+	private List<Routine> resolveRoutines(Collection<Long> routineIds) {
+
+		List<Routine> routines = routineRepo.findAllById(routineIds);
+
+		Set<Long> missing = new TreeSet<>(routineIds);
+		routines.forEach(routine -> missing.remove(routine.getId()));
+
+		if (!missing.isEmpty())
+			throw new EntityNotFoundException("Routine not found: " + missing);
+
+		return routines;
+
+	}
+
+	private List<Tenant> resolveTenants(Host host, List<Long> tenantIds) {
+
+		if (tenantIds == null || tenantIds.isEmpty())
+			return new ArrayList<>();
+
+		List<Long> distinctIds = tenantIds.stream().distinct().toList();
+
+		List<Tenant> tenants = tenantRepo.findAllById(distinctIds);
+
+		if (tenants.size() != distinctIds.size())
+			throw new EntityNotFoundException("Tenant not found");
+
+		tenants.forEach(tenant -> this.requireTenantOfHost(tenant, host));
+
+		return new ArrayList<>(tenants);
+
+	}
+
+	private void requireTenantOfHost(Tenant tenant, Host host) {
+
+		if (!tenant.getHost().getId().equals(host.getId()))
+			throw new IllegalArgumentException("Tenant does not belong to the context's host");
+
+	}
+
+	@Transactional
+	public void addTenant(Long contextId, Long tenantId) {
+
+		AgentContext context = contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		Tenant tenant = tenantRepo.findById(tenantId)
+				.orElseThrow(() -> new EntityNotFoundException("Tenant not found"));
+
+		this.requireTenantOfHost(tenant, context.getHost());
+
+		if (context.getTenants().stream().anyMatch(t -> t.getId().equals(tenantId)))
+			throw new IllegalArgumentException("Tenant is already in this context");
+
+		context.getTenants().add(tenant);
+
+		contextRepo.save(context);
+
+	}
+
+	@Transactional
+	public void removeTenant(Long contextId, Long tenantId) {
+
+		AgentContext context = contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		boolean removed = context.getTenants().removeIf(t -> t.getId().equals(tenantId));
+
+		if (!removed)
+			throw new EntityNotFoundException("Tenant is not in this context");
+
+		contextRepo.save(context);
+
+	}
+
+	@Transactional
+	public void patchContext(Long contextId, AgentContextPatchRequest patch) {
+
+		if (patch.setMaxRateNull())
+			throw new IllegalArgumentException("maxRate is required, it cannot be removed");
+
+		if (patch.setDefaultJobRateNull())
+			throw new IllegalArgumentException("defaultJobRate is required, it cannot be removed");
+
+		requireValidDefaults(patch.defaultPriority().orElse(null), patch.maxRate().orElse(null),
+				patch.defaultJobRate().orElse(null));
+
+		AgentContext context = contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		// either of the two can change, so the rule is checked on what they become
+		requireDefaultJobRateWithinMax(patch.defaultJobRate().orElse(context.getDefaultJobRate()),
+				patch.maxRate().orElse(context.getMaxRate()));
+
+		patch.name().ifPresent(context::setName);
+
+		if (patch.setDescriptionNull())
+			context.setDescription(null);
+		else
+			patch.description().ifPresent(context::setDescription);
+
+		patch.defaultAutoApproval().ifPresent(context::setDefaultAutoApproval);
+		patch.representativeStrategy().ifPresent(context::setRepresentativeStrategy);
+
+		if (patch.allowedRoutineIds() != null)
+			context.setAllowedRoutines(this.resolveRoutines(patch.allowedRoutineIds()));
+
+		if (patch.setDefaultDurationNull())
+			context.setDefaultDuration(null);
+		else
+			patch.defaultDuration().ifPresent(context::setDefaultDuration);
+
+		if (patch.setDefaultVerbosityNull())
+			context.setDefaultVerbosity(null);
+		else
+			patch.defaultVerbosity().ifPresent(context::setDefaultVerbosity);
+
+		if (patch.setDefaultPriorityNull())
+			context.setDefaultPriority(null);
+		else
+			patch.defaultPriority().ifPresent(context::setDefaultPriority);
+
+		patch.maxRate().ifPresent(context::setMaxRate);
+		patch.defaultJobRate().ifPresent(context::setDefaultJobRate);
+
+		contextRepo.save(context);
+
+	}
+
+	@Transactional
+	public void deleteContext(Long contextId) {
+
+		AgentContext context = contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		// the jobs and the findings of the agent of a context refer to it, and they are not the context's to delete
+		long jobs = jobRepo.countByAgentContextId(contextId);
+		long findings = findingRepo.countByAgentContextId(contextId);
+
+		if (jobs > 0 || findings > 0) {
+			List<String> parts = new ArrayList<>();
+			if (jobs > 0)
+				parts.add(Phrases.count(jobs, "job", "jobs"));
+			if (findings > 0)
+				parts.add(Phrases.count(findings, "finding", "findings"));
+			throw new InUseException("Agent context " + contextId + " cannot be deleted: it is still used by "
+					+ Phrases.list(parts));
+		}
+
+		itemRepo.deleteAll(context.getItems());
+		contextRepo.delete(context);
+
+	}
+
+	@Transactional
+	public AgentContextItem addItem(Long contextId, AgentContextItemAddRequest request) {
+
+		AgentContext context = contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		AgentContextItem.AgentContextItemBuilder builder = AgentContextItem.builder();
+		builder.context(context);
+		builder.itemType(request.itemType());
+
+		if (request.itemType() == AgentContextItemType.REQUEST) {
+			if (request.requestId() == null)
+				throw new IllegalArgumentException("requestId is required for REQUEST items");
+
+			Request req = requestRepo.findById(request.requestId())
+					.orElseThrow(() -> new EntityNotFoundException("Request not found"));
+
+			if (!req.getHost().getId().equals(context.getHost().getId()))
+				throw new IllegalArgumentException("Request does not belong to the context's host");
+
+			if (itemRepo.existsByContextIdAndRequestId(contextId, request.requestId()))
+				throw new IllegalArgumentException("Request is already in this context");
+
+			builder.request(req);
+
+		} else {
+			if (request.equalitySetId() == null)
+				throw new IllegalArgumentException("equalitySetId is required for EQUALITY_SET items");
+
+			RequestEqualitySet set = equalitySetRepo.findById(request.equalitySetId())
+					.orElseThrow(() -> new EntityNotFoundException("RequestEqualitySet not found"));
+
+			if (!set.getEqualization().getHost().getId().equals(context.getHost().getId()))
+				throw new IllegalArgumentException("Equality set does not belong to the context's host");
+
+			if (itemRepo.existsByContextIdAndEqualitySetId(contextId, request.equalitySetId()))
+				throw new IllegalArgumentException("Equality set is already in this context");
+
+			builder.equalitySet(set);
+		}
+
+		return itemRepo.save(builder.build());
+
+	}
+
+	@Transactional
+	public void removeItem(Long contextId, Long itemId) {
+
+		AgentContextItem item = itemRepo.findById(itemId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContextItem not found"));
+
+		if (!item.getContext().getId().equals(contextId))
+			throw new IllegalArgumentException("Item does not belong to this context");
+
+		itemRepo.delete(item);
+
+	}
+
+	// A request is in the context when a REQUEST item is it, or when it is in an
+	// EQUALITY_SET item, whatever the strategy. The strategy only decides the resolved
+	// targets (the requests a job can target), not what the agent can read.
+	@Transactional(readOnly = true)
+	public boolean isRequestInContext(AgentContext context, Long requestId) {
+
+		for (AgentContextItem item : context.getItems()) {
+
+			if (item.getItemType() == AgentContextItemType.REQUEST) {
+
+				if (item.getRequest().getId().equals(requestId))
+					return true;
+
+			} else if (equalityRelationRepo.existsBySetAndRequestId(item.getEqualitySet(), requestId))
+				return true;
+
+		}
+
+		return false;
+
+	}
+
+	@Transactional(readOnly = true)
+	public Host getContextHost(UUID contextUuid) {
+
+		return this.getContextByUuid(contextUuid).getHost();
+
+	}
+
+	// The tenants of the context, each with the requests of the context it is tied to
+	@Transactional(readOnly = true)
+	public List<AgentContextTenantResponse> getContextTenants(UUID contextUuid) {
+
+		AgentContext context = this.getContextByUuid(contextUuid);
+
+		List<Long> requestIds = this.resolveContextTargets(context.getId()).stream().map(ResolvedTarget::requestId)
+				.toList();
+
+		Map<Long, List<Long>> requestIdsByTenantId = new LinkedHashMap<>();
+
+		if (!requestIds.isEmpty())
+			for (RequestTenantPair pair : requestRepo.findTenantPairsByIdIn(requestIds))
+				requestIdsByTenantId.computeIfAbsent(pair.tenantId(), id -> new ArrayList<>()).add(pair.requestId());
+
+		return context.getTenants().stream().map(tenant -> AgentContextMapper.toTenantResponse(tenant,
+				requestIdsByTenantId.getOrDefault(tenant.getId(), List.of()))).toList();
+
+	}
+
+	// Answers as if the request did not exist when it is not in the context
+	@Transactional(readOnly = true)
+	public void requireRequestInContext(UUID contextUuid, Long requestId) {
+
+		AgentContext context = this.getContextByUuid(contextUuid);
+
+		if (!this.isRequestInContext(context, requestId))
+			throw new EntityNotFoundException("Request not found");
+
+	}
+
+	// The ids of the requests that are REQUEST items of the context
+	public List<Long> getRequestItemIds(AgentContext context) {
+
+		return context.getItems().stream().filter(item -> item.getItemType() == AgentContextItemType.REQUEST)
+				.map(item -> item.getRequest().getId()).toList();
+
+	}
+
+	// The ids of the equality sets that are EQUALITY_SET items of the context
+	public List<Long> getEqualitySetItemIds(AgentContext context) {
+
+		return context.getItems().stream().filter(item -> item.getItemType() == AgentContextItemType.EQUALITY_SET)
+				.map(item -> item.getEqualitySet().getId()).toList();
+
+	}
+
+	// The requests the agent can read: the REQUEST items and every request of the
+	// EQUALITY_SET items, newest first. With equalitySetId only the members of that
+	// set, which must be an item of the context (404 otherwise).
+	@Transactional(readOnly = true)
+	public Page<ContextRequestSummary> getContextRequests(UUID contextUuid, Long equalitySetId, Pageable pageable) {
+
+		AgentContext context = this.getContextByUuid(contextUuid);
+
+		List<Long> requestIds = this.getRequestItemIds(context);
+		List<Long> setIds = this.getEqualitySetItemIds(context);
+
+		// The order is fixed by the queries, a sort of the caller is ignored
+		Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+		Page<Request> page;
+		if (equalitySetId != null) {
+			if (!setIds.contains(equalitySetId))
+				throw new EntityNotFoundException("Equality set not found");
+			page = equalityRelationRepo.findRequestsInSet(equalitySetId, unsorted);
+		} else if (requestIds.isEmpty() && setIds.isEmpty())
+			page = Page.empty(unsorted);
+		else
+			// -1 stands for "none": an empty IN list is not portable
+			page = requestRepo.findInContext(requestIds.isEmpty() ? List.of(-1L) : requestIds,
+					setIds.isEmpty() ? List.of(-1L) : setIds, unsorted);
+
+		List<Long> pageIds = page.getContent().stream().map(Request::getId).toList();
+
+		Map<Long, Long> setIdByRequestId = new LinkedHashMap<>();
+		if (!pageIds.isEmpty() && !setIds.isEmpty())
+			for (RequestEqualityRelationSummaryInternalDto pair : equalityRelationRepo
+					.findSetIdsOfRequests(pageIds, setIds))
+				setIdByRequestId.putIfAbsent(pair.requestId(), pair.equalitySetId());
+
+		Set<Long> resolvedIds = new HashSet<>();
+		for (ResolvedTarget target : this.resolveContextTargets(context.getId()))
+			resolvedIds.add(target.requestId());
+
+		return page.map(req -> ContextRequestSummary.builder().requestId(req.getId()).method(req.getMethod())
+				.computatedPath(req.getComputatedPath())
+				.equalitySetId(equalitySetId != null ? equalitySetId : setIdByRequestId.get(req.getId()))
+				.tenantId(req.getTenant() != null ? req.getTenant().getId() : null)
+				.resolvedTarget(resolvedIds.contains(req.getId()))
+				.automataJobEligible(HttpJobUtils.isJobEligible(req)).insertionDate(req.getInsertionDate()).build());
+
+	}
+
+	@Transactional(readOnly = true)
+	public List<ResolvedTarget> resolveContextTargets(Long contextId) {
+
+		AgentContext context = contextRepo.findById(contextId)
+				.orElseThrow(() -> new EntityNotFoundException("AgentContext not found"));
+
+		Map<Long, ResolvedTarget> targetsByRequestId = new LinkedHashMap<>();
+
+		for (AgentContextItem item : context.getItems()) {
+			if (item.getItemType() == AgentContextItemType.REQUEST) {
+
+				Request req = item.getRequest();
+				boolean eligible = HttpJobUtils.isJobEligible(req);
+				ResolvedTarget target = ResolvedTarget.builder().requestId(req.getId())
+						.automataJobEligible(eligible).autoApproval(context.isDefaultAutoApproval())
+						.sourceItemType(AgentContextItemType.REQUEST).build();
+				mergeResolvedTarget(targetsByRequestId, target);
+
+			} else {
+
+				RequestEqualitySet set = item.getEqualitySet();
+				boolean setAutoApproval = set.isAutoApproval();
+
+				if (context.getRepresentativeStrategy() == RepresentativeStrategy.LATEST) {
+					Request latest = equalityRelationRepo.findTopBySetOrderByRequestInsertionDateDesc(set);
+					if (latest != null) {
+						boolean eligible = HttpJobUtils.isJobEligible(latest);
+						ResolvedTarget target = ResolvedTarget.builder().requestId(latest.getId())
+								.automataJobEligible(eligible).autoApproval(setAutoApproval)
+								.sourceItemType(AgentContextItemType.EQUALITY_SET)
+								.sourceEqualitySetId(set.getId()).build();
+						mergeResolvedTarget(targetsByRequestId, target);
+					}
+				} else {
+					List<RequestEqualityRelation> relations = equalityRelationRepo.findAllBySet(set);
+					for (RequestEqualityRelation rel : relations) {
+						Request req = rel.getRequest();
+						boolean eligible = HttpJobUtils.isJobEligible(req);
+						ResolvedTarget target = ResolvedTarget.builder().requestId(req.getId())
+								.automataJobEligible(eligible).autoApproval(setAutoApproval)
+								.sourceItemType(AgentContextItemType.EQUALITY_SET)
+								.sourceEqualitySetId(set.getId()).build();
+						mergeResolvedTarget(targetsByRequestId, target);
+					}
+				}
+			}
+		}
+
+		return new ArrayList<>(targetsByRequestId.values());
+
+	}
+
+	/**
+	 * A request can be reached by several items. It is approved only when every
+	 * one of them approves it, so the order of the items does not matter: the
+	 * target which does not approve wins, and among equals the one of a REQUEST
+	 * item.
+	 */
+	static void mergeResolvedTarget(Map<Long, ResolvedTarget> targetsByRequestId, ResolvedTarget target) {
+		targetsByRequestId.merge(target.requestId(), target, (kept, other) -> {
+			if (kept.autoApproval() != other.autoApproval())
+				return kept.autoApproval() ? other : kept;
+			return other.sourceItemType() == AgentContextItemType.REQUEST
+					&& kept.sourceItemType() != AgentContextItemType.REQUEST ? other : kept;
+		});
+	}
+
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "tenantId": 4,
+    "name": "tenant-a",
+    "email": "a@example.com",
+    "authData": {
+      "data": {
+        "headers": [
+          {
+            "key": "Authorization",
+            "value": "Bearer abc"
+          }
+        ],
+        "cookies": [
+          {
+            "key": "sid",
+            "value": "s1"
+          }
+        ],
+        "queryParameters": []
+      },
+      "lifeTimeInSeconds": "2026-10-21T09:00:00Z",
+      "populatedAt": "2026-10-20T09:00:00Z"
+    },
+    "requestIds": [
+      7,
+      21
+    ]
+  },
+  {
+    "tenantId": 5,
+    "name": "tenant-b",
+    "email": "b@example.com",
+    "authData": null,
+    "requestIds": []
+  }
+]

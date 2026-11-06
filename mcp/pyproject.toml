@@ -1,0 +1,60 @@
+[project]
+name = "automata-mcp"
+version = "0.1.0"
+description = "MCP server of the Automata automation framework: lets an AI agent test the hosts of an agent context through the Automata core."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=2.3,<3",
+    "httpx>=0.28,<1",
+    "pydantic>=2.14,<3",
+    "pydantic-settings>=2.16,<3",
+]
+
+[project.scripts]
+automata-mcp = "automata_mcp.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1,<10",
+    "pytest-asyncio>=1.4,<2",
+    "pytest-cov>=7.1,<8",
+    "respx>=0.23,<1",
+    "ruff>=0.17,<1",
+    "mypy>=2.4,<3",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "ASYNC", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# pydantic copies mutable defaults for every instance, so `= []` is safe in the models
+"src/automata_mcp/core/models/*" = ["RUF012"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src", "scripts"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["scripts"]
+asyncio_mode = "auto"
+addopts = "-ra"
+markers = [
+    "integration: needs a real core (opt-in with AUTOMATA_IT=1)",
+]
+
+[tool.coverage.run]
+source = ["src/automata_mcp"]
+branch = true

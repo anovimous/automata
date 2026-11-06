@@ -1,0 +1,240 @@
+package com.automata.response;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.impl.BasicHttpTransportMetrics;
+import org.apache.hc.core5.http.impl.io.SessionInputBufferImpl;
+import org.apache.hc.core5.http.impl.io.SessionOutputBufferImpl;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.BasicClassicHttpResponse;
+import org.springframework.data.jpa.domain.Specification;
+
+import com.automata.common.utils.HttpMessageUtils;
+import com.automata.common.utils.ValidationResult;
+import com.automata.host.Host;
+import com.automata.request.Request;
+import com.automata.request.RequestUtils;
+import com.automata.request.body.BodyParseResult;
+import com.automata.request.common.RequestFieldLimits;
+import com.automata.request.body.BodyUtils;
+import com.automata.request.common.dto.BodyPropertyInternalDto;
+import com.automata.request.header.Header;
+import com.automata.request.header.HeaderCompositePK;
+import com.automata.request.header.HeaderUtils;
+
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+
+import org.apache.hc.core5.http.impl.io.DefaultHttpResponseParser;
+import org.apache.hc.core5.http.impl.io.DefaultHttpResponseWriter;
+
+public abstract class ResponseUtils {
+
+	public static ResponseParseResult parseResponse(byte[] rawResponse) {
+
+		HttpMessageUtils.SplitMessage parts = HttpMessageUtils.split(rawResponse);
+
+		byte[] head = parts.head();
+
+		byte[] body = parts.body();
+
+		SessionInputBufferImpl buffer = new SessionInputBufferImpl(new BasicHttpTransportMetrics(), 8192, 8192, 0,
+				HttpMessageUtils.strictUtf8Decoder());
+
+		DefaultHttpResponseParser parser = new DefaultHttpResponseParser();
+
+		ClassicHttpResponse response;
+
+		try {
+			response = parser.parse(buffer, new ByteArrayInputStream(head));
+		} catch (Exception e) {
+			return ResponseParseResult.builder()
+					.validationResult(ValidationResult.invalid(HttpMessageUtils.headErrorMessage(e, "response"))).build();
+		}
+
+		// nothing but empty lines: the parser finds no status line and gives no response
+		if (response == null)
+			return ResponseParseResult.builder()
+					.validationResult(ValidationResult.invalid("The response is empty: it has no status line")).build();
+
+		// status code
+
+		int statusCode = response.getCode();
+
+		// headers
+
+		List<Header> headers = Arrays.asList(response.getHeaders()).stream().map((h5Header) -> {
+			Header header = new Header();
+			HeaderCompositePK pk = new HeaderCompositePK();
+			pk.setHeader(h5Header.getName());
+			header.setPrimaryKey(pk);
+			return header;
+		}).toList();
+
+		// content length
+
+		int contentLength;
+
+		if (response.containsHeader(HttpHeaders.CONTENT_LENGTH))
+			contentLength = Integer.parseInt(response.getFirstHeader(HttpHeaders.CONTENT_LENGTH).getValue());
+		else
+			contentLength = 0;
+
+		// body and content type: only a JSON body is broken down into properties, any
+		// other body is stored as a file
+
+		BodyParseResult bodyParseResult = new BodyParseResult();
+
+		ResponseContentType customContentType = null;
+
+		String bodyContentType = null;
+
+		boolean bodyStoredAsFile = false;
+
+		if (body.length > 0) {
+
+			if (response.containsHeader(HttpHeaders.CONTENT_TYPE)) {
+
+				bodyContentType = response.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
+
+				customContentType = HeaderUtils.detectResponseContentType(HeaderUtils.extractMimeType(bodyContentType));
+
+			}
+
+			if (customContentType == ResponseContentType.JSON)
+				bodyParseResult = BodyUtils.parseJsonBody(new String(body, StandardCharsets.UTF_8));
+			else
+				bodyStoredAsFile = true;
+
+		}
+
+		ValidationResult storable = validateStoredTexts(headers, bodyParseResult);
+
+		if (!storable.isValid())
+			return ResponseParseResult.builder().validationResult(storable).build();
+
+		ResponseParseResult finalParseResult = ResponseParseResult.builder().statusCode(statusCode)
+				.contentLength(contentLength).contentType(customContentType).headers(headers)
+				.bodyParseResult(bodyParseResult).rawHead(head).rawBody(body).bodyStoredAsFile(bodyStoredAsFile)
+				.bodyContentType(bodyContentType).validationResult(ValidationResult.valid()).build();
+
+		return finalParseResult;
+
+	}
+
+	// Each text taken from the response must fit its column and have no NUL character, otherwise the response
+	// would be lost to a database error
+	static ValidationResult validateStoredTexts(List<Header> headers, BodyParseResult body) {
+
+		List<ValidationResult> checks = new ArrayList<>();
+
+		headers.forEach(header -> checks.add(RequestFieldLimits.checkLength(
+				"The name of the header '" + RequestFieldLimits.preview(header.getPrimaryKey().getHeader()) + "'",
+				header.getPrimaryKey().getHeader(), RequestFieldLimits.MAX_HEADER_NAME)));
+
+		body.getBodyProperties().forEach(property -> RequestUtils.addBodyPropertyChecks(checks, property));
+
+		return checks.stream().filter(check -> !check.isValid()).findFirst().orElse(ValidationResult.valid());
+
+	}
+
+	public static ClassicHttpResponse composeApacheCoreResponse(ResponseInternalDto dto,
+			List<BodyPropertyInternalDto> bodyProperties) {
+
+		ClassicHttpResponse response = new BasicClassicHttpResponse(dto.statusCode());
+
+		response.setHeader(HttpHeaders.CONTENT_LENGTH, dto.contentLength());
+
+		// For now, only JSON body response is supported
+		if (dto.contentType() != null) {
+
+			Optional<String> rawBody = BodyUtils.composeResponseRawBody(dto.contentType(), bodyProperties);
+
+			rawBody.ifPresent((body) -> {
+
+				response.setHeader(HttpHeaders.CONTENT_TYPE, dto.contentType().getRaw());
+
+				org.apache.hc.core5.http.ContentType apacheContentType = org.apache.hc.core5.http.ContentType.APPLICATION_JSON;
+
+				HttpEntity entity = new StringEntity(rawBody.get(), apacheContentType);
+
+				response.setEntity(entity);
+			});
+		}
+
+		return response;
+	}
+
+	public static String composeRawResponse(ClassicHttpResponse apacheCoreResponse) {
+
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		SessionOutputBufferImpl buffer = new SessionOutputBufferImpl(new BasicHttpTransportMetrics(), 8192, 8192,
+				HttpMessageUtils.utf8Encoder());
+
+		DefaultHttpResponseWriter writer = new DefaultHttpResponseWriter();
+
+		try {
+
+			writer.write(apacheCoreResponse, buffer, baos);
+
+			buffer.flush(baos);
+
+			if (apacheCoreResponse.getEntity() != null) {
+				apacheCoreResponse.getEntity().writeTo(baos);
+			}
+
+		} catch (Exception e) {
+			throw new RuntimeException("Error composing raw response from Apache ClassicHttpResponse");
+		}
+
+		String rawResponse = baos.toString(StandardCharsets.UTF_8);
+
+		return rawResponse;
+
+	}
+
+	public static ValidationResult validateResponseFilter(ResponseFilter filter) {
+
+		if (filter.hostId() == null)
+			return ValidationResult.invalid();
+		return ValidationResult.valid();
+
+	}
+
+	public static Specification<Response> buildSpecification(ResponseFilter filter) {
+		return (root, query, cb) -> {
+
+			List<Predicate> predicates = new ArrayList<>();
+
+			Join<Response, Request> request = root.join("request");
+			Join<Request, Host> host = request.join("host");
+
+			predicates.add(cb.equal(host.get("id"), filter.hostId()));
+
+			if (filter.contentType() != null) {
+				predicates.add(cb.equal(root.get("contentType"), filter.contentType()));
+			}
+
+			if (filter.contentLength() != null) {
+				predicates.add(cb.equal(root.get("contentLength"), filter.contentLength()));
+			}
+
+			if (filter.statusCode() != null) {
+				predicates.add(cb.equal(root.get("statusCode"), filter.statusCode()));
+			}
+
+			return cb.and(predicates.toArray(Predicate[]::new));
+
+		};
+	}
+
+}

@@ -1,0 +1,205 @@
+package com.automata.request.path;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import com.automata.request.common.dto.PathVariableInternalDto;
+import com.automata.request.common.enums.PathVariableValueType;
+
+class PathUtilsTest {
+
+	private static final String UUID_A = "123e4567-e89b-12d3-a456-426614174000";
+
+	// ---- parsePath ----
+
+	@Test
+	void aPathWithoutVariablesIsKeptAsIs() {
+		PathParsingResult result = PathUtils.parsePath("/api/users/list");
+
+		assertEquals("/api/users/list", result.getComputatedPath());
+		assertTrue(result.getPathVariables().isEmpty());
+	}
+
+	@Test
+	void numericSegmentsBecomeIntVariablesAtTheirIndex() {
+		PathParsingResult result = PathUtils.parsePath("/api/users/42/orders/7");
+
+		assertEquals("/api/users/3@INT/orders/5@INT", result.getComputatedPath());
+		assertEquals(2, result.getPathVariables().size());
+		assertEquals(3, result.getPathVariables().get(0).getIndex());
+		assertEquals("42", result.getPathVariables().get(0).getValue());
+		assertEquals(PathVariableValueType.INT, result.getPathVariables().get(0).getType());
+		assertEquals(5, result.getPathVariables().get(1).getIndex());
+		assertEquals("7", result.getPathVariables().get(1).getValue());
+	}
+
+	@Test
+	void uuidSegmentsBecomeGuidVariables() {
+		PathParsingResult result = PathUtils.parsePath("/api/items/" + UUID_A);
+
+		assertEquals("/api/items/3@GUID", result.getComputatedPath());
+		assertEquals(PathVariableValueType.GUID, result.getPathVariables().get(0).getType());
+		assertEquals(UUID_A, result.getPathVariables().get(0).getValue());
+	}
+
+	@Test
+	void twoRequestsDifferingOnlyByTheIdsGetTheSameComputedPath() {
+		assertEquals(PathUtils.parsePath("/api/users/1/orders/2").getComputatedPath(),
+				PathUtils.parsePath("/api/users/987654321/orders/12345").getComputatedPath());
+	}
+
+	@Test
+	void segmentsThatMerelyContainDigitsAreNotVariables() {
+		PathParsingResult result = PathUtils.parsePath("/v2/users/abc123/42a");
+
+		assertEquals("/v2/users/abc123/42a", result.getComputatedPath());
+		assertTrue(result.getPathVariables().isEmpty());
+	}
+
+	@Test
+	void theQueryStringIsNotPartOfTheComputedPath() {
+		PathParsingResult result = PathUtils.parsePath("/api/users/5?x=1");
+
+		assertEquals("/api/users/3@INT", result.getComputatedPath());
+	}
+
+	@Test
+	void aPercentEncodedPathIsNotDecoded() {
+		PathParsingResult result = PathUtils.parsePath("/my%20files/42/a%2Fb/100%25");
+
+		assertEquals("/my%20files/2@INT/a%2Fb/100%25", result.getComputatedPath());
+		assertEquals("42", result.getPathVariables().get(0).getValue());
+	}
+
+	@Test
+	void aFragmentIsNotPartOfTheComputedPath() {
+		assertEquals("/api/users/3@INT", PathUtils.parsePath("/api/users/5#top").getComputatedPath());
+		assertEquals("/api/users/3@INT", PathUtils.parsePath("/api/users/5?x=1#top").getComputatedPath());
+	}
+
+	@ParameterizedTest
+	@CsvSource(delimiter = '|', nullValues = "null", value = {
+			"/api/users.json|.json",
+			"/files/report.pdf|.pdf",
+			"/files/2024/report.pdf|.pdf",
+			"/static/app.min.js|.min.js",
+			"/a/archive.tar.gz|.tar.gz",
+			"/a/b.c.d.e|.c.d.e",
+			"/a/IMAGE.PNG|.png",
+			"/a/Report.Min.JS|.min.js",
+			"/users/42.json|.json",
+			"/users/1.0|.0",
+			"/a/file.|null",
+			"/a/file..|null",
+			"/a/file..json|..json",
+			"/file.txt|.txt",
+			"file.txt|.txt",
+			"/page.html?x=1|.html",
+			"/page.html#top|.html",
+			"/a/.env|null",
+			"/.htaccess|null",
+			"/a/.env.local|.local",
+			"/a/..|null",
+			"/a/.|null",
+			"/a/%2Ejson|null",
+			"/a/file.%4AS|.%4as" })
+	void theFullExtensionOfTheLastSegment(String path, String extension) {
+		assertEquals(extension, PathUtils.parsePath(path).getExtension(), path);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "/api/users", "/api/v1.2/users", "/v1.2/users/42", "/a/../b/./c", "/.git/config", "/a.b/c.d/e", "/a.json/b", "/a/b/", "/a" })
+	void aDotInAnEarlierSegmentIsNotTheExtension(String path) {
+		assertNull(PathUtils.parsePath(path).getExtension(), path);
+	}
+
+	@Test
+	void theExtensionStaysPartOfTheComputedPathAndThePathVariablesAreNotTouched() {
+		PathParsingResult result = PathUtils.parsePath("/users/42/report.min.js");
+
+		assertEquals("/users/2@INT/report.min.js", result.getComputatedPath());
+		assertEquals(".min.js", result.getExtension());
+		assertEquals(1, result.getPathVariables().size());
+	}
+
+	@Test
+	void extensionOfAPathWithoutSlashIsTheExtensionOfTheWholeText() {
+		assertEquals(".txt", PathUtils.extensionOf("a.txt"));
+		assertNull(PathUtils.extensionOf("a"));
+		assertNull(PathUtils.extensionOf(""));
+		assertNull(PathUtils.extensionOf("/"));
+	}
+
+	@Test
+	void theRootPathKeepsItsSlash() {
+		assertEquals("/", PathUtils.parsePath("/").getComputatedPath());
+	}
+
+	@Test
+	void aTrailingSlashIsKept() {
+		assertEquals("/api/users/", PathUtils.parsePath("/api/users/").getComputatedPath());
+	}
+
+	// ---- validatePath ----
+
+	@ParameterizedTest
+	@ValueSource(strings = { "/", "/api", "/api/users/1", "/a%20b", "/api?x=1" })
+	void validPaths(String path) {
+		assertTrue(PathUtils.validatePath(path).isValid(), path);
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = { "api/users", "", "/a b", "?x=1", "//" })
+	void invalidPaths(String path) {
+		assertFalse(PathUtils.validatePath(path).isValid(), path);
+	}
+
+	// ---- composeRawPath ----
+
+	private static PathVariableInternalDto var(long request, int index, String value) {
+		return new PathVariableInternalDto(index, value, request);
+	}
+
+	@Test
+	void composeSubstitutesEveryVariableAtItsIndex() {
+		String raw = PathUtils.composeRawPath("/api/users/3@INT/orders/5@INT", List.of(var(1, 3, "42"), var(1, 5, "7")));
+
+		assertEquals("/api/users/42/orders/7", raw);
+	}
+
+	@Test
+	void composeOfAPathWithoutVariablesIsTheSamePath() {
+		assertEquals("/api/users", PathUtils.composeRawPath("/api/users", List.of()));
+	}
+
+	@Test
+	void parseThenComposeGivesBackTheOriginalPath() {
+		String original = "/api/users/42/items/" + UUID_A + "/details";
+		PathParsingResult parsed = PathUtils.parsePath(original);
+
+		List<PathVariableInternalDto> dtos = parsed.getPathVariables().stream()
+				.map(v -> new PathVariableInternalDto(v.getIndex(), v.getValue(), 1L)).toList();
+
+		assertEquals(original, PathUtils.composeRawPath(parsed.getComputatedPath(), dtos));
+	}
+
+	@Test
+	void parseThenComposeKeepsTheTrailingSlashAndTheRoot() {
+		for (String original : List.of("/", "/api/users/", "/api/1/")) {
+			PathParsingResult parsed = PathUtils.parsePath(original);
+			List<PathVariableInternalDto> dtos = parsed.getPathVariables().stream()
+					.map(v -> new PathVariableInternalDto(v.getIndex(), v.getValue(), 1L)).toList();
+
+			assertEquals(original, PathUtils.composeRawPath(parsed.getComputatedPath(), dtos), original);
+		}
+	}
+}

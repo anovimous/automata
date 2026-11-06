@@ -1,0 +1,16 @@
+{
+  "content": [
+    {
+      "id": 3,
+      "name": "ids",
+      "description": "Sequential ids",
+      "numberOfLines": 1000,
+      "sizeBytes": 4890
+    }
+  ],
+  "page": 0,
+  "size": 30,
+  "totalElements": 1,
+  "totalPages": 1,
+  "last": true
+}

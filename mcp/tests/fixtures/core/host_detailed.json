@@ -1,0 +1,18 @@
+{
+  "id": 2,
+  "insertionDate": "2026-10-01",
+  "host": "api.example.com",
+  "level": 1,
+  "scope": "FQDN",
+  "outOfScope": false,
+  "hostRateLimit": 50,
+  "shortRateLimit": 20,
+  "longRateLimit": 10,
+  "programId": 1,
+  "description": "Public API",
+  "technologies": [
+    "nginx",
+    "spring"
+  ],
+  "notes": null
+}

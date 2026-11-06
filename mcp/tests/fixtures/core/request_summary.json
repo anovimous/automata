@@ -1,0 +1,16 @@
+{
+  "requestId": 31,
+  "method": "POST",
+  "computatedPath": "/api/login",
+  "extension": null,
+  "version": "HTTP/1.1",
+  "numberOfProperties": 1,
+  "contentType": "JSON",
+  "source": "AI",
+  "hostId": 2,
+  "tenantId": 4,
+  "programId": 1,
+  "responseId": 32,
+  "bodyStoredAsFile": false,
+  "bodySizeBytes": 9
+}
