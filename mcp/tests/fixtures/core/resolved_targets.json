@@ -1,0 +1,16 @@
+[
+  {
+    "requestId": 7,
+    "automataJobEligible": true,
+    "autoApproval": false,
+    "sourceItemType": "REQUEST",
+    "sourceEqualitySetId": null
+  },
+  {
+    "requestId": 21,
+    "automataJobEligible": false,
+    "autoApproval": true,
+    "sourceItemType": "EQUALITY_SET",
+    "sourceEqualitySetId": 55
+  }
+]

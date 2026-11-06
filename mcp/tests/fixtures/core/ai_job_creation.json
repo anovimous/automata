@@ -1,0 +1,21 @@
+{
+  "requestId": 7,
+  "aiDescription": "Fuzz the id path parameter of GET /api/users/{id} to check for IDOR",
+  "routineId": 1,
+  "duration": "SHORT",
+  "wordlistsIds": [
+    3
+  ],
+  "rate": 20,
+  "verbosity": "SUMMARIZED",
+  "priority": 1,
+  "customConfig": {
+    "rawRequestBase64": "R0VUIC9hcGkvdXNlcnMvRlVaWiBIVFRQLzEuMQ0KDQo=",
+    "flags": [
+      {
+        "key": "-mc",
+        "value": "200,403"
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "content": [
+    {
+      "id": 1,
+      "creationDate": "2026-09-01",
+      "key": "fuzz",
+      "isAvailableAtConsumer": true,
+      "wordlistRequired": true,
+      "overhead": "HIGH",
+      "protocol": "HTTP",
+      "allowedTargets": [
+        "SINGLE_REQUEST",
+        "MULTIPLE_REQUESTS"
+      ]
+    }
+  ],
+  "page": 0,
+  "size": 30,
+  "totalElements": 1,
+  "totalPages": 1,
+  "last": true
+}

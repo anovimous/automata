@@ -1,0 +1,35 @@
+{
+  "content": [
+    {
+      "id": 5,
+      "requestId": 7,
+      "hostId": 2,
+      "vulnerabilityId": 12,
+      "severity": 7.5,
+      "status": "CONFIRMED",
+      "confidence": 8.0,
+      "createdBy": "AI",
+      "origin": "THIS_CONTEXT",
+      "humanVerdict": "TRUE_POSITIVE",
+      "creationDate": "2026-10-22T12:00:00Z"
+    },
+    {
+      "id": 4,
+      "requestId": 19,
+      "hostId": 2,
+      "vulnerabilityId": 13,
+      "severity": 5.0,
+      "status": "SUGGESTED",
+      "confidence": 4.5,
+      "createdBy": "USER",
+      "origin": "USER",
+      "humanVerdict": null,
+      "creationDate": "2026-10-19T12:00:00Z"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 2,
+  "totalPages": 1,
+  "last": true
+}
