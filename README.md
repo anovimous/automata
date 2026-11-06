@@ -10,13 +10,13 @@ Status: working end to end on a developer machine (core, frontend, MCP server un
 
 | Repo | Role | Stack |
 |---|---|---|
-| `automata` (this one, `code/automata`) | Core service: REST API, domain, job engine, scheduling. Also holds the compose file for the stack | Spring Boot 3.5, Java 21 |
+| `automata` (this one, `core/`) | Core service: REST API, domain, job engine, scheduling. The compose file of the stack is at the root of this repo | Spring Boot 3.5, Java 21 |
 | `automata-frontend` | UI for programs, hosts, requests, jobs, findings, agent contexts | React + TypeScript |
 | `automata-worker` | Orchestrator that consumes queued jobs, plus the tool connectors (`ffuf`, `masser`) | Go |
 | `automata-mcp` | MCP server the AI agent talks to; translates tool calls into core REST calls, holds no business logic | Python, official `mcp` SDK |
 | Burp extension | Sends proxy traffic to the core | |
 
-Core and worker only talk through a documented contract (`code/automata/docs/worker-contract.md`, checked by tests on both sides). Core and MCP server only talk through the agent-facing routes (`/api/agent-contexts/uuid/{uuid}/...`).
+Core and worker only talk through a documented contract (`core/docs/worker-contract.md`, checked by tests on both sides). Core and MCP server only talk through the agent-facing routes (`/api/agent-contexts/uuid/{uuid}/...`).
 
 ---
 
@@ -140,10 +140,9 @@ What it cannot do is listed under [Human in the loop](#human-in-the-loop).
 
 ## Getting started
 
-Prerequisites: Docker and Docker Compose; Java 21 only if you run the core outside Docker. The frontend and MCP server repos are expected at the paths in `docker-compose.yml`. The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
+Prerequisites: Docker and Docker Compose; Java 21 only if you run the core outside Docker. Run `docker compose` from the repository root. The frontend and MCP server repos are expected at the paths in `docker-compose.yml`. The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
 
 ```bash
-cd code/automata
 docker compose up --build -d     # postgres, rabbitmq, rustfs, core, frontend, MCP server
 docker compose down              # stop; add -v to also drop the data
 ```
@@ -152,9 +151,9 @@ docker compose down              # stop; add -v to also drop the data
 - MCP server (streamable HTTP) `http://127.0.0.1:8000/mcp`
 - RabbitMQ management `http://localhost:15672`, RustFS console `http://localhost:9001` (credentials in `docker-compose.yml`)
 
-To run only the core: start the backing services (`docker compose up -d postgres rabbitmq rustfs rustfs-init`), set the environment variables listed in `code/automata/.claude/CLAUDE.md` and run `./mvnw spring-boot:run`. Tests: `./mvnw test`. If an old dev volume refuses to start (tables without Flyway history), recreate it with `docker compose down -v`.
+To run only the core: start the backing services (`docker compose up -d postgres rabbitmq rustfs rustfs-init`), set the environment variables listed in `core/.claude/CLAUDE.md` and run `./mvnw spring-boot:run` in `core/`. Tests: `./mvnw test` in `core/`. If an old dev volume refuses to start (tables without Flyway history), recreate it with `docker compose down -v`.
 
-`scripts/import-wordlists.sh` uploads a directory of existing wordlists.
+`core/scripts/import-wordlists.sh` uploads a directory of existing wordlists.
 
 ---
 
