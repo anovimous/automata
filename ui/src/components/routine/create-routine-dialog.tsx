@@ -20,12 +20,9 @@ import { useCreateRoutine, useVulnerabilities } from "@/hooks/useResources";
 import { MonacoJsonEditor } from "@/components/run-job/MonacoJsonEditor";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
-import type {
-  AllowedTarget,
-  Overhead,
-  Protocol,
-  ResultContentType,
-} from "@/types/domain";
+import type { AllowedTarget, ResultContentType } from "@/types/domain";
+import { UsageDescriptionField } from "@/components/routine/usage-description-field";
+import { routineTextsProblem } from "@/lib/routineRules";
 
 const NO_VULN = "__none__";
 
@@ -45,8 +42,7 @@ export function CreateRoutineDialog({
 }) {
   const [key, setKey] = React.useState("");
   const [description, setDescription] = React.useState("");
-  const [overhead, setOverhead] = React.useState<Overhead | "">("");
-  const [protocol, setProtocol] = React.useState<Protocol | "">("");
+  const [usageDescriptionForAgent, setUsageDescriptionForAgent] = React.useState("");
   const [vulnId, setVulnId] = React.useState<string>(NO_VULN);
   const [resultContentType, setResultContentType] = React.useState<ResultContentType>("JSON");
   const [configSchema, setConfigSchema] = React.useState("");
@@ -62,8 +58,7 @@ export function CreateRoutineDialog({
     if (open) {
       setKey("");
       setDescription("");
-      setOverhead("");
-      setProtocol("");
+      setUsageDescriptionForAgent("");
       setVulnId(NO_VULN);
       setResultContentType("JSON");
       setConfigSchema("");
@@ -82,17 +77,17 @@ export function CreateRoutineDialog({
     }
   }
 
+  const textsProblem = routineTextsProblem(description, usageDescriptionForAgent);
   const canSubmit =
-    !!key.trim() && !schemaError && protocol !== "" && allowedTargets.length > 0;
+    !!key.trim() && !schemaError && !textsProblem && allowedTargets.length > 0;
 
   async function submit() {
     if (!canSubmit) return;
     try {
       await createMut.mutateAsync({
         key: key.trim(),
-        description: description.trim() || undefined,
-        overhead: overhead || undefined,
-        protocol,
+        description,
+        usageDescriptionForAgent,
         vulnerabilityId: vulnId !== NO_VULN ? Number(vulnId) : undefined,
         resultContentType,
         configSchema: configSchema.trim() ? JSON.parse(configSchema) : undefined,
@@ -133,7 +128,7 @@ export function CreateRoutineDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="r-desc">Description</Label>
+            <Label htmlFor="r-desc">Description (required)</Label>
             <Textarea
               id="r-desc"
               value={description}
@@ -142,33 +137,11 @@ export function CreateRoutineDialog({
               className="min-h-[80px]"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Overhead</Label>
-              <Select value={overhead} onValueChange={(v) => setOverhead(v as Overhead)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LOW">LOW</SelectItem>
-                  <SelectItem value="MEDIUM">MEDIUM</SelectItem>
-                  <SelectItem value="HIGH">HIGH</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Protocol (required)</Label>
-              <Select value={protocol} onValueChange={(v) => setProtocol(v as Protocol)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="HTTP">HTTP</SelectItem>
-                  <SelectItem value="NETWORK">NETWORK</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <UsageDescriptionField
+            id="r-usage"
+            value={usageDescriptionForAgent}
+            onChange={setUsageDescriptionForAgent}
+          />
           <div className="space-y-1.5">
             <Label>Vulnerability</Label>
             <Select value={vulnId} onValueChange={setVulnId}>

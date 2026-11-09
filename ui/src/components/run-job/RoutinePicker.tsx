@@ -55,11 +55,6 @@ export function RoutinePicker({ value, onChange, allowedTarget }: RoutinePickerP
           {selected ? (
             <span className="flex items-center gap-2 min-w-0">
               <span className="font-mono text-xs font-medium truncate">{selected.key}</span>
-              {selected.overhead && (
-                <Badge variant="muted" className="shrink-0">
-                  {selected.overhead}
-                </Badge>
-              )}
             </span>
           ) : (
             <span className="text-muted-foreground">Pick a routine…</span>
@@ -109,9 +104,7 @@ export function RoutinePicker({ value, onChange, allowedTarget }: RoutinePickerP
                 <div className="flex-1 min-w-0">
                   <div className="font-mono text-xs font-medium truncate">{r.key}</div>
                   <div className="flex items-center gap-1 mt-1 flex-wrap">
-                    {r.overhead && <Badge variant="muted">{r.overhead}</Badge>}
                     {r.wordlistRequired && <Badge variant="outline">needs wordlist</Badge>}
-                    {r.protocol && <Badge variant="outline">{r.protocol}</Badge>}
                     {r.allowedTargets?.map((at) => (
                       <Badge key={at} variant="outline">
                         {at}

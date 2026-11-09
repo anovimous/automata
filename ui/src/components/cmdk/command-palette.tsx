@@ -133,7 +133,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             kind: "routine" as const,
             id: r.id,
             primary: r.key,
-            secondary: r.protocol ?? undefined,
+            secondary: r.allowedTargets.join(", ") || undefined,
           })) ?? []),
           ...(comparators?.content?.map((c) => ({
             kind: "comparator" as const,
