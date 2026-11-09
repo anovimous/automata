@@ -68,21 +68,22 @@ public class RoutineService {
 		Routine routine = routineRepo.findById(routineId)
 				.orElseThrow(() -> new EntityNotFoundException("Routine not found"));
 
-		if (patchRequest.setDescriptionNull())
-			routine.setDescription(null);
-		else
-			patchRequest.description().ifPresent(routine::setDescription);
+		patchRequest.description().ifPresent(description -> {
+			requireNotBlank(description, "description");
+			routine.setDescription(description);
+		});
+
+		patchRequest.usageDescriptionForAgent().ifPresent(usageDescription -> {
+			requireValidUsageDescriptionForAgent(usageDescription);
+			routine.setUsageDescriptionForAgent(usageDescription);
+		});
 
 		patchRequest.isAvailableAtConsumer().ifPresent(routine::setAvailableAtConsumer);
 
 		patchRequest.wordlistRequired().ifPresent(routine::setWordlistRequired);
 
-		patchRequest.overhead().ifPresent(routine::setOverhead);
-
 		if (patchRequest.allowedTargets() != null && !patchRequest.allowedTargets().isEmpty())
 			routine.setAllowedTargets(patchRequest.allowedTargets());
-
-		patchRequest.protocol().ifPresent(routine::setProtocol);
 
 		if (patchRequest.setConfigSchemaNull())
 			routine.setConfigSchema(null);
@@ -103,6 +104,21 @@ public class RoutineService {
 
 		return routineRepo.save(routine);
 
+	}
+
+	static void requireValidUsageDescriptionForAgent(String usageDescription) {
+
+		requireNotBlank(usageDescription, "usageDescriptionForAgent");
+
+		if (usageDescription.length() > Routine.MAX_USAGE_DESCRIPTION_FOR_AGENT_LENGTH)
+			throw new IllegalArgumentException("usageDescriptionForAgent is too long, the limit is "
+					+ Routine.MAX_USAGE_DESCRIPTION_FOR_AGENT_LENGTH + " characters");
+	}
+
+	private static void requireNotBlank(String value, String field) {
+
+		if (value.isBlank())
+			throw new IllegalArgumentException(field + " must not be blank");
 	}
 
 	@Transactional

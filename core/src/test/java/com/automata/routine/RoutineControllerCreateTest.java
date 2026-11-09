@@ -40,7 +40,8 @@ class RoutineControllerCreateTest {
 
 	private String body(boolean available, boolean wordlistRequired) {
 		return "{\"key\":\"fuzz\",\"isAvailableAtConsumer\":" + available + ",\"wordlistRequired\":" + wordlistRequired
-				+ ",\"protocol\":\"HTTP\",\"allowedTargets\":[\"SINGLE_REQUEST\"],\"resultContentType\":\"JSON\"}";
+				+ ",\"description\":\"ffuf fuzzer\",\"usageDescriptionForAgent\":\"Use it to fuzz one request\""
+				+ ",\"allowedTargets\":[\"SINGLE_REQUEST\"],\"resultContentType\":\"JSON\"}";
 	}
 
 	private Routine created(boolean available, boolean wordlistRequired) throws Exception {
@@ -67,6 +68,14 @@ class RoutineControllerCreateTest {
 	}
 
 	@Test
+	void createKeepsTheDescriptionAndTheUsageDescriptionForAgent() throws Exception {
+		Routine routine = created(true, true);
+
+		assertEquals("ffuf fuzzer", routine.getDescription());
+		assertEquals("Use it to fuzz one request", routine.getUsageDescriptionForAgent());
+	}
+
+	@Test
 	void createKeepsFalseValues() throws Exception {
 		Routine routine = created(false, false);
 
@@ -81,7 +90,7 @@ class RoutineControllerCreateTest {
 		when(routineService.createRoutine(any(), any())).thenReturn(saved);
 
 		mvc.perform(post("/api/routines").contentType(MediaType.APPLICATION_JSON).content(
-				"{\"key\":\"fuzz\",\"protocol\":\"HTTP\",\"allowedTargets\":[\"SINGLE_REQUEST\"],\"resultContentType\":\"JSON\"}"))
+				"{\"key\":\"fuzz\",\"description\":\"d\",\"usageDescriptionForAgent\":\"u\",\"allowedTargets\":[\"SINGLE_REQUEST\"],\"resultContentType\":\"JSON\"}"))
 				.andExpect(status().isCreated());
 
 		ArgumentCaptor<Routine> routine = ArgumentCaptor.forClass(Routine.class);

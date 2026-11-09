@@ -124,8 +124,13 @@ class RequestBodyValidationTest {
 						"representativeStrategy must not be null"),
 				r("an item without a type", "/api/agent-contexts/1/items", "{}", "itemType must not be null"),
 				r("a tenant of a context without an id", "/api/agent-contexts/1/tenants", "{}", "tenantId must not be null"),
-				r("a routine without anything", "/api/routines", "{}", "key must not be blank", "protocol must not be null", "allowedTargets must not be null",
+				r("a routine without anything", "/api/routines", "{}", "key must not be blank", "description must not be blank",
+						"usageDescriptionForAgent must not be blank", "allowedTargets must not be null",
 						"resultContentType must not be null"),
+				r("a routine with blank descriptions", "/api/routines", routineBody(" ", " "), "description must not be blank",
+						"usageDescriptionForAgent must not be blank"),
+				r("a routine with a usage description over the limit", "/api/routines", routineBody("d", "u".repeat(5001)),
+						"usageDescriptionForAgent size must be between 0 and 5000"),
 				r("a comparator without anything", "/api/comparators", "{}", "name must not be blank", "modifierIds must not be empty"),
 				r("a comparator without modifiers", "/api/comparators", "{\"name\":\"c\",\"modifierIds\":[]}", "modifierIds must not be empty"),
 				r("a modifier without anything", "/api/modifiers", "{}", "target must not be null", "description must not be blank", "priority must not be null",
@@ -147,6 +152,11 @@ class RequestBodyValidationTest {
 						"narrowJobDetails.duration must not be null", "narrowJobDetails.hostId must not be null"),
 				r("a wide job with empty details", "/api/jobs/http", jobBody("WIDE", "", ",\"wideJobDetails\":{}"), "wideJobDetails.programId must not be null"),
 				r("a state report without a state", "/api/external/jobs/http/update/1", "{\"jobId\":1}", "newState must not be null"));
+	}
+
+	private static String routineBody(String description, String usageDescriptionForAgent) {
+		return "{\"key\":\"fuzz\",\"description\":\"" + description + "\",\"usageDescriptionForAgent\":\"" + usageDescriptionForAgent
+				+ "\",\"allowedTargets\":[\"SINGLE_REQUEST\"],\"resultContentType\":\"JSON\"}";
 	}
 
 	private static String jobBody(String scope, String narrow, String wide) {

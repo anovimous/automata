@@ -75,7 +75,8 @@ class DatabaseErrorMappingIntegrationTest {
 		em.flush();
 		Routine duplicate = new Routine();
 		duplicate.setKey("fuzz");
-		duplicate.setProtocol(com.automata.routine.common.enums.Protocol.HTTP);
+		duplicate.setDescription("d");
+		duplicate.setUsageDescriptionForAgent("u");
 		duplicate.setResultContentType(com.automata.routine.common.enums.ResultContentType.TEXT);
 		duplicate.setAllowedTargets(java.util.Set.of(com.automata.routine.common.enums.TargetCardinalityPair.SINGLE_HOST));
 
