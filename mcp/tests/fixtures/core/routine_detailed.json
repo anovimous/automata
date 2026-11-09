@@ -3,11 +3,10 @@
   "creationDate": "2026-09-01",
   "key": "fuzz",
   "description": "ffuf based fuzzer",
+  "usageDescriptionForAgent": "Fuzz one request: mark the fuzzed spot with FUZZ in rawRequestBase64 and give a wordlist.",
   "updatedAt": "2026-10-01T00:00:00Z",
   "isAvailableAtConsumer": true,
   "wordlistRequired": true,
-  "overhead": "HIGH",
-  "protocol": "HTTP",
   "allowedTargets": [
     "SINGLE_REQUEST"
   ],

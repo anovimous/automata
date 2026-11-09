@@ -118,8 +118,7 @@ def seed() -> Iterator[Seed]:
                     "description": "Integration test routine",
                     "isAvailableAtConsumer": True,
                     "wordlistRequired": True,
-                    "overhead": "HIGH",
-                    "protocol": "HTTP",
+                    "usageDescriptionForAgent": "Integration test usage description",
                     "allowedTargets": ["SINGLE_REQUEST"],
                     "vulnerabilityId": vulnerability,
                     "configSchema": {

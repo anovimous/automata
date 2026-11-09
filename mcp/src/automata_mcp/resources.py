@@ -58,8 +58,9 @@ def register(mcp: MCPServer[AppState]) -> None:
         name="routine",
         title="A routine with its config schema",
         description=(
-            "The same document as the get_routine tool: the routine's description, configSchema, "
-            "result type, what it can target and whether it needs a wordlist."
+            "The same document as the get_routine tool: the routine's description, how the agent "
+            "should use it (usageDescriptionForAgent), configSchema, result type, what it can "
+            "target and whether it needs a wordlist."
         ),
         mime_type="application/json",
     )

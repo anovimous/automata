@@ -21,12 +21,14 @@ def register(mcp: MCPServer[AppState]) -> None:
         size: PageSize = 30,
     ) -> dict[str, Any]:
         """Lists the routines the core knows (a routine is a kind of job, such as `fuzz`), with
-        their key, whether they need a wordlist, their overhead and protocol, what they can
-        target and whether the worker offers them.
+        their key, whether they need a wordlist, what they can target and whether the worker
+        offers them. The list does not carry the description nor how to use a routine: read
+        those with get_routine.
 
         Only the routines in your context's allowedRoutineIds can be used in create_job; the
         briefing (get_context_briefing) already lists those with their details. Use this to see
-        what else exists, and get_routine to read one routine's description and `configSchema`.
+        what else exists, and get_routine to read one routine's description, its
+        `usageDescriptionForAgent` and its `configSchema`.
         Results are paged: `nextPage` says which page to ask for next.
         """
         state = get_state(ctx)
@@ -40,16 +42,17 @@ def register(mcp: MCPServer[AppState]) -> None:
         routine_id: Annotated[int, Field(description="Id of the routine.")],
         ctx: Context[AppState, Any],
     ) -> dict[str, Any]:
-        """Returns one routine in full: its key, description, `configSchema` (the JSON schema of
-        the `custom_config` that create_job accepts for it), `wordlistRequired`,
-        `resultContentType` (how get_job_result reads: JSON or text), `allowedTargets`,
-        `overhead`, `protocol`, the vulnerability it tests and `isAvailableAtConsumer` (false:
-        the worker does not offer it, so jobs on it are refused).
+        """Returns one routine in full: its key, description, `usageDescriptionForAgent` (how
+        you should use the routine: when it fits, how to configure it, what to expect),
+        `configSchema` (the JSON schema of the `custom_config` that create_job accepts for it),
+        `wordlistRequired`, `resultContentType` (how get_job_result reads: JSON or text),
+        `allowedTargets`, the vulnerability it tests and `isAvailableAtConsumer` (false: the
+        worker does not offer it, so jobs on it are refused).
 
-        Read the configSchema before building a `custom_config`. A routine with
-        `wordlistRequired` is meant to run with a wordlist: the core does not enforce it, but
-        such a job fails at the worker without one. You can only create jobs with the routines
-        in your context's allowedRoutineIds.
+        Read `usageDescriptionForAgent` and the configSchema before building a `custom_config`.
+        A routine with `wordlistRequired` is meant to run with a wordlist: the core does not
+        enforce it, but such a job fails at the worker without one. You can only create jobs
+        with the routines in your context's allowedRoutineIds.
         """
         state = get_state(ctx)
         return (await state.core.get_routine(routine_id)).to_output()

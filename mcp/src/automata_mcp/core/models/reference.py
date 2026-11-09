@@ -2,8 +2,6 @@ from typing import Any
 
 from automata_mcp.core.models.base import CoreModel, CoreRequest
 from automata_mcp.core.models.enums import (
-    Overhead,
-    Protocol,
     ResultContentType,
     TargetCardinalityPair,
 )
@@ -15,21 +13,20 @@ class RoutineSummary(CoreModel):
     key: str
     is_available_at_consumer: bool = False
     wordlist_required: bool = False
-    overhead: Overhead | None = None
-    protocol: Protocol | None = None
     allowed_targets: list[TargetCardinalityPair] = []
 
 
 class RoutineDetailed(CoreModel):
+    """``GET /api/routines/{id}``: the only route that carries ``usageDescriptionForAgent``."""
+
     id: int
     creation_date: str | None = None
     key: str
-    description: str | None = None
+    description: str
+    usage_description_for_agent: str
     updated_at: str | None = None
     is_available_at_consumer: bool = False
     wordlist_required: bool = False
-    overhead: Overhead | None = None
-    protocol: Protocol | None = None
     allowed_targets: list[TargetCardinalityPair] = []
     vulnerability_id: int | None = None
     config_schema: Any = None
