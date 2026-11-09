@@ -85,22 +85,6 @@ export function RoutinesListRoute() {
               ),
             },
             {
-              key: "overhead",
-              header: "Overhead",
-              cell: (r) =>
-                r.overhead ? <Badge variant="muted">{r.overhead}</Badge> : (
-                  <span className="text-muted-foreground">—</span>
-                ),
-            },
-            {
-              key: "protocol",
-              header: "Protocol",
-              cell: (r) =>
-                r.protocol ? <Badge variant="outline">{r.protocol}</Badge> : (
-                  <span className="text-muted-foreground">—</span>
-                ),
-            },
-            {
               key: "targets",
               header: "Allowed targets",
               cell: (r) => (

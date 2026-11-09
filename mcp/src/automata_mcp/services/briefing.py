@@ -51,6 +51,7 @@ def routine_section(routine: RoutineDetailed) -> dict[str, Any]:
             "id",
             "key",
             "description",
+            "usageDescriptionForAgent",
             "resultContentType",
             "configSchema",
             "wordlistRequired",

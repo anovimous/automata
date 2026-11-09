@@ -9,10 +9,10 @@ public abstract class RoutineMapper {
 
 	public static RoutineDetailedResponseDto toDetailedResponse(Routine routine) {
 		return RoutineDetailedResponseDto.builder().id(routine.getId()).creationDate(routine.getCreationDate())
-				.key(routine.getKey()).description(routine.getDescription()).updatedAt(routine.getUpdatedAt())
+				.key(routine.getKey()).description(routine.getDescription())
+				.usageDescriptionForAgent(routine.getUsageDescriptionForAgent()).updatedAt(routine.getUpdatedAt())
 				.isAvailableAtConsumer(routine.isAvailableAtConsumer()).wordlistRequired(routine.isWordlistRequired())
-				.overhead(routine.getOverhead())
-				.protocol(routine.getProtocol()).allowedTargets(routine.getAllowedTargets())
+				.allowedTargets(routine.getAllowedTargets())
 				.vulnerabilityId(routine.getVulnerability() != null ? routine.getVulnerability().getId() : null)
 				.configSchema(routine.getConfigSchema()).resultContentType(routine.getResultContentType()).build();
 	}
@@ -26,8 +26,7 @@ public abstract class RoutineMapper {
 
 		return RoutineSummaryResponseDto.builder().id(routine.getId()).creationDate(routine.getCreationDate())
 				.key(routine.getKey()).isAvailableAtConsumer(routine.isAvailableAtConsumer())
-				.wordlistRequired(routine.isWordlistRequired()).overhead(routine.getOverhead()).protocol(routine.getProtocol())
-				.allowedTargets(routine.getAllowedTargets()).build();
+				.wordlistRequired(routine.isWordlistRequired()).allowedTargets(routine.getAllowedTargets()).build();
 	}
 
 }

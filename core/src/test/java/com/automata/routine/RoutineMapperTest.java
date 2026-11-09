@@ -1,11 +1,17 @@
 package com.automata.routine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.lang.reflect.RecordComponent;
+import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import com.automata.routine.common.dto.RoutineDetailedResponseDto;
+import com.automata.routine.common.dto.RoutineSummaryResponseDto;
 import com.automata.routine.common.enums.ResultContentType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,6 +52,27 @@ class RoutineMapperTest {
 		RoutineDetailedResponseDto response = RoutineMapper.toDetailedResponse(routine);
 
 		assertNull(response.configSchema());
+	}
+
+	@Test
+	void theDetailedResponseCarriesTheDescriptionAndTheUsageDescriptionForAgent() {
+		Routine routine = new Routine();
+		routine.setDescription("ffuf fuzzer");
+		routine.setUsageDescriptionForAgent("Use it to fuzz one request");
+
+		RoutineDetailedResponseDto response = RoutineMapper.toDetailedResponse(routine);
+
+		assertEquals("ffuf fuzzer", response.description());
+		assertEquals("Use it to fuzz one request", response.usageDescriptionForAgent());
+	}
+
+	@Test
+	void theSummaryResponseHasNoUsageDescriptionForAgent() {
+		List<String> fields = Arrays.stream(RoutineSummaryResponseDto.class.getRecordComponents())
+				.map(RecordComponent::getName).toList();
+
+		assertFalse(fields.contains("usageDescriptionForAgent"));
+		assertFalse(fields.contains("description"));
 	}
 
 	@Test

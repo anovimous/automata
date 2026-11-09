@@ -35,8 +35,8 @@ class RoutineServicePatchFlagsTest {
 	}
 
 	private RoutinePatchRequest patch(Optional<Boolean> available, Optional<Boolean> wordlistRequired) {
-		return new RoutinePatchRequest(Optional.empty(), false, available, wordlistRequired, Optional.empty(),
-				Optional.empty(), null, Optional.empty(), false, Optional.empty(), false);
+		return new RoutinePatchRequest(Optional.empty(), Optional.empty(), available, wordlistRequired, null,
+				Optional.empty(), false, Optional.empty(), false);
 	}
 
 	@Test

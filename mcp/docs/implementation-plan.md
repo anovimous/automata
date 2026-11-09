@@ -214,7 +214,7 @@ Tool modules only declare tools (`@mcp.tool`) and delegate to `services/` and `c
 | get_request_job | `GET .../requests/{rid}/jobs/{jid}` | | 200 `RequestJobResponseDto`; 404 when the request is not in the context or the job did not target it |
 | get_request_job_result | `GET .../requests/{rid}/jobs/{jid}/result` | | 200 bytes, same rules as `get_job_result`; 404 as above |
 | list_routines | `GET /api/routines` | `query`, `vulnId`, paging (default size 30, sort key) | 200 page of `RoutineSummaryResponseDto` |
-| get_routine | `GET /api/routines/{id}` | | 200 `RoutineDetailedResponseDto` (includes `configSchema`) |
+| get_routine | `GET /api/routines/{id}` | | 200 `RoutineDetailedResponseDto` (includes `configSchema` and `usageDescriptionForAgent`, which the list never carries) |
 | list_vulnerabilities | `GET /api/vulnerabilities` | `query`, `parentVulnId`, paging | 200 page of `VulnerabilitySummaryResponseDto` |
 | get_vulnerability | `GET /api/vulnerabilities/{id}` | | 200 `VulnerabilityDetailedResponseDto` |
 | list_wordlists | `GET /api/wordlists` | `query`, `vulnId`, paging | 200 page of `WordlistSummaryResponseDto` |
@@ -256,7 +256,6 @@ Notes
 | FindingCreator | `AI, USER` |
 | HumanVerdict | `TRUE_POSITIVE, FALSE_POSITIVE` |
 | ResultContentType | `JSON, TEXT` |
-| Overhead / Protocol (routine) | `HIGH, MEDIUM, LOW` / `NETWORK, HTTP` |
 | TargetCardinalityPair (routine) | `SINGLE_HOST, MULTILPLE_HOSTS` (sic, a typo in the core), `SINGLE_REQUEST, MULTIPLE_REQUESTS` |
 | Host Scope | `WILDCARD, FQDN` |
 | SelectorType | `SINGLE_HOST, SINGLE_REQUEST, MULTIPLE_HOSTS, MULTIPLE_REQUESTS` |
@@ -308,8 +307,8 @@ Base config: `ConfigDict(extra="ignore", populate_by_name=True, alias_generator=
 - `AiJobCreationRequest` (body of `create_job`): `{requestId, aiDescription, routineId, duration?, wordlistsIds: list[int] (required, may be empty), rate?, verbosity?, priority?, customConfig?}` — note the field is `wordlistsIds`. The context uuid is in the path.
 
 **Reference data**
-- `RoutineSummaryResponseDto{id, creationDate, key, isAvailableAtConsumer, wordlistRequired, overhead, protocol, allowedTargets: list[TargetCardinalityPair]}`
-- `RoutineDetailedResponseDto{id, creationDate, key, description?, updatedAt, isAvailableAtConsumer, wordlistRequired, overhead, protocol, allowedTargets, vulnerabilityId?, configSchema?(json), resultContentType}`
+- `RoutineSummaryResponseDto{id, creationDate, key, isAvailableAtConsumer, wordlistRequired, allowedTargets: list[TargetCardinalityPair]}` (no `description` nor `usageDescriptionForAgent`)
+- `RoutineDetailedResponseDto{id, creationDate, key, description, usageDescriptionForAgent (up to 5000 characters), updatedAt, isAvailableAtConsumer, wordlistRequired, allowedTargets, vulnerabilityId?, configSchema?(json), resultContentType}`
 - `VulnerabilitySummaryResponseDto{id, name}`; `VulnerabilityDetailedResponseDto{id, name, parentId?}`
 - `WordlistSummaryResponseDto{id, name?, description?, numberOfLines, sizeBytes}`; `WordlistDetailedResponseDto{id, name?, description?, numberOfLines, sizeBytes, sha256}` (no path any more); `WordlistCreationRequest{name?, description?, vulnIds?: list[int]}` (the `metadata` part; `name` falls back to the file name)
 
@@ -340,7 +339,7 @@ Base config: `ConfigDict(extra="ignore", populate_by_name=True, alias_generator=
 
 **`get_context_briefing(context_uuid)`** — aggregate; start here.
 - Calls: get_context, get_host, list_targets, list_tenants, get_routine for each `allowedRoutineIds`, list_jobs (page 0, size 10), list_findings (size 5). Run concurrently with `asyncio.gather`; a failing optional part (findings, jobs) is reported as `{"error": "..."}` in its slot, not as a total failure.
-- Returns: `{context{uuid, name, description, representativeStrategy, defaultAutoApproval, defaults{duration, verbosity, priority}, maxRate, defaultJobRate}, host{...}, targets[...], tenants[...], allowedRoutines[{id, key, description, resultContentType, configSchema, wordlistRequired, allowedTargets}], recentJobs[...], recentFindings{total, items[...]}, notes[...]}`.
+- Returns: `{context{uuid, name, description, representativeStrategy, defaultAutoApproval, defaults{duration, verbosity, priority}, maxRate, defaultJobRate}, host{...}, targets[...], tenants[...], allowedRoutines[{id, key, description, usageDescriptionForAgent, resultContentType, configSchema, wordlistRequired, isAvailableAtConsumer, allowedTargets}], recentJobs[...], recentFindings{total, items[...]}, notes[...]}`.
 - `notes` explains the situation: how many targets are not job-eligible, which need human approval, that tenants' authentication is sensitive, the host rate limits (a limit of 0 closes the host to jobs), the context `maxRate` and `defaultJobRate`, which allowed routines have `wordlistRequired`, etc.
 - Description guidance: "Call this first in a session. It gives your targets, tenants, host, allowed routines and recent work in one call."
 
@@ -361,7 +360,7 @@ Base config: `ConfigDict(extra="ignore", populate_by_name=True, alias_generator=
 - **Arguments:** `context_uuid` is the first parameter, typed `ContextUuid` (a `str` with a description for the agent) and parsed by `parse_context_uuid`; anything that is not a UUID raises a `ToolError` ("context_uuid must be a UUID such as ... The user gives you the uuid of your context.") before any call to the core. The `Context` parameter of a tool is not in its schema. All five tools carry `READ_ONLY` (`readOnlyHint`, `openWorldHint=False`). Each description is a docstring of more than a hundred words in the style of the guidance above.
 - **`list_targets`** returns `{targets, total, enriched?, notes}`. Each target is the core's `ResolvedTarget` fields plus, when enriched, `method`, `computatedPath`, `target`, `contentType`, `tenantId`, `responseId`, `bodySizeBytes`. `enriched` is the number of targets that carry the summary (absent with `with_summary=false`); a request that cannot be read is left plain; when `enriched` is less than `total` a note says so and points to `get_request`. The notes are computed from the targets (how many are not job-eligible, how many need human approval, how many equality sets); the representative-strategy explanation is not in this tool's output (it would cost a `get_context` call) but in its description and in the briefing's notes.
 - **`list_tenants`** returns `{tenants: [...]}`; `get_context` and `get_host` return the model as is.
-- **`get_context_briefing`** returns `context`, `host`, `targets` (the same list as `list_targets`, enriched), `tenants`, `allowedRoutines` and `notes`. Each allowed routine is `{id, key, description, resultContentType, configSchema, wordlistRequired, isAvailableAtConsumer, allowedTargets}` (`isAvailableAtConsumer` was added: `create_job` is refused for a routine the worker does not offer). The context, host, targets and tenants are required: their error is raised, the context's first. Only a routine that cannot be read is reported in its own slot (`{id, error}`). `recentJobs` is added by phase 5 and `recentFindings` by phase 6; until then they are absent (their descriptions are added to the tool's docstring then).
+- **`get_context_briefing`** returns `context`, `host`, `targets` (the same list as `list_targets`, enriched), `tenants`, `allowedRoutines` and `notes`. Each allowed routine is `{id, key, description, usageDescriptionForAgent, resultContentType, configSchema, wordlistRequired, isAvailableAtConsumer, allowedTargets}` (`isAvailableAtConsumer` was added: `create_job` is refused for a routine the worker does not offer). The context, host, targets and tenants are required: their error is raised, the context's first. Only a routine that cannot be read is reported in its own slot (`{id, error}`). `recentJobs` is added by phase 5 and `recentFindings` by phase 6; until then they are absent (their descriptions are added to the tool's docstring then).
 - **Notes of the briefing** (computed, nothing decided): the target notes above; the strategy (`LATEST`: only the newest request of a set is a target, the older ones are readable through `list_context_requests`; `AI_JUDGEMENT`: every request of a set is a target); the rate rule (a rate the agent gives is refused above the host limit, the short or long limit of the duration, the context `maxRate` or the program limit, which the agent cannot see; a job without a rate gets the context `defaultJobRate` lowered to those limits) or, for a host limit of 0, that the core refuses every job and the user must be told; the host marked out of scope; the sensitivity of tenant authentication and the tenants without an in-context request; routines meant to run with a wordlist; routines the worker does not offer; routines that could not be read.
 
 ### 8.3 Request / response tools (`tools/requests.py`, `tools/responses.py`)
@@ -448,7 +447,7 @@ All require the request to be in the context (404 otherwise: say "not found or n
 
 ### 8.5 Reference tools (`tools/reference.py`, `tools/wordlists.py`)
 
-**`list_routines(query="", vulnerability_id=None, page=0, size=30)`** — row 50. **`get_routine(routine_id)`** — row 49 (returns `configSchema`, `description`, `resultContentType`, `allowedTargets`, `overhead`, `isAvailableAtConsumer` and `wordlistRequired`). Guidance: only routines in the context's `allowedRoutineIds` can be used in `create_job`; the briefing marks them.
+**`list_routines(query="", vulnerability_id=None, page=0, size=30)`** — row 50. **`get_routine(routine_id)`** — row 49 (returns `configSchema`, `description`, `usageDescriptionForAgent` (how the agent should use the routine; only this route carries it, not `list_routines`), `resultContentType`, `allowedTargets`, `isAvailableAtConsumer` and `wordlistRequired`). Guidance: only routines in the context's `allowedRoutineIds` can be used in `create_job`; the briefing marks them.
 
 **`list_vulnerabilities(query="", parent_id=None, page=0, size=30)`** — row 55. **`get_vulnerability(vulnerability_id)`** — row 54. Used to pick `vulnerability_id` for a finding.
 

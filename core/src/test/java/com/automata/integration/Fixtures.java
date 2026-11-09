@@ -16,7 +16,6 @@ import com.automata.job.domain.model.enums.ResultsVerbosity;
 import com.automata.request.Request;
 import com.automata.routine.Routine;
 import com.automata.routine.common.enums.Duration;
-import com.automata.routine.common.enums.Protocol;
 import com.automata.routine.common.enums.ResultContentType;
 import com.automata.routine.common.enums.TargetCardinalityPair;
 import com.automata.request.common.enums.Method;
@@ -91,7 +90,8 @@ public final class Fixtures {
 		Routine routine = new Routine();
 		routine.setKey(key);
 		routine.setAvailableAtConsumer(true);
-		routine.setProtocol(Protocol.HTTP);
+		routine.setDescription("Routine " + key);
+		routine.setUsageDescriptionForAgent("How to use " + key);
 		routine.setResultContentType(ResultContentType.TEXT);
 		routine.setAllowedTargets(java.util.EnumSet.allOf(TargetCardinalityPair.class));
 		return persist(routine);

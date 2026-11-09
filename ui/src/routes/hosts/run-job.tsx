@@ -438,9 +438,6 @@ export function RunJobForm({ programId, hostId, search }: RunJobFormProps) {
           <Card>
             <CardHeader>
               <CardTitle>Routine</CardTitle>
-              {routineDetailQ.data?.overhead && (
-                <Badge variant="muted">{routineDetailQ.data.overhead} overhead</Badge>
-              )}
             </CardHeader>
             <CardContent>
               <RoutinePicker

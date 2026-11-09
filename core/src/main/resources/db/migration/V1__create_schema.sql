@@ -80,19 +80,16 @@ CREATE TABLE routine (
     allowed_targets jsonb NOT NULL,
     config_schema jsonb,
     creation_date date NOT NULL,
-    description varchar(255),
+    description varchar(255) NOT NULL,
     is_available_at_consumer boolean NOT NULL,
     key varchar(255) NOT NULL,
-    overhead varchar(255),
-    protocol varchar(255) NOT NULL,
     result_content_type varchar(255) NOT NULL,
     updated_at timestamp(6) with time zone,
+    usage_description_for_agent varchar(5000) NOT NULL,
     vulnerability_id bigint,
     wordlist_required boolean NOT NULL,
     CONSTRAINT routine_pkey PRIMARY KEY (id),
     CONSTRAINT uk_routine_key UNIQUE (key),
-    CONSTRAINT routine_overhead_check CHECK (overhead IN ('HIGH', 'MEDIUM', 'LOW')),
-    CONSTRAINT routine_protocol_check CHECK (protocol IN ('NETWORK', 'HTTP')),
     CONSTRAINT routine_result_content_type_check CHECK (result_content_type IN ('JSON', 'TEXT'))
 );
 

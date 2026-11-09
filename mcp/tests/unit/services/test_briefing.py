@@ -121,6 +121,7 @@ def test_routine_section_keeps_what_the_agent_needs(load_fixture: Callable[[str]
         "id",
         "key",
         "description",
+        "usageDescriptionForAgent",
         "resultContentType",
         "configSchema",
         "wordlistRequired",

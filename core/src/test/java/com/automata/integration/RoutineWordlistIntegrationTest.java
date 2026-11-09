@@ -161,7 +161,8 @@ class RoutineWordlistIntegrationTest {
 	private static Routine newRoutine(String key) {
 		Routine routine = new Routine();
 		routine.setKey(key);
-		routine.setProtocol(com.automata.routine.common.enums.Protocol.HTTP);
+		routine.setDescription("d");
+		routine.setUsageDescriptionForAgent("u");
 		routine.setResultContentType(com.automata.routine.common.enums.ResultContentType.TEXT);
 		routine.setAllowedTargets(Set.of(com.automata.routine.common.enums.TargetCardinalityPair.SINGLE_HOST));
 		return routine;
