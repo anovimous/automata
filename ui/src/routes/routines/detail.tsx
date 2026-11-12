@@ -27,11 +27,9 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { ErrorState } from "@/components/common/states";
 import { useToast } from "@/components/ui/toast";
 import { ApiError } from "@/lib/fetcher";
-import type {
-  AllowedTarget,
-  Overhead,
-  Protocol,
-} from "@/types/domain";
+import type { AllowedTarget } from "@/types/domain";
+import { UsageDescriptionField } from "@/components/routine/usage-description-field";
+import { routineTextsProblem } from "@/lib/routineRules";
 
 const NO_VULN = "__none__";
 
@@ -53,8 +51,7 @@ export function RoutineDetailRoute() {
   const vulns = useVulnerabilities({ pageable: { page: 0, size: 200 } });
 
   const [description, setDescription] = React.useState("");
-  const [overhead, setOverhead] = React.useState<Overhead | "">("");
-  const [protocol, setProtocol] = React.useState<Protocol | "">("");
+  const [usageDescriptionForAgent, setUsageDescriptionForAgent] = React.useState("");
   const [vulnId, setVulnId] = React.useState(NO_VULN);
   const [configSchema, setConfigSchema] = React.useState("");
   const [available, setAvailable] = React.useState(true);
@@ -65,8 +62,7 @@ export function RoutineDetailRoute() {
   React.useEffect(() => {
     if (routineQ.data) {
       setDescription(routineQ.data.description ?? "");
-      setOverhead(routineQ.data.overhead ?? "");
-      setProtocol(routineQ.data.protocol ?? "");
+      setUsageDescriptionForAgent(routineQ.data.usageDescriptionForAgent ?? "");
       setVulnId(
         routineQ.data.vulnerabilityId !== null && routineQ.data.vulnerabilityId !== undefined
           ? String(routineQ.data.vulnerabilityId)
@@ -99,7 +95,8 @@ export function RoutineDetailRoute() {
     }
   }
 
-  const canSave = !schemaError && allowedTargets.length > 0;
+  const textsProblem = routineTextsProblem(description, usageDescriptionForAgent);
+  const canSave = !schemaError && !textsProblem && allowedTargets.length > 0;
 
   async function save() {
     if (!canSave) return;
@@ -107,10 +104,8 @@ export function RoutineDetailRoute() {
       await patchMut.mutateAsync({
         id,
         req: {
-          description: description || undefined,
-          setDescriptionNull: !description && !!routineQ.data?.description,
-          overhead: overhead || undefined,
-          protocol: protocol || undefined,
+          description,
+          usageDescriptionForAgent,
           vulnerabilityId: vulnId !== NO_VULN ? Number(vulnId) : undefined,
           setVulnerabilityNull: vulnId === NO_VULN && !!routineQ.data?.vulnerabilityId,
           configSchema: configSchema.trim() ? JSON.parse(configSchema) : undefined,
@@ -179,55 +174,34 @@ export function RoutineDetailRoute() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
-            <Label>Description</Label>
+            <Label>Description (required)</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="min-h-[100px]"
             />
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
-              <Label>Overhead</Label>
-              <Select value={overhead} onValueChange={(v) => setOverhead(v as Overhead)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LOW">LOW</SelectItem>
-                  <SelectItem value="MEDIUM">MEDIUM</SelectItem>
-                  <SelectItem value="HIGH">HIGH</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Protocol</Label>
-              <Select value={protocol} onValueChange={(v) => setProtocol(v as Protocol)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="HTTP">HTTP</SelectItem>
-                  <SelectItem value="NETWORK">NETWORK</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Vulnerability</Label>
-              <Select value={vulnId} onValueChange={setVulnId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="—" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_VULN}>—</SelectItem>
-                  {vulns.data?.content.map((v) => (
-                    <SelectItem key={v.id} value={String(v.id)}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <UsageDescriptionField
+            id="routine-usage"
+            value={usageDescriptionForAgent}
+            onChange={setUsageDescriptionForAgent}
+          />
+          {textsProblem && <div className="text-[11px] text-destructive">{textsProblem}</div>}
+          <div className="space-y-1.5">
+            <Label>Vulnerability</Label>
+            <Select value={vulnId} onValueChange={setVulnId}>
+              <SelectTrigger>
+                <SelectValue placeholder="—" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_VULN}>—</SelectItem>
+                {vulns.data?.content.map((v) => (
+                  <SelectItem key={v.id} value={String(v.id)}>
+                    {v.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             Result content type:

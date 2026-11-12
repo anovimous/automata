@@ -74,12 +74,12 @@ class WordlistControllerTest {
 		mvc.perform(multipart("/api/wordlists")
 				.file(new MockMultipartFile("file", "common.txt", "text/plain", "admin\nlogin\n".getBytes()))
 				.file(new MockMultipartFile("metadata", "", "application/json",
-						"{\"name\":\"Common\",\"description\":\"d\",\"vulnIds\":[3]}".getBytes())))
+						"{\"name\":\"Common\",\"smallDescription\":\"s\",\"payloadContentDescription\":\"p\",\"vulnIds\":[3]}".getBytes())))
 				.andExpect(status().isCreated()).andExpect(header().string("Location", "/api/wordlists/7"));
 
 		ArgumentCaptor<WordlistCreationRequest> metadata = ArgumentCaptor.forClass(WordlistCreationRequest.class);
 		verify(wordlistService).createWordlist(any(), eq("common.txt"), metadata.capture());
-		assertEquals(new WordlistCreationRequest("Common", "d", Set.of(3L)), metadata.getValue());
+		assertEquals(new WordlistCreationRequest("Common", "s", "p", Set.of(3L)), metadata.getValue());
 		assertEquals(List.of("admin\nlogin\n"), contentSeen);
 	}
 
@@ -154,14 +154,15 @@ class WordlistControllerTest {
 	void getReturnsTheDetailsWithoutAnyPath() throws Exception {
 		Wordlist wordlist = created(7L);
 		wordlist.setName("Common");
-		wordlist.setDescription("d");
+		wordlist.setSmallDescription("s");
+		wordlist.setPayloadContentDescription("p");
 		wordlist.setNumberOfLines(2);
 		wordlist.setSizeBytes(12L);
 		wordlist.setSha256("a".repeat(64));
 		when(wordlistService.getWordlistById(7L)).thenReturn(wordlist);
 
 		mvc.perform(get("/api/wordlists/7")).andExpect(status().isOk())
-				.andExpect(content().json("{\"id\":7,\"name\":\"Common\",\"description\":\"d\",\"numberOfLines\":2,"
+				.andExpect(content().json("{\"id\":7,\"name\":\"Common\",\"smallDescription\":\"s\",\"payloadContentDescription\":\"p\",\"numberOfLines\":2,"
 						+ "\"sizeBytes\":12,\"sha256\":\"" + "a".repeat(64) + "\"}", true));
 	}
 

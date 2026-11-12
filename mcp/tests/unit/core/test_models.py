@@ -2,7 +2,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from automata_mcp.core.models.base import CoreRequest
 from automata_mcp.core.models.context import (
@@ -221,6 +221,21 @@ def test_routine_detail_keeps_the_config_schema(load_fixture: Callable[[str], An
     assert routine.is_available_at_consumer is True
 
 
+def test_routine_detail_has_the_usage_description_for_agent(
+    load_fixture: Callable[[str], Any],
+) -> None:
+    routine = RoutineDetailed.model_validate(load_fixture("routine_detailed"))
+
+    assert routine.description == "ffuf based fuzzer"
+    assert routine.usage_description_for_agent.startswith("Fuzz one request")
+    assert routine.to_output()["usageDescriptionForAgent"] == routine.usage_description_for_agent
+
+
+def test_routine_summary_has_no_usage_description_for_agent() -> None:
+    assert "usage_description_for_agent" not in RoutineSummary.model_fields
+    assert "description" not in RoutineSummary.model_fields
+
+
 def test_finding_detail_has_the_human_verdict(load_fixture: Callable[[str], Any]) -> None:
     finding = AgentFindingDetailed.model_validate(load_fixture("finding_detailed"))
 
@@ -275,8 +290,19 @@ def test_request_addition_leaves_out_what_was_not_given() -> None:
     assert payload == {"requestBase64": "QQ==", "host": "api.example.com"}
 
 
-def test_wordlist_creation_may_be_empty() -> None:
-    assert WordlistCreation().to_payload() == {}
+def test_wordlist_creation_needs_only_the_descriptions() -> None:
+    payload = WordlistCreation(small_description="s", payload_content_description="p").to_payload()
+
+    assert payload == {"smallDescription": "s", "payloadContentDescription": "p"}
+
+
+@pytest.mark.parametrize("missing", ["small_description", "payload_content_description"])
+def test_wordlist_creation_without_a_description_is_refused(missing: str) -> None:
+    arguments = {"small_description": "s", "payload_content_description": "p"}
+    del arguments[missing]
+
+    with pytest.raises(ValidationError):
+        WordlistCreation(**arguments)
 
 
 def test_default_lists_of_a_model_are_not_shared() -> None:
@@ -291,14 +317,16 @@ def test_to_output_drops_null_fields_but_keeps_null_inside_free_form_json() -> N
         {
             "id": 1,
             "key": "fuzz",
-            "description": None,
+            "description": "d",
+            "usageDescriptionForAgent": "u",
+            "vulnerabilityId": None,
             "configSchema": {"properties": {"a": {"default": None}}},
         }
     )
 
     output = routine.to_output()
 
-    assert "description" not in output
+    assert "vulnerabilityId" not in output
     assert output["isAvailableAtConsumer"] is False
     assert output["configSchema"] == {"properties": {"a": {"default": None}}}
 

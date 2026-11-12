@@ -19,9 +19,9 @@ backend DTO records one to one, the clients are in `src/api`.
 | `/api/tenants`, `/api/tenants/{id}` | Tenants of a host, tenant page |
 | `/api/tenants/{id}/authentication` (GET/POST/PATCH) | Tenant page, static auth editor (an authentication is only replaced; it goes away with its tenant, there is no delete route) |
 | `/api/vulnerabilities` (`query`, `parentVulnId`) | Vulnerabilities list (search) and page (children, parent) |
-| `/api/routines` | Routines list / create (protocol and allowed targets required, result content type, config schema, needs-a-wordlist), routine page |
+| `/api/routines` | Routines list / create (description, usage description for the agent (up to 5000 characters, shown only on the routine page) and allowed targets required, result content type, config schema, needs-a-wordlist), routine page |
 | `DELETE /api/routines/{id}` | hidden (not implemented, 501) |
-| `POST /api/wordlists` (multipart), `GET/PATCH/DELETE /api/wordlists/{id}`, `GET /api/wordlists/{id}/content` | Wordlists list, upload dialog (file + name, description, vulnerabilities), wordlist page (name, description, replace vulnerabilities; size, lines, SHA-256; download) |
+| `POST /api/wordlists` (multipart), `GET/PATCH/DELETE /api/wordlists/{id}`, `GET /api/wordlists/{id}/content` | Wordlists list, upload dialog (file + name, required short description and content description, vulnerabilities), wordlist page (name, short description and content description (required, can't be emptied), replace vulnerabilities; size, lines, SHA-256; download) |
 | `/api/comparators`, `/api/modifiers` | Comparators (with their modifiers) and modifiers lists / pages; a comparator needs at least one available modifier |
 | `GET /api/export/body-properties` | "Export properties" on the program and host pages |
 
@@ -87,7 +87,7 @@ core's answer is shown when it refuses anyway). `src/lib/jobRules.ts` and
   of its program); the same goes for `programRateLimit` of a program.
 * **Agent contexts**: `maxRate` and `defaultJobRate` are required (at least 1, default at most
   max), `defaultPriority` is 1-5. Deleting a context that jobs or findings still use is a 409.
-* **Required fields**: tenant `email`; routine `protocol` and `allowedTargets`; modifier
+* **Required fields**: tenant `email`; routine `description`, `usageDescriptionForAgent` and `allowedTargets`; modifier
   `description`, `priority`, `isAvailable`; comparator `modifierIds` (not empty, all available);
   finding `vulnerabilityId` and `evidence`. Missing ones are a 400 listing the violations.
 * **Wordlists** are files: the core computes `sha256`, `sizeBytes` and `numberOfLines`, the file

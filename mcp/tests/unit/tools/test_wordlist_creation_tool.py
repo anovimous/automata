@@ -16,14 +16,26 @@ def text_of(result: CallToolResult) -> str:
 
 async def create(agent: Agent, **extra: Any) -> CallToolResult:
     return await agent.call_tool(
-        "create_wordlist", {"name": "ids.txt", "content": "1\n2\n"} | extra
+        "create_wordlist",
+        {
+            "name": "ids.txt",
+            "content": "1\n2\n",
+            "small_description": "Sequential ids",
+            "payload_content_description": "Decimal ids, one per line",
+        }
+        | extra,
     )
 
 
 async def test_the_tool_is_a_creating_write_that_needs_no_context(agent: Agent) -> None:
     tool = next(t for t in (await agent.list_tools()).tools if t.name == "create_wordlist")
 
-    assert set(tool.input_schema["required"]) == {"name", "content"}
+    assert set(tool.input_schema["required"]) == {
+        "name",
+        "content",
+        "small_description",
+        "payload_content_description",
+    }
     assert "ctx" not in tool.input_schema["properties"]
     assert "context_uuid" not in tool.input_schema["properties"]
     annotations = tool.annotations
@@ -46,7 +58,10 @@ async def test_the_description_tells_the_agent_what_it_must_know(agent: Agent) -
 
     for phrase in (
         "can not be changed afterwards",
-        "description",
+        "small_description",
+        "payload_content_description",
+        "500",
+        "2000",
         "512 MB",
         "already exists",
         "4 MB",
@@ -59,14 +74,15 @@ async def test_a_wordlist_is_created_and_its_id_returned(
 ) -> None:
     route = core_api.post("/api/wordlists").respond(201, headers={"Location": "/api/wordlists/9"})
 
-    result = await create(agent, description="Sequential ids", vulnerability_ids=[12])
+    result = await create(agent, vulnerability_ids=[12])
 
     assert (result.structured_content or {})["wordlistId"] == 9
     parts = multipart_parts(route.calls.last.request)
     assert parts["file"] == ("ids.txt", "text/plain", b"1\n2\n")
     assert json.loads(parts["metadata"][2]) == {
         "name": "ids.txt",
-        "description": "Sequential ids",
+        "smallDescription": "Sequential ids",
+        "payloadContentDescription": "Decimal ids, one per line",
         "vulnIds": [12],
     }
 
@@ -105,7 +121,14 @@ async def test_a_file_that_is_too_large_is_explained(
 
 @pytest.mark.parametrize(
     "arguments",
-    [{"content": 5}, {"name": None}, {"vulnerability_ids": ["a"]}, {"vulnerability_ids": 7}],
+    [
+        {"content": 5},
+        {"name": None},
+        {"small_description": None},
+        {"payload_content_description": None},
+        {"vulnerability_ids": ["a"]},
+        {"vulnerability_ids": 7},
+    ],
 )
 async def test_arguments_of_the_wrong_kind_are_refused_before_any_call(
     agent: Agent, core_api: respx.MockRouter, arguments: dict[str, Any]

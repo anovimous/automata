@@ -148,17 +148,6 @@ class ResultContentType(CoreEnum):
     TEXT = "TEXT"
 
 
-class Overhead(CoreEnum):
-    HIGH = "HIGH"
-    MEDIUM = "MEDIUM"
-    LOW = "LOW"
-
-
-class Protocol(CoreEnum):
-    NETWORK = "NETWORK"
-    HTTP = "HTTP"
-
-
 class TargetCardinalityPair(CoreEnum):
     SINGLE_HOST = "SINGLE_HOST"
     MULTILPLE_HOSTS = "MULTILPLE_HOSTS"  # sic: the typo is the core's

@@ -29,8 +29,9 @@ Status: working end to end on a developer machine (core, frontend, MCP server un
 | [`ui/`](ui) | UI for programs, hosts, requests, jobs, findings, agent contexts | React + TypeScript |
 | [`mcp/`](mcp) | MCP server the AI agent talks to; translates tool calls into core REST calls, holds no business logic | Python, official `mcp` SDK |
 | [automata-worker](https://github.com/anovimous/automata-worker) | Orchestrator that consumes queued jobs, plus the tool connectors (`ffuf`, `masser`). Lives in its own repository | Go |
+| [automata-worker-monitor](https://github.com/anovimous/automata-worker-monitor) | Deploys, watches and controls the workers from one web UI: creates them on Docker hosts, drains or stops them, shows which are healthy, what they run and what they consume. Lives in its own repository and is independent of the core | Go, React + TypeScript |
 
-`core/`, `ui/` and `mcp/` are in this repository, and the `docker-compose.yml` at its root builds them.
+`core/`, `ui/` and `mcp/` are in this repository, and the `docker-compose.yml` at its root builds them. The workers and their monitor have their own repositories and are deployed separately (see [Deployment](#deployment)).
 
 Core and worker only talk through a documented contract (`core/docs/worker-contract.md`, checked by tests on both sides).
 
@@ -49,12 +50,16 @@ Core and worker only talk through a documented contract (`core/docs/worker-contr
 | Worker API | `/api/external/jobs/http`: workers poll the requested state and report state changes |
 | RabbitMQ | `jobs.http.queue`, carries `{jobId, routineKey}`, consumed competitively |
 | RustFS | Job configuration and results, request/response bodies, wordlists |
-| Orchestrator | Runs the ffuf and masser connectors, on any machine or network |
+| Worker host | A Docker host that runs workers: one worker machine controller and the orchestrators it created. There can be any number of them, on any machine or network |
+| Worker machine controller | One per worker host (from [automata-worker-monitor](https://github.com/anovimous/automata-worker-monitor)). Creates, signals, stops and removes the worker containers through the local Docker daemon, and reads their telemetry and resource use |
+| Orchestrator | The worker (from [automata-worker](https://github.com/anovimous/automata-worker)): takes jobs from the queue, runs the ffuf and masser connectors and reports back to the Worker API |
+| Workers control plane | The monitor's server and web UI, one in total. Polls every worker machine controller every 5 s and sends them the controls: create workers from a template, drain, stop, kill, restart, remove. Shows each worker's health, resource use and current job, and keeps the history in SQLite |
 
 - **PostgreSQL**: all state. The schema is owned by Flyway migrations; Hibernate only validates it.
 - **RabbitMQ**: one queue (`jobs.http.queue`) carrying `{jobId, routineKey}`; the job data is in object storage.
 - **RustFS (S3-compatible)**: buckets for job configuration, job results, request/response bodies and wordlists.
 - The core never runs a tool. Workers poll the core for a requested state (pause, resume, cancel) and report state changes back.
+- **Worker monitor**: manages the workers, not the jobs. It never calls the core's API, reads its database or touches its queue, and the workers keep working when it is stopped. See [Workers](#workers) under Deployment.
 
 ---
 
@@ -97,7 +102,7 @@ The agent is useful because it is fast, and safe because it is boxed in. The lim
 - **Tenant**: an authenticated identity on a host with static authentication data (headers, cookies, query parameters). Dynamic token generation was removed.
 - **Request / Response**: any content type is accepted. The head is parsed into method, path, version, extension, headers, query parameters and path variables; JSON and form bodies (and JSON responses) are flattened to one row per property. The raw message is kept; multipart request bodies and non-JSON response bodies are stored as files in object storage. A request has at most one response. Sources: `MANUAL`, `BURP`, `WAYBACK`, `AI`. Bodies are read through `metadata`, `raw` and `body/stream` routes.
 - **Equality sets and comparators**: requests of a host are grouped into `RequestEqualitySet`s by a `Comparator` made of `Modifier`s (method, path, query string, body, hashed with murmur3). This area is still being refactored. Equality sets are **not** job targets; they group requests and serve as items of an agent context.
-- **Routine**: a reusable playbook. A unique `key` maps to a worker connector, plus overhead, protocol, allowed target cardinalities, a JSON `configSchema` that validates a job's `customConfig`, whether a wordlist is required, and the result content type.
+- **Routine**: a reusable playbook. A unique `key` maps to a worker connector, plus a description, a usage description for the AI agent (up to 5000 characters, returned only when the routine itself is read), allowed target cardinalities, a JSON `configSchema` that validates a job's `customConfig`, whether a wordlist is required, and the result content type.
 - **Vulnerability**: a hierarchical taxonomy. **Wordlist**: an immutable uploaded file (sha256, size, line count) in a private bucket; workers download and cache it by hash.
 - **Finding**: a vulnerability finding with CVSS severity, confidence, `SUGGESTED`/`CONFIRMED` status, PoC steps (required to confirm) and a human verdict (`TRUE_POSITIVE`/`FALSE_POSITIVE`).
 
@@ -122,7 +127,7 @@ Every creation path (user narrow, user wide, AI) applies the same rules: rate at
 
 ### Distributed workers
 
-The core never runs a tool. The tools run in a fleet of independent **orchestrators** (Go, `automata-worker`) that you start wherever you need them: on one laptop, on several servers, or near the targets in different networks. They need only three things: the queue, the object storage and the core's worker API.
+The core never runs a tool. The tools run in a fleet of independent **orchestrators** (Go, `automata-worker`) that you start wherever you need them: on one laptop, on several servers, or near the targets in different networks (see [Workers](#workers) under Deployment). They need only three things: the queue, the object storage and the core's worker API.
 
 - **Competing consumers**: all orchestrators read the same queue (`jobs.http.queue`); each job goes to one of them, whichever is free first. More orchestrators mean more jobs in parallel, with no change to the core.
 - **Nothing shared**: an orchestrator never talks to another one. It reads `details/{jobId}.json` and `data/{jobId}.jsonl`, downloads the wordlists it needs into its own cache (by sha256, least recently used removed above 1.5 GB by default), runs the connector of the routine (`fuzz` → ffuf, `masser` → masser) and writes `{jobId}.result`.
@@ -160,8 +165,6 @@ Prerequisites: Docker and Docker Compose. Run `docker compose` from the reposito
 
 Before the first start, copy `.env.example` to `.env` and set `POSTGRES_PASSWORD`, `RABBITMQ_PASSWORD` and `RUSTFS_PASSWORD`, a different one for each; compose refuses to start without them. Keep `.env` out of git. A password is stored in its volume when the volume is created, so after changing one recreate the volumes with `docker compose down -v`.
 
-The worker is built and run from the `automata-worker` repo and pointed at the same RabbitMQ, RustFS and core.
-
 ```bash
 docker compose up --build -d     # postgres, rabbitmq, rustfs, core, frontend, MCP server
 docker compose down              # stop; add -v to also drop the data
@@ -172,8 +175,16 @@ docker compose down              # stop; add -v to also drop the data
 - MCP server (streamable HTTP) `http://127.0.0.1:8000/mcp`
 - RabbitMQ management `http://localhost:15672`, RustFS console `http://localhost:9001` (user `automata`, the `RABBITMQ_PASSWORD` and `RUSTFS_PASSWORD` of your `.env`)
 
+### Workers
 
-`core/scripts/import-wordlists.sh` uploads a directory of existing wordlists.
+This compose stack does **not** start any worker. The core only prepares and queues jobs; a job is run by a worker that takes it from the RabbitMQ queue. **Until at least one worker is deployed, queued jobs are not executed**: they wait in the queue (and stay `QUEUED`) until a worker connects and takes them.
+
+To deploy workers that take jobs from the core, use the [automata-worker-monitor](https://github.com/anovimous/automata-worker-monitor) repository. Its deployment guide installs a small controller on each Docker host that runs workers and a central web UI where you create the workers from a template (worker image, RabbitMQ, RustFS and core addresses, resource limits). The same UI then shows which workers are healthy, what each one is running and what it consumes, and lets you drain, stop or remove them. A worker only needs to reach the core's RabbitMQ (`5672`), RustFS (`9000`) and API (`8080`), so the hosts can be this machine, other servers, or machines near the targets.
+
+A single worker can also be run by hand with the compose file of the [automata-worker](https://github.com/anovimous/automata-worker) repository, which is how it is run during development.
+
+
+`core/scripts/import-wordlists.sh` uploads a directory of existing wordlists; each one needs a `<file>.meta.json` next to it with its `smallDescription` and `payloadContentDescription`.
 
 ---
 

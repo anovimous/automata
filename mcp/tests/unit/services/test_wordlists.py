@@ -28,7 +28,8 @@ async def create(client: CoreClient, **overrides: object) -> dict[str, object]:
     arguments: dict[str, object] = {
         "name": "ids.txt",
         "content": "1\n2\n3\n",
-        "description": None,
+        "small_description": "Sequential ids",
+        "payload_content_description": "Decimal ids, one per line",
         "vulnerability_ids": None,
     }
     return await wordlist_service.create_wordlist(client, **(arguments | overrides))  # type: ignore[arg-type]
@@ -52,19 +53,25 @@ async def test_the_other_arguments_travel_as_a_json_metadata_part(
 ) -> None:
     route = core.post("/api/wordlists").respond(201, headers={"Location": "/api/wordlists/9"})
 
-    await create(client, description="Sequential ids", vulnerability_ids=[12, 13])
+    await create(
+        client,
+        small_description="Sequential ids",
+        payload_content_description="Decimal ids, one per line",
+        vulnerability_ids=[12, 13],
+    )
 
     filename, content_type, content = multipart_parts(route.calls.last.request)["metadata"]
     assert filename is None
     assert content_type == "application/json"
     assert json.loads(content) == {
         "name": "ids.txt",
-        "description": "Sequential ids",
+        "smallDescription": "Sequential ids",
+        "payloadContentDescription": "Decimal ids, one per line",
         "vulnIds": [12, 13],
     }
 
 
-async def test_only_the_name_is_sent_when_nothing_else_is_given(
+async def test_the_vulnerabilities_are_left_out_when_not_given(
     client: CoreClient, core: respx.MockRouter
 ) -> None:
     route = core.post("/api/wordlists").respond(201, headers={"Location": "/api/wordlists/9"})
@@ -72,7 +79,9 @@ async def test_only_the_name_is_sent_when_nothing_else_is_given(
     await create(client)
 
     assert json.loads(multipart_parts(route.calls.last.request)["metadata"][2]) == {
-        "name": "ids.txt"
+        "name": "ids.txt",
+        "smallDescription": "Sequential ids",
+        "payloadContentDescription": "Decimal ids, one per line",
     }
 
 

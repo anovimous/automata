@@ -34,7 +34,6 @@ export function RoutineMultiPicker({
               unavailable
             </Badge>
           )}
-          {r.overhead && <Badge variant="muted">{r.overhead}</Badge>}
         </label>
       ))}
       {routinesQ.data && routines.length === 0 && (

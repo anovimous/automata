@@ -2,8 +2,6 @@ from typing import Any
 
 from automata_mcp.core.models.base import CoreModel, CoreRequest
 from automata_mcp.core.models.enums import (
-    Overhead,
-    Protocol,
     ResultContentType,
     TargetCardinalityPair,
 )
@@ -15,21 +13,20 @@ class RoutineSummary(CoreModel):
     key: str
     is_available_at_consumer: bool = False
     wordlist_required: bool = False
-    overhead: Overhead | None = None
-    protocol: Protocol | None = None
     allowed_targets: list[TargetCardinalityPair] = []
 
 
 class RoutineDetailed(CoreModel):
+    """``GET /api/routines/{id}``: the only route that carries ``usageDescriptionForAgent``."""
+
     id: int
     creation_date: str | None = None
     key: str
-    description: str | None = None
+    description: str
+    usage_description_for_agent: str
     updated_at: str | None = None
     is_available_at_consumer: bool = False
     wordlist_required: bool = False
-    overhead: Overhead | None = None
-    protocol: Protocol | None = None
     allowed_targets: list[TargetCardinalityPair] = []
     vulnerability_id: int | None = None
     config_schema: Any = None
@@ -48,25 +45,32 @@ class VulnerabilityDetailed(CoreModel):
 
 
 class WordlistSummary(CoreModel):
+    """``GET /api/wordlists``: ``smallDescription`` but never ``payloadContentDescription``."""
+
     id: int
     name: str | None = None
-    description: str | None = None
+    small_description: str
     number_of_lines: int | None = None
     size_bytes: int | None = None
 
 
 class WordlistDetailed(CoreModel):
+    """``GET /api/wordlists/{id}``: the only route that carries ``payloadContentDescription``."""
+
     id: int
     name: str | None = None
-    description: str | None = None
+    small_description: str
+    payload_content_description: str
     number_of_lines: int | None = None
     size_bytes: int | None = None
     sha256: str | None = None
 
 
 class WordlistCreation(CoreRequest):
-    """The ``metadata`` part of ``POST /api/wordlists``; ``name`` falls back to the file name."""
+    """The ``metadata`` part of ``POST /api/wordlists``; ``name`` falls back to the file name, the
+    two descriptions are required by the core."""
 
+    small_description: str
+    payload_content_description: str
     name: str | None = None
-    description: str | None = None
     vuln_ids: list[int] | None = None

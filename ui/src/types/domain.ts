@@ -26,9 +26,7 @@ import type {
   MatchReplaceRule,
   MatchReplaceTargetType,
   ModifierTarget,
-  Overhead,
   Platform,
-  Protocol,
   RepresentativeStrategy,
   RequestContentType,
   RequestSource,
@@ -58,9 +56,7 @@ export type {
   MatchReplaceRule,
   MatchReplaceTargetType,
   ModifierTarget,
-  Overhead,
   Platform,
-  Protocol,
   RepresentativeStrategy,
   RequestContentType,
   RequestSource,
@@ -251,13 +247,13 @@ export interface RoutineDetailed {
   id: number;
   creationDate?: string | null;
   key: string;
-  description?: string | null;
+  description: string;
+  /** How an AI agent should use the routine (up to 5000 characters). Only this detail carries it, never the list. */
+  usageDescriptionForAgent: string;
   updatedAt?: string | null;
   isAvailableAtConsumer: boolean;
   /** Information for callers: the routine is meant to run with a wordlist (not enforced by the core). */
   wordlistRequired: boolean;
-  overhead?: Overhead | null;
-  protocol: Protocol;
   allowedTargets: AllowedTarget[];
   vulnerabilityId?: number | null;
   /** JSON Schema that `customConfig` of a job is validated against. */
@@ -271,19 +267,17 @@ export interface RoutineSummary {
   key: string;
   isAvailableAtConsumer: boolean;
   wordlistRequired: boolean;
-  overhead?: Overhead | null;
-  protocol: Protocol;
   allowedTargets: AllowedTarget[];
 }
 
 export interface RoutineCreationRequest {
   key: string;
-  description?: string;
+  /** Required by the backend (not blank). */
+  description: string;
+  /** Required by the backend (not blank, up to 5000 characters). */
+  usageDescriptionForAgent: string;
   isAvailableAtConsumer?: boolean;
   wordlistRequired?: boolean;
-  overhead?: Overhead;
-  /** Required by the backend. */
-  protocol: Protocol;
   /** Required by the backend. */
   allowedTargets: AllowedTarget[];
   vulnerabilityId?: number;
@@ -293,12 +287,12 @@ export interface RoutineCreationRequest {
 }
 
 export interface RoutinePatchRequest {
+  /** Can be changed but not removed (a blank value is refused). */
   description?: string;
-  setDescriptionNull?: boolean;
+  /** Can be changed but not removed (a blank value or more than 5000 characters is refused). */
+  usageDescriptionForAgent?: string;
   isAvailableAtConsumer?: boolean;
   wordlistRequired?: boolean;
-  overhead?: Overhead;
-  protocol?: Protocol;
   allowedTargets?: AllowedTarget[];
   vulnerabilityId?: number;
   setVulnerabilityNull?: boolean;
@@ -366,34 +360,45 @@ export interface ModifierPatchRequest {
 export interface WordlistDetailed {
   id: number;
   name?: string | null;
-  description?: string | null;
+  /** What the list is for, in short (at most 500 characters); also in the list. */
+  smallDescription: string;
+  /** What the entries are, in detail (at most 2000 characters); only on this route. */
+  payloadContentDescription: string;
   numberOfLines: number;
   sizeBytes: number;
   /** SHA-256 of the file, lower case hex. */
   sha256: string;
 }
 
+/** No `payloadContentDescription`: only `GET /api/wordlists/{id}` carries it. */
 export interface WordlistSummary {
   id: number;
   name?: string | null;
-  description?: string | null;
+  smallDescription: string;
   numberOfLines: number;
   sizeBytes: number;
 }
 
-/** The `metadata` part of the multipart upload; `name` falls back to the file name. */
+/**
+ * The `metadata` part of the multipart upload; `name` falls back to the file name. Both
+ * descriptions are mandatory (missing or blank is a 400).
+ */
 export interface WordlistCreationRequest {
   name?: string;
-  description?: string;
+  smallDescription: string;
+  payloadContentDescription: string;
   vulnIds?: number[];
 }
 
-/** Only these can change; the file and what comes from it can't. `vulnIds` replaces the links. */
+/**
+ * Only these can change; the file and what comes from it can't. `vulnIds` replaces the links.
+ * The descriptions can be changed but not removed (a blank value is a 400).
+ */
 export interface WordlistPatchRequest {
   name?: string;
   setNameNull?: boolean;
-  description?: string;
-  setDescriptionNull?: boolean;
+  smallDescription?: string;
+  payloadContentDescription?: string;
   vulnIds?: number[];
 }
 

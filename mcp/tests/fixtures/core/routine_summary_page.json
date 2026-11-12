@@ -6,8 +6,6 @@
       "key": "fuzz",
       "isAvailableAtConsumer": true,
       "wordlistRequired": true,
-      "overhead": "HIGH",
-      "protocol": "HTTP",
       "allowedTargets": [
         "SINGLE_REQUEST",
         "MULTIPLE_REQUESTS"

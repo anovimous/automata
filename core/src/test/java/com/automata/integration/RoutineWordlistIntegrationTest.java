@@ -161,7 +161,8 @@ class RoutineWordlistIntegrationTest {
 	private static Routine newRoutine(String key) {
 		Routine routine = new Routine();
 		routine.setKey(key);
-		routine.setProtocol(com.automata.routine.common.enums.Protocol.HTTP);
+		routine.setDescription("d");
+		routine.setUsageDescriptionForAgent("u");
 		routine.setResultContentType(com.automata.routine.common.enums.ResultContentType.TEXT);
 		routine.setAllowedTargets(Set.of(com.automata.routine.common.enums.TargetCardinalityPair.SINGLE_HOST));
 		return routine;
@@ -170,6 +171,8 @@ class RoutineWordlistIntegrationTest {
 	private static Wordlist wordlist(String name, String sha) {
 		Wordlist wordlist = new Wordlist();
 		wordlist.setName(name);
+		wordlist.setSmallDescription("small");
+		wordlist.setPayloadContentDescription("payload");
 		wordlist.setSha256(sha.repeat(64).substring(0, 64));
 		wordlist.setSizeBytes(10L);
 		wordlist.setNumberOfLines(2);

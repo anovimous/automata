@@ -3,7 +3,7 @@
     {
       "id": 3,
       "name": "ids",
-      "description": "Sequential ids",
+      "smallDescription": "Sequential ids",
       "numberOfLines": 1000,
       "sizeBytes": 4890
     }

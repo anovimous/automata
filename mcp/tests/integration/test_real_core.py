@@ -175,19 +175,31 @@ async def test_a_wordlist_is_uploaded_with_its_metadata_and_a_duplicate_is_refus
         "create_wordlist",
         name=name,
         content=content,
-        description="Integration test list",
+        small_description="Integration test list",
+        payload_content_description="Three words, one per line",
         vulnerability_ids=[seed.vulnerability_id],
     )
     stored = await ok(real_agent, seed, "get_wordlist", wordlist_id=created["wordlistId"])
     listed = await ok(
         real_agent, seed, "list_wordlists", query=name, vulnerability_id=seed.vulnerability_id
     )
-    again = await call(real_agent, seed, "create_wordlist", name=name + ".copy", content=content)
+    again = await call(
+        real_agent,
+        seed,
+        "create_wordlist",
+        name=name + ".copy",
+        content=content,
+        small_description="Copy",
+        payload_content_description="The same three words",
+    )
 
     assert stored["name"] == name
-    assert stored["description"] == "Integration test list"
+    assert stored["smallDescription"] == "Integration test list"
+    assert stored["payloadContentDescription"] == "Three words, one per line"
     assert stored["numberOfLines"] == 3
     assert [w["id"] for w in listed["wordlists"]] == [created["wordlistId"]]
+    assert listed["wordlists"][0]["smallDescription"] == "Integration test list"
+    assert "payloadContentDescription" not in listed["wordlists"][0]
     assert again.is_error
     assert "use it instead of creating another" in text_of(again)
 

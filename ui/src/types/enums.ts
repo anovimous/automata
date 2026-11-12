@@ -105,12 +105,6 @@ export type ComparatorSchema = z.infer<typeof ComparatorSchema>;
 export const ModifierTarget = z.enum(["METHOD", "PATH", "QUERYSTRING", "BODY"]);
 export type ModifierTarget = z.infer<typeof ModifierTarget>;
 
-export const Overhead = z.enum(["HIGH", "MEDIUM", "LOW"]);
-export type Overhead = z.infer<typeof Overhead>;
-
-export const Protocol = z.enum(["NETWORK", "HTTP"]);
-export type Protocol = z.infer<typeof Protocol>;
-
 export const ResultContentType = z.enum(["JSON", "TEXT"]);
 export type ResultContentType = z.infer<typeof ResultContentType>;
 
