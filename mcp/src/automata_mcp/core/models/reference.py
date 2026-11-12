@@ -45,25 +45,32 @@ class VulnerabilityDetailed(CoreModel):
 
 
 class WordlistSummary(CoreModel):
+    """``GET /api/wordlists``: ``smallDescription`` but never ``payloadContentDescription``."""
+
     id: int
     name: str | None = None
-    description: str | None = None
+    small_description: str
     number_of_lines: int | None = None
     size_bytes: int | None = None
 
 
 class WordlistDetailed(CoreModel):
+    """``GET /api/wordlists/{id}``: the only route that carries ``payloadContentDescription``."""
+
     id: int
     name: str | None = None
-    description: str | None = None
+    small_description: str
+    payload_content_description: str
     number_of_lines: int | None = None
     size_bytes: int | None = None
     sha256: str | None = None
 
 
 class WordlistCreation(CoreRequest):
-    """The ``metadata`` part of ``POST /api/wordlists``; ``name`` falls back to the file name."""
+    """The ``metadata`` part of ``POST /api/wordlists``; ``name`` falls back to the file name, the
+    two descriptions are required by the core."""
 
+    small_description: str
+    payload_content_description: str
     name: str | None = None
-    description: str | None = None
     vuln_ids: list[int] | None = None

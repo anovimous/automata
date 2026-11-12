@@ -1,6 +1,7 @@
 {
   "name": "ids",
-  "description": "Sequential ids",
+  "smallDescription": "Sequential ids",
+  "payloadContentDescription": "Decimal ids from 1 to 1000, one per line",
   "vulnIds": [
     12
   ]
