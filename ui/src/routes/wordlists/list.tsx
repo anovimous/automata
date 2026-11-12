@@ -115,11 +115,11 @@ export function WordlistsListRoute() {
               ),
             },
             {
-              key: "description",
+              key: "smallDescription",
               header: "Description",
               cell: (r) => (
                 <span className="text-muted-foreground truncate block max-w-[48ch]">
-                  {r.description || "—"}
+                  {r.smallDescription || "—"}
                 </span>
               ),
             },
