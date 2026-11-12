@@ -74,14 +74,17 @@ public class WordlistService {
 
 		String name = request != null && request.name() != null && !request.name().isBlank() ? request.name()
 				: nameOfFile(fileName);
-		String description = request != null ? request.description() : null;
+		String smallDescription = request != null ? request.smallDescription() : null;
+		String payloadContentDescription = request != null ? request.payloadContentDescription() : null;
 
 		requireValidName(name);
-		requireValidDescription(description);
+		requireValidSmallDescription(smallDescription);
+		requireValidPayloadContentDescription(payloadContentDescription);
 
 		Wordlist toBeCreatedWordlist = new Wordlist();
 		toBeCreatedWordlist.setName(name);
-		toBeCreatedWordlist.setDescription(description);
+		toBeCreatedWordlist.setSmallDescription(smallDescription);
+		toBeCreatedWordlist.setPayloadContentDescription(payloadContentDescription);
 		toBeCreatedWordlist.setSha256(info.sha256());
 		toBeCreatedWordlist.setSizeBytes(info.sizeBytes());
 		toBeCreatedWordlist.setNumberOfLines(info.numberOfLines());
@@ -124,13 +127,15 @@ public class WordlistService {
 				wordlist.setName(name);
 			});
 
-		if (patchRequest.setDescriptionNull())
-			wordlist.setDescription(null);
-		else
-			patchRequest.description().ifPresent(description -> {
-				requireValidDescription(description);
-				wordlist.setDescription(description);
-			});
+		patchRequest.smallDescription().ifPresent(smallDescription -> {
+			requireValidSmallDescription(smallDescription);
+			wordlist.setSmallDescription(smallDescription);
+		});
+
+		patchRequest.payloadContentDescription().ifPresent(payloadContentDescription -> {
+			requireValidPayloadContentDescription(payloadContentDescription);
+			wordlist.setPayloadContentDescription(payloadContentDescription);
+		});
 
 		patchRequest.vulnIds().ifPresent((vulnsIds) -> {
 
@@ -175,10 +180,23 @@ public class WordlistService {
 			throw new IllegalArgumentException("name is longer than " + Wordlist.MAX_NAME_LENGTH + " characters");
 	}
 
-	private static void requireValidDescription(String description) {
-		if (description != null && description.length() > Wordlist.MAX_DESCRIPTION_LENGTH)
+	private static void requireValidSmallDescription(String smallDescription) {
+		requireNotBlank(smallDescription, "smallDescription");
+		if (smallDescription.length() > Wordlist.MAX_SMALL_DESCRIPTION_LENGTH)
 			throw new IllegalArgumentException(
-					"description is longer than " + Wordlist.MAX_DESCRIPTION_LENGTH + " characters");
+					"smallDescription is longer than " + Wordlist.MAX_SMALL_DESCRIPTION_LENGTH + " characters");
+	}
+
+	private static void requireValidPayloadContentDescription(String payloadContentDescription) {
+		requireNotBlank(payloadContentDescription, "payloadContentDescription");
+		if (payloadContentDescription.length() > Wordlist.MAX_PAYLOAD_CONTENT_DESCRIPTION_LENGTH)
+			throw new IllegalArgumentException("payloadContentDescription is longer than "
+					+ Wordlist.MAX_PAYLOAD_CONTENT_DESCRIPTION_LENGTH + " characters");
+	}
+
+	private static void requireNotBlank(String value, String field) {
+		if (value == null || value.isBlank())
+			throw new IllegalArgumentException(field + " is mandatory and must not be blank");
 	}
 
 }

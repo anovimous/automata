@@ -95,7 +95,7 @@ Always passed by the connector: ffuf `-o <result> -w <the wordlists path> -rate 
 
 ### 3.5 Wordlists
 
-A wordlist is created by `POST /api/wordlists` (multipart: part `file`, at most 512 MB, and an optional JSON part `metadata` with `name`, `description`, `vulnIds`). The core reads the file once and stores its SHA-256 (lower case hex), size in bytes and number of lines, and uploads it to the `wordlists` bucket under the key `{wordlistId}`. The file of a wordlist never changes (no route replaces it), so an object is the content `sha256` says for as long as the wordlist exists; a wordlist with the same file as an existing one is refused (409). The core refuses to delete a wordlist that a job refers to (409).
+A wordlist is created by `POST /api/wordlists` (multipart: part `file`, at most 512 MB, and a JSON part `metadata` with the optional `name` and `vulnIds` and the mandatory `smallDescription` (at most 500 characters) and `payloadContentDescription` (at most 2000)). The core reads the file once and stores its SHA-256 (lower case hex), size in bytes and number of lines, and uploads it to the `wordlists` bucket under the key `{wordlistId}`. The file of a wordlist never changes (no route replaces it), so an object is the content `sha256` says for as long as the wordlist exists; a wordlist with the same file as an existing one is refused (409). The core refuses to delete a wordlist that a job refers to (409).
 
 The orchestrator, after the initial poll says the job may start and before it starts the connector:
 
