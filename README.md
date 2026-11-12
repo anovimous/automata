@@ -184,7 +184,7 @@ To deploy workers that take jobs from the core, use the [automata-worker-monitor
 A single worker can also be run by hand with the compose file of the [automata-worker](https://github.com/anovimous/automata-worker) repository, which is how it is run during development.
 
 
-`core/scripts/import-wordlists.sh` uploads a directory of existing wordlists.
+`core/scripts/import-wordlists.sh` uploads a directory of existing wordlists; each one needs a `<file>.meta.json` next to it with its `smallDescription` and `payloadContentDescription`.
 
 ---
 

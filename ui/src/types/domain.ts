@@ -360,34 +360,45 @@ export interface ModifierPatchRequest {
 export interface WordlistDetailed {
   id: number;
   name?: string | null;
-  description?: string | null;
+  /** What the list is for, in short (at most 500 characters); also in the list. */
+  smallDescription: string;
+  /** What the entries are, in detail (at most 2000 characters); only on this route. */
+  payloadContentDescription: string;
   numberOfLines: number;
   sizeBytes: number;
   /** SHA-256 of the file, lower case hex. */
   sha256: string;
 }
 
+/** No `payloadContentDescription`: only `GET /api/wordlists/{id}` carries it. */
 export interface WordlistSummary {
   id: number;
   name?: string | null;
-  description?: string | null;
+  smallDescription: string;
   numberOfLines: number;
   sizeBytes: number;
 }
 
-/** The `metadata` part of the multipart upload; `name` falls back to the file name. */
+/**
+ * The `metadata` part of the multipart upload; `name` falls back to the file name. Both
+ * descriptions are mandatory (missing or blank is a 400).
+ */
 export interface WordlistCreationRequest {
   name?: string;
-  description?: string;
+  smallDescription: string;
+  payloadContentDescription: string;
   vulnIds?: number[];
 }
 
-/** Only these can change; the file and what comes from it can't. `vulnIds` replaces the links. */
+/**
+ * Only these can change; the file and what comes from it can't. `vulnIds` replaces the links.
+ * The descriptions can be changed but not removed (a blank value is a 400).
+ */
 export interface WordlistPatchRequest {
   name?: string;
   setNameNull?: boolean;
-  description?: string;
-  setDescriptionNull?: boolean;
+  smallDescription?: string;
+  payloadContentDescription?: string;
   vulnIds?: number[];
 }
 

@@ -18,7 +18,8 @@ import { formatBytes } from "@/lib/http";
 /** The core refuses a file above this (spring.servlet.multipart.max-file-size). */
 export const MAX_WORDLIST_BYTES = 512 * 1024 * 1024;
 export const MAX_WORDLIST_NAME = 255;
-export const MAX_WORDLIST_DESCRIPTION = 1000;
+export const MAX_WORDLIST_SMALL_DESCRIPTION = 500;
+export const MAX_WORDLIST_PAYLOAD_CONTENT_DESCRIPTION = 2000;
 
 export function CreateWordlistDialog({
   open,
@@ -29,7 +30,8 @@ export function CreateWordlistDialog({
 }) {
   const [file, setFile] = React.useState<File | null>(null);
   const [name, setName] = React.useState("");
-  const [description, setDescription] = React.useState("");
+  const [smallDescription, setSmallDescription] = React.useState("");
+  const [payloadContentDescription, setPayloadContentDescription] = React.useState("");
   const [vulnIds, setVulnIds] = React.useState<number[]>([]);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const createMut = useCreateWordlist();
@@ -39,7 +41,8 @@ export function CreateWordlistDialog({
     if (open) {
       setFile(null);
       setName("");
-      setDescription("");
+      setSmallDescription("");
+      setPayloadContentDescription("");
       setVulnIds([]);
       if (inputRef.current) inputRef.current.value = "";
     }
@@ -51,8 +54,14 @@ export function CreateWordlistDialog({
   else if (file.size > MAX_WORDLIST_BYTES)
     problems.push(`The file is above the ${formatBytes(MAX_WORDLIST_BYTES)} limit.`);
   if (name.length > MAX_WORDLIST_NAME) problems.push(`The name is at most ${MAX_WORDLIST_NAME} characters.`);
-  if (description.length > MAX_WORDLIST_DESCRIPTION)
-    problems.push(`The description is at most ${MAX_WORDLIST_DESCRIPTION} characters.`);
+  if (!smallDescription.trim()) problems.push("Give a short description.");
+  else if (smallDescription.length > MAX_WORDLIST_SMALL_DESCRIPTION)
+    problems.push(`The short description is at most ${MAX_WORDLIST_SMALL_DESCRIPTION} characters.`);
+  if (!payloadContentDescription.trim()) problems.push("Give a content description.");
+  else if (payloadContentDescription.length > MAX_WORDLIST_PAYLOAD_CONTENT_DESCRIPTION)
+    problems.push(
+      `The content description is at most ${MAX_WORDLIST_PAYLOAD_CONTENT_DESCRIPTION} characters.`,
+    );
 
   async function submit() {
     if (!file || problems.length > 0) return;
@@ -61,7 +70,8 @@ export function CreateWordlistDialog({
         file,
         metadata: {
           name: name.trim() || undefined,
-          description: description.trim() || undefined,
+          smallDescription: smallDescription.trim(),
+          payloadContentDescription: payloadContentDescription.trim(),
           vulnIds: vulnIds.length > 0 ? vulnIds : undefined,
         },
       });
@@ -113,12 +123,21 @@ export function CreateWordlistDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Description (optional)</Label>
+            <Label>Short description (shown in the list)</Label>
             <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={smallDescription}
+              onChange={(e) => setSmallDescription(e.target.value)}
               rows={2}
               placeholder="What it is good for."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Content description</Label>
+            <Textarea
+              value={payloadContentDescription}
+              onChange={(e) => setPayloadContentDescription(e.target.value)}
+              rows={4}
+              placeholder="What the entries are: their kind, format and where they came from."
             />
           </div>
           <div className="space-y-1.5">

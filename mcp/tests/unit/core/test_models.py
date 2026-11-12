@@ -2,7 +2,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from automata_mcp.core.models.base import CoreRequest
 from automata_mcp.core.models.context import (
@@ -290,8 +290,19 @@ def test_request_addition_leaves_out_what_was_not_given() -> None:
     assert payload == {"requestBase64": "QQ==", "host": "api.example.com"}
 
 
-def test_wordlist_creation_may_be_empty() -> None:
-    assert WordlistCreation().to_payload() == {}
+def test_wordlist_creation_needs_only_the_descriptions() -> None:
+    payload = WordlistCreation(small_description="s", payload_content_description="p").to_payload()
+
+    assert payload == {"smallDescription": "s", "payloadContentDescription": "p"}
+
+
+@pytest.mark.parametrize("missing", ["small_description", "payload_content_description"])
+def test_wordlist_creation_without_a_description_is_refused(missing: str) -> None:
+    arguments = {"small_description": "s", "payload_content_description": "p"}
+    del arguments[missing]
+
+    with pytest.raises(ValidationError):
+        WordlistCreation(**arguments)
 
 
 def test_default_lists_of_a_model_are_not_shared() -> None:

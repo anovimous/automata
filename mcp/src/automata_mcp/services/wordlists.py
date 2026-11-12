@@ -16,11 +16,17 @@ async def create_wordlist(
     *,
     name: str,
     content: str,
-    description: str | None,
+    small_description: str,
+    payload_content_description: str,
     vulnerability_ids: list[int] | None,
 ) -> dict[str, Any]:
     """Upload the wordlist (the file is named ``name``) and return its id."""
-    metadata = WordlistCreation(name=name, description=description, vuln_ids=vulnerability_ids)
+    metadata = WordlistCreation(
+        name=name,
+        small_description=small_description,
+        payload_content_description=payload_content_description,
+        vuln_ids=vulnerability_ids,
+    )
     wordlist_id = await core.create_wordlist(content, file_name=name, metadata=metadata)
     return {
         "wordlistId": wordlist_id,

@@ -14,8 +14,9 @@ import { ApiError } from "@/lib/fetcher";
 import { formatBytes } from "@/lib/http";
 import { wordlistsApi } from "@/api";
 import {
-  MAX_WORDLIST_DESCRIPTION,
   MAX_WORDLIST_NAME,
+  MAX_WORDLIST_PAYLOAD_CONTENT_DESCRIPTION,
+  MAX_WORDLIST_SMALL_DESCRIPTION,
 } from "@/components/wordlist/create-wordlist-dialog";
 
 export function WordlistDetailRoute() {
@@ -28,7 +29,8 @@ export function WordlistDetailRoute() {
   const deleteMut = useDeleteWordlist();
 
   const [name, setName] = React.useState("");
-  const [description, setDescription] = React.useState("");
+  const [smallDescription, setSmallDescription] = React.useState("");
+  const [payloadContentDescription, setPayloadContentDescription] = React.useState("");
   // The API doesn't return the vulnerabilities of a wordlist, so they are only sent when the
   // user chooses to replace them.
   const [changeVulns, setChangeVulns] = React.useState(false);
@@ -38,7 +40,8 @@ export function WordlistDetailRoute() {
   React.useEffect(() => {
     if (wlQ.data) {
       setName(wlQ.data.name ?? "");
-      setDescription(wlQ.data.description ?? "");
+      setSmallDescription(wlQ.data.smallDescription ?? "");
+      setPayloadContentDescription(wlQ.data.payloadContentDescription ?? "");
       setChangeVulns(false);
       setVulnIds([]);
     }
@@ -53,19 +56,24 @@ export function WordlistDetailRoute() {
     [wlQ.data?.name, id],
   );
 
-  const tooLong =
-    name.length > MAX_WORDLIST_NAME || description.length > MAX_WORDLIST_DESCRIPTION;
+  // Both descriptions are mandatory: they can be changed but not emptied.
+  const invalid =
+    name.length > MAX_WORDLIST_NAME ||
+    !smallDescription.trim() ||
+    smallDescription.length > MAX_WORDLIST_SMALL_DESCRIPTION ||
+    !payloadContentDescription.trim() ||
+    payloadContentDescription.length > MAX_WORDLIST_PAYLOAD_CONTENT_DESCRIPTION;
 
   async function save() {
-    if (tooLong) return;
+    if (invalid) return;
     try {
       await patchMut.mutateAsync({
         id,
         req: {
           name: name.trim() || undefined,
           setNameNull: !name.trim() && !!wlQ.data?.name,
-          description: description.trim() || undefined,
-          setDescriptionNull: !description.trim() && !!wlQ.data?.description,
+          smallDescription: smallDescription.trim(),
+          payloadContentDescription: payloadContentDescription.trim(),
           vulnIds: changeVulns ? vulnIds : undefined,
         },
       });
@@ -99,7 +107,7 @@ export function WordlistDetailRoute() {
                 Download
               </Button>
             </a>
-            <Button onClick={save} disabled={patchMut.isPending || tooLong}>
+            <Button onClick={save} disabled={patchMut.isPending || invalid}>
               <Save className="h-3.5 w-3.5" />
               Save
             </Button>
@@ -125,12 +133,26 @@ export function WordlistDetailRoute() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Description</Label>
+              <Label>Short description</Label>
               <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
+                value={smallDescription}
+                onChange={(e) => setSmallDescription(e.target.value)}
+                rows={2}
               />
+              <div className="text-[11px] text-muted-foreground text-right">
+                {smallDescription.length} / {MAX_WORDLIST_SMALL_DESCRIPTION}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Content description</Label>
+              <Textarea
+                value={payloadContentDescription}
+                onChange={(e) => setPayloadContentDescription(e.target.value)}
+                rows={6}
+              />
+              <div className="text-[11px] text-muted-foreground text-right">
+                {payloadContentDescription.length} / {MAX_WORDLIST_PAYLOAD_CONTENT_DESCRIPTION}
+              </div>
             </div>
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">

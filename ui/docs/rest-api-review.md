@@ -21,7 +21,7 @@ backend DTO records one to one, the clients are in `src/api`.
 | `/api/vulnerabilities` (`query`, `parentVulnId`) | Vulnerabilities list (search) and page (children, parent) |
 | `/api/routines` | Routines list / create (description, usage description for the agent (up to 5000 characters, shown only on the routine page) and allowed targets required, result content type, config schema, needs-a-wordlist), routine page |
 | `DELETE /api/routines/{id}` | hidden (not implemented, 501) |
-| `POST /api/wordlists` (multipart), `GET/PATCH/DELETE /api/wordlists/{id}`, `GET /api/wordlists/{id}/content` | Wordlists list, upload dialog (file + name, description, vulnerabilities), wordlist page (name, description, replace vulnerabilities; size, lines, SHA-256; download) |
+| `POST /api/wordlists` (multipart), `GET/PATCH/DELETE /api/wordlists/{id}`, `GET /api/wordlists/{id}/content` | Wordlists list, upload dialog (file + name, required short description and content description, vulnerabilities), wordlist page (name, short description and content description (required, can't be emptied), replace vulnerabilities; size, lines, SHA-256; download) |
 | `/api/comparators`, `/api/modifiers` | Comparators (with their modifiers) and modifiers lists / pages; a comparator needs at least one available modifier |
 | `GET /api/export/body-properties` | "Export properties" on the program and host pages |
 

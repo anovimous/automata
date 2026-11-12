@@ -87,7 +87,9 @@ SAMPLE_CALLS: dict[str, Invoke] = {
     "list_wordlists": lambda c: c.list_wordlists(query="q", vulnerability_id=ID),
     "get_wordlist": lambda c: c.get_wordlist(ID),
     "create_wordlist": lambda c: c.create_wordlist(
-        "a\nb\n", file_name="w.txt", metadata=WordlistCreation(name="w")
+        "a\nb\n",
+        file_name="w.txt",
+        metadata=WordlistCreation(name="w", small_description="s", payload_content_description="p"),
     ),
     "create_finding": lambda c: c.create_finding(
         CONTEXT,

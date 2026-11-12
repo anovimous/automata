@@ -73,16 +73,27 @@ class WordlistServiceTest {
 		Wordlist wordlist = new Wordlist();
 		wordlist.setId(1L);
 		wordlist.setName("old");
-		wordlist.setDescription("old description");
+		wordlist.setSmallDescription("old small");
+		wordlist.setPayloadContentDescription("old payload");
 		wordlist.setSha256("a".repeat(64));
 		wordlist.setSizeBytes(10L);
 		wordlist.setNumberOfLines(2);
 		return wordlist;
 	}
 
-	private WordlistPatchRequest patch(Optional<String> name, Optional<String> description, boolean setNameNull,
-			boolean setDescriptionNull) {
-		return new WordlistPatchRequest(name, description, Optional.empty(), setNameNull, setDescriptionNull);
+	private WordlistPatchRequest patch(Optional<String> name, Optional<String> smallDescription,
+			Optional<String> payloadContentDescription, boolean setNameNull) {
+		return new WordlistPatchRequest(name, smallDescription, payloadContentDescription, Optional.empty(),
+				setNameNull);
+	}
+
+	private WordlistPatchRequest nameOnly(Optional<String> name) {
+		return patch(name, Optional.empty(), Optional.empty(), false);
+	}
+
+	// A request with the mandatory descriptions
+	private WordlistCreationRequest described(String name, Set<Long> vulnIds) {
+		return new WordlistCreationRequest(name, "small", "payload", vulnIds);
 	}
 
 	// create
@@ -91,7 +102,7 @@ class WordlistServiceTest {
 	void createWordlistTakesHashSizeAndLinesFromTheFile() throws IOException {
 		saveAssignsId(5L);
 
-		Wordlist created = service.createWordlist(file("abc"), "common.txt", new WordlistCreationRequest(null, null, null));
+		Wordlist created = service.createWordlist(file("abc"), "common.txt", described(null, null));
 
 		assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", created.getSha256());
 		assertEquals(3L, created.getSizeBytes());
@@ -103,7 +114,7 @@ class WordlistServiceTest {
 		saveAssignsId(5L);
 		Path file = file("a\nb\n");
 
-		service.createWordlist(file, "common.txt", null);
+		service.createWordlist(file, "common.txt", described(null, null));
 
 		InOrder order = inOrder(wordlistRepo, objectStorage);
 		order.verify(wordlistRepo).save(any());
@@ -111,14 +122,16 @@ class WordlistServiceTest {
 	}
 
 	@Test
-	void createWordlistUsesTheNameAndDescriptionOfTheRequest() throws IOException {
+	void createWordlistUsesTheNameAndDescriptionsOfTheRequest() throws IOException {
 		saveAssignsId(5L);
 
 		Wordlist created = service.createWordlist(file("a\n"), "upload.txt",
-				new WordlistCreationRequest("Common paths", "Paths of web apps", null));
+				new WordlistCreationRequest("Common paths", "Paths of web apps", "One path per line, no leading slash",
+						null));
 
 		assertEquals("Common paths", created.getName());
-		assertEquals("Paths of web apps", created.getDescription());
+		assertEquals("Paths of web apps", created.getSmallDescription());
+		assertEquals("One path per line, no leading slash", created.getPayloadContentDescription());
 	}
 
 	@Test
@@ -126,19 +139,61 @@ class WordlistServiceTest {
 		saveAssignsId(5L);
 
 		Wordlist created = service.createWordlist(file("a\n"), "C:\\lists\\web/common.txt",
-				new WordlistCreationRequest("  ", null, null));
+				described("  ", null));
 
 		assertEquals("common.txt", created.getName());
 	}
 
 	@Test
-	void createWordlistWithoutMetadataStillWorks() throws IOException {
+	void createWordlistWithoutANameOrFileNameIsNamedWordlist() throws IOException {
 		saveAssignsId(5L);
 
-		Wordlist created = service.createWordlist(file("a\n"), null, null);
+		Wordlist created = service.createWordlist(file("a\n"), null, described(null, null));
 
 		assertEquals("wordlist", created.getName());
-		assertNull(created.getDescription());
+	}
+
+	@Test
+	void createWordlistWithoutMetadataIsRefusedForItsMissingDescriptions() throws IOException {
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+				() -> service.createWordlist(file("a\n"), "a.txt", null));
+
+		assertEquals("smallDescription is mandatory and must not be blank", ex.getMessage());
+		verify(wordlistRepo, never()).save(any());
+		verify(objectStorage, never()).store(any(), any());
+	}
+
+	@Test
+	void createWordlistWithoutASmallDescriptionIsRefused() throws IOException {
+		assertThrows(IllegalArgumentException.class, () -> service.createWordlist(file("a\n"), "a.txt",
+				new WordlistCreationRequest(null, null, "payload", null)));
+
+		verify(wordlistRepo, never()).save(any());
+	}
+
+	@Test
+	void createWordlistWithABlankSmallDescriptionIsRefused() throws IOException {
+		assertThrows(IllegalArgumentException.class, () -> service.createWordlist(file("a\n"), "a.txt",
+				new WordlistCreationRequest(null, "  ", "payload", null)));
+
+		verify(wordlistRepo, never()).save(any());
+	}
+
+	@Test
+	void createWordlistWithoutAPayloadContentDescriptionIsRefused() throws IOException {
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+				() -> service.createWordlist(file("a\n"), "a.txt", new WordlistCreationRequest(null, "small", null, null)));
+
+		assertEquals("payloadContentDescription is mandatory and must not be blank", ex.getMessage());
+		verify(wordlistRepo, never()).save(any());
+	}
+
+	@Test
+	void createWordlistWithABlankPayloadContentDescriptionIsRefused() throws IOException {
+		assertThrows(IllegalArgumentException.class, () -> service.createWordlist(file("a\n"), "a.txt",
+				new WordlistCreationRequest(null, "small", "\n", null)));
+
+		verify(wordlistRepo, never()).save(any());
 	}
 
 	@Test
@@ -147,7 +202,7 @@ class WordlistServiceTest {
 		Vulnerability vuln = new Vulnerability();
 		when(vulnRepo.findAllById(Set.of(3L))).thenReturn(java.util.List.of(vuln));
 
-		Wordlist created = service.createWordlist(file("a\n"), "a.txt", new WordlistCreationRequest(null, null, Set.of(3L)));
+		Wordlist created = service.createWordlist(file("a\n"), "a.txt", described(null, Set.of(3L)));
 
 		assertEquals(Set.of(vuln), created.getVulnerabilities());
 	}
@@ -160,7 +215,7 @@ class WordlistServiceTest {
 				.thenReturn(Optional.of(same));
 
 		WordlistAlreadyExistsException ex = assertThrows(WordlistAlreadyExistsException.class,
-				() -> service.createWordlist(file("abc"), "a.txt", null));
+				() -> service.createWordlist(file("abc"), "a.txt", described(null, null)));
 
 		assertEquals("The file is already the wordlist 9", ex.getMessage());
 		verify(wordlistRepo, never()).save(any());
@@ -169,7 +224,7 @@ class WordlistServiceTest {
 
 	@Test
 	void createWordlistWithAnEmptyFileIsRefused() throws IOException {
-		assertThrows(IllegalArgumentException.class, () -> service.createWordlist(file(""), "a.txt", null));
+		assertThrows(IllegalArgumentException.class, () -> service.createWordlist(file(""), "a.txt", described(null, null)));
 
 		verify(wordlistRepo, never()).save(any());
 	}
@@ -177,24 +232,45 @@ class WordlistServiceTest {
 	@Test
 	void createWordlistWithATooLongNameIsRefused() throws IOException {
 		assertThrows(IllegalArgumentException.class, () -> service.createWordlist(file("a\n"), "a.txt",
-				new WordlistCreationRequest("n".repeat(Wordlist.MAX_NAME_LENGTH + 1), null, null)));
+				described("n".repeat(Wordlist.MAX_NAME_LENGTH + 1), null)));
 
 		verify(wordlistRepo, never()).save(any());
 		verify(objectStorage, never()).store(any(), any());
 	}
 
 	@Test
-	void createWordlistWithATooLongDescriptionIsRefused() throws IOException {
+	void createWordlistWithATooLongSmallDescriptionIsRefused() throws IOException {
 		assertThrows(IllegalArgumentException.class, () -> service.createWordlist(file("a\n"), "a.txt",
-				new WordlistCreationRequest(null, "d".repeat(Wordlist.MAX_DESCRIPTION_LENGTH + 1), null)));
+				new WordlistCreationRequest(null, "d".repeat(Wordlist.MAX_SMALL_DESCRIPTION_LENGTH + 1), "payload", null)));
 
 		verify(wordlistRepo, never()).save(any());
 	}
 
 	@Test
+	void createWordlistWithATooLongPayloadContentDescriptionIsRefused() throws IOException {
+		assertThrows(IllegalArgumentException.class, () -> service.createWordlist(file("a\n"), "a.txt",
+				new WordlistCreationRequest(null, "small",
+						"d".repeat(Wordlist.MAX_PAYLOAD_CONTENT_DESCRIPTION_LENGTH + 1), null)));
+
+		verify(wordlistRepo, never()).save(any());
+	}
+
+	@Test
+	void createWordlistAcceptsDescriptionsOfTheMaximumLength() throws IOException {
+		saveAssignsId(5L);
+
+		Wordlist created = service.createWordlist(file("a\n"), "a.txt",
+				new WordlistCreationRequest(null, "s".repeat(Wordlist.MAX_SMALL_DESCRIPTION_LENGTH),
+						"p".repeat(Wordlist.MAX_PAYLOAD_CONTENT_DESCRIPTION_LENGTH), null));
+
+		assertEquals(500, created.getSmallDescription().length());
+		assertEquals(2000, created.getPayloadContentDescription().length());
+	}
+
+	@Test
 	void createWordlistWithAMissingFileIsAnIoFailure() {
 		assertThrows(java.io.UncheckedIOException.class,
-				() -> service.createWordlist(tmp.resolve("missing"), "a.txt", null));
+				() -> service.createWordlist(tmp.resolve("missing"), "a.txt", described(null, null)));
 
 		verify(wordlistRepo, never()).save(any());
 	}
@@ -213,15 +289,17 @@ class WordlistServiceTest {
 	// patch
 
 	@Test
-	void patchWordlistChangesNameAndDescription() {
+	void patchWordlistChangesNameAndDescriptions() {
 		Wordlist wordlist = existing();
 		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
 		when(wordlistRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		Wordlist patched = service.patchWordlist(1L, patch(Optional.of("new"), Optional.of("new description"), false, false));
+		Wordlist patched = service.patchWordlist(1L,
+				patch(Optional.of("new"), Optional.of("new small"), Optional.of("new payload"), false));
 
 		assertEquals("new", patched.getName());
-		assertEquals("new description", patched.getDescription());
+		assertEquals("new small", patched.getSmallDescription());
+		assertEquals("new payload", patched.getPayloadContentDescription());
 	}
 
 	@Test
@@ -230,7 +308,7 @@ class WordlistServiceTest {
 		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
 		when(wordlistRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		Wordlist patched = service.patchWordlist(1L, patch(Optional.of("new"), Optional.empty(), false, false));
+		Wordlist patched = service.patchWordlist(1L, nameOnly(Optional.of("new")));
 
 		assertEquals("a".repeat(64), patched.getSha256());
 		assertEquals(10L, patched.getSizeBytes());
@@ -244,22 +322,48 @@ class WordlistServiceTest {
 		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
 		when(wordlistRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		Wordlist patched = service.patchWordlist(1L, patch(Optional.empty(), Optional.empty(), false, false));
+		Wordlist patched = service.patchWordlist(1L, nameOnly(Optional.empty()));
 
 		assertEquals("old", patched.getName());
-		assertEquals("old description", patched.getDescription());
+		assertEquals("old small", patched.getSmallDescription());
+		assertEquals("old payload", patched.getPayloadContentDescription());
 	}
 
 	@Test
-	void patchWordlistCanRemoveNameAndDescription() {
+	void patchWordlistCanRemoveTheNameButKeepsTheDescriptions() {
 		Wordlist wordlist = existing();
 		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
 		when(wordlistRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-		Wordlist patched = service.patchWordlist(1L, patch(Optional.empty(), Optional.empty(), true, true));
+		Wordlist patched = service.patchWordlist(1L, patch(Optional.empty(), Optional.empty(), Optional.empty(), true));
 
 		assertNull(patched.getName());
-		assertNull(patched.getDescription());
+		assertEquals("old small", patched.getSmallDescription());
+		assertEquals("old payload", patched.getPayloadContentDescription());
+	}
+
+	@Test
+	void patchWordlistWithABlankSmallDescriptionIsRefusedAndNotSaved() {
+		Wordlist wordlist = existing();
+		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.patchWordlist(1L, patch(Optional.empty(), Optional.of(" "), Optional.empty(), false)));
+
+		assertEquals("old small", wordlist.getSmallDescription());
+		verify(wordlistRepo, never()).save(any());
+	}
+
+	@Test
+	void patchWordlistWithABlankPayloadContentDescriptionIsRefusedAndNotSaved() {
+		Wordlist wordlist = existing();
+		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.patchWordlist(1L, patch(Optional.empty(), Optional.empty(), Optional.of(""), false)));
+
+		assertEquals("old payload", wordlist.getPayloadContentDescription());
+		verify(wordlistRepo, never()).save(any());
 	}
 
 	@Test
@@ -271,20 +375,33 @@ class WordlistServiceTest {
 		when(wordlistRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
 		Wordlist patched = service.patchWordlist(1L,
-				new WordlistPatchRequest(Optional.empty(), Optional.empty(), Optional.of(Set.of(4L)), false, false));
+				new WordlistPatchRequest(Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(Set.of(4L)), false));
 
 		assertEquals(Set.of(vuln), patched.getVulnerabilities());
 	}
 
 	@Test
-	void patchWordlistWithATooLongDescriptionIsRefusedAndNotSaved() {
+	void patchWordlistWithATooLongSmallDescriptionIsRefusedAndNotSaved() {
 		Wordlist wordlist = existing();
 		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
 
-		assertThrows(IllegalArgumentException.class, () -> service.patchWordlist(1L,
-				patch(Optional.empty(), Optional.of("d".repeat(Wordlist.MAX_DESCRIPTION_LENGTH + 1)), false, false)));
+		assertThrows(IllegalArgumentException.class, () -> service.patchWordlist(1L, patch(Optional.empty(),
+				Optional.of("d".repeat(Wordlist.MAX_SMALL_DESCRIPTION_LENGTH + 1)), Optional.empty(), false)));
 
-		assertEquals("old description", wordlist.getDescription());
+		assertEquals("old small", wordlist.getSmallDescription());
+		verify(wordlistRepo, never()).save(any());
+	}
+
+	@Test
+	void patchWordlistWithATooLongPayloadContentDescriptionIsRefusedAndNotSaved() {
+		Wordlist wordlist = existing();
+		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
+
+		assertThrows(IllegalArgumentException.class,
+				() -> service.patchWordlist(1L, patch(Optional.empty(), Optional.empty(),
+						Optional.of("d".repeat(Wordlist.MAX_PAYLOAD_CONTENT_DESCRIPTION_LENGTH + 1)), false)));
+
+		assertEquals("old payload", wordlist.getPayloadContentDescription());
 		verify(wordlistRepo, never()).save(any());
 	}
 
@@ -294,7 +411,7 @@ class WordlistServiceTest {
 		when(wordlistRepo.findById(1L)).thenReturn(Optional.of(wordlist));
 
 		assertThrows(IllegalArgumentException.class, () -> service.patchWordlist(1L,
-				patch(Optional.of("n".repeat(Wordlist.MAX_NAME_LENGTH + 1)), Optional.empty(), false, false)));
+				nameOnly(Optional.of("n".repeat(Wordlist.MAX_NAME_LENGTH + 1)))));
 
 		verify(wordlistRepo, never()).save(any());
 	}
@@ -304,7 +421,7 @@ class WordlistServiceTest {
 		when(wordlistRepo.findById(1L)).thenReturn(Optional.empty());
 
 		assertThrows(EntityNotFoundException.class,
-				() -> service.patchWordlist(1L, patch(Optional.empty(), Optional.empty(), false, false)));
+				() -> service.patchWordlist(1L, nameOnly(Optional.empty())));
 	}
 
 	// delete
@@ -366,7 +483,7 @@ class WordlistServiceTest {
 	void createWordlistSavesWhatTheFileTold() throws IOException {
 		saveAssignsId(5L);
 
-		service.createWordlist(file("a\nb\nc"), "a.txt", null);
+		service.createWordlist(file("a\nb\nc"), "a.txt", described(null, null));
 
 		ArgumentCaptor<Wordlist> saved = ArgumentCaptor.forClass(Wordlist.class);
 		verify(wordlistRepo).save(saved.capture());

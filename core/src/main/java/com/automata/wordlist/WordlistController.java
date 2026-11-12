@@ -72,7 +72,8 @@ public class WordlistController {
 
 	}
 
-	// multipart: the file of the wordlist is the part "file", its other properties the optional JSON part "metadata"
+	// multipart: the file of the wordlist is the part "file", its other properties the JSON part "metadata"
+	// (it carries the mandatory descriptions; without it the service answers 400)
 	@PostMapping(value = "", consumes = "multipart/form-data")
 	public ResponseEntity<Void> createWordlist(@RequestPart("file") MultipartFile file,
 			@RequestPart(value = "metadata", required = false) WordlistCreationRequest metadata) throws IOException {

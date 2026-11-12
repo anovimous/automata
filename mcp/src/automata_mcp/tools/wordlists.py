@@ -34,12 +34,14 @@ def register(mcp: MCPServer[AppState]) -> None:
         page: PageNumber = 0,
         size: PageSize = 30,
     ) -> dict[str, Any]:
-        """Lists the wordlists stored in the core: id, name, description, number of lines and size.
+        """Lists the wordlists stored in the core: id, name, smallDescription (what the list is
+        for, in short), number of lines and size.
 
         A job takes a list of wordlist ids (`wordlist_ids` of create_job); routines that fuzz
-        (`wordlistRequired` in get_routine) need one. Pick by name and description, and filter by
-        `vulnerability_id` to see the ones meant for a class of vulnerability. You cannot read
-        the content of a wordlist, only its metadata. Results are paged: `nextPage` says which
+        (`wordlistRequired` in get_routine) need one. Pick by name and smallDescription, and filter
+        by `vulnerability_id` to see the ones meant for a class of vulnerability; the detailed
+        description of the entries (payloadContentDescription) is only in get_wordlist. You cannot
+        read the content of a wordlist, only its metadata. Results are paged: `nextPage` says which
         page to ask for next.
         """
         state = get_state(ctx)
@@ -53,8 +55,9 @@ def register(mcp: MCPServer[AppState]) -> None:
         wordlist_id: Annotated[int, Field(description="Id of the wordlist.")],
         ctx: Context[AppState, Any],
     ) -> dict[str, Any]:
-        """Returns one wordlist's metadata: id, name, description, number of lines, size in bytes
-        and the sha256 of its content.
+        """Returns one wordlist's metadata: id, name, smallDescription, payloadContentDescription
+        (what the entries are, in detail), number of lines, size in bytes and the sha256 of its
+        content.
 
         Use it to check that a wordlist is what you expect before putting its id in create_job.
         The content itself cannot be read through this server.
@@ -70,10 +73,21 @@ def register(mcp: MCPServer[AppState]) -> None:
         content: Annotated[
             str, Field(description="The entries, one per line, as plain text (no NUL bytes).")
         ],
+        small_description: Annotated[
+            str,
+            Field(
+                description="What the list is for, in short (at most 500 characters); shown by "
+                "list_wordlists so it can be chosen later."
+            ),
+        ],
+        payload_content_description: Annotated[
+            str,
+            Field(
+                description="What the entries are, in detail (at most 2000 characters): their "
+                "kind, format and where they came from; shown only by get_wordlist."
+            ),
+        ],
         ctx: Context[AppState, Any],
-        description: Annotated[
-            str | None, Field(description="What the list is for, so it can be chosen later.")
-        ] = None,
         vulnerability_ids: Annotated[
             list[int] | None,
             Field(description="Ids of the vulnerabilities it is meant for (list_vulnerabilities)."),
@@ -84,12 +98,16 @@ def register(mcp: MCPServer[AppState]) -> None:
         collected while testing).
 
         `content` is the list, one entry per line. The content can not be changed afterwards (only
-        the name, description and vulnerabilities can); to change it, create a new wordlist. Give
-        a `description` so the list can be chosen later with list_wordlists, and the
-        `vulnerability_ids` it is meant for. The core stores the file and checks it: it refuses an
-        empty file, a file with a NUL byte and one over 512 MB, and a wordlist whose content
-        already exists (then the message holds its id: use that one). Over HTTP a single call is
-        also limited by the server's request size (4 MB by default), so keep the list reasonable.
+        the name, the descriptions and the vulnerabilities can); to change it, create a new
+        wordlist. Both descriptions are required: a `small_description` so the list can be chosen
+        later with list_wordlists, and a `payload_content_description` that says what the entries
+        are; give the `vulnerability_ids` it is meant for too. The core refuses a blank
+        description, a small_description over 500 characters and a payload_content_description
+        over 2000. The core stores the file and
+        checks it: it refuses an empty file, a file with a NUL byte and one over 512 MB, and a
+        wordlist whose content already exists (then the message holds its id: use that one). Over
+        HTTP a single call is also limited by the server's request size (4 MB by default), so keep
+        the list reasonable.
 
         Returns the new `wordlistId`.
         """
@@ -99,6 +117,7 @@ def register(mcp: MCPServer[AppState]) -> None:
                 state.core,
                 name=name,
                 content=content,
-                description=description,
+                small_description=small_description,
+                payload_content_description=payload_content_description,
                 vulnerability_ids=vulnerability_ids,
             )
