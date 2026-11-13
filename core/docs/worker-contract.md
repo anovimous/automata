@@ -82,10 +82,12 @@ The core checks it when a job is created (narrow, wide and AI jobs): if the rout
 
 The connector of the routine is still the one that parses it; both ignore unknown fields and reject a flag outside their allow-list (`Unknown flag provided in custom config`). A `customConfig` that can not be used (wrong shape, unknown flag, a request that is not Base64) makes the connector report the job `FAILED` with the reason.
 
-| Routine | Shape | Becomes |
-|---|---|---|
-| `fuzz` (ffuf) | `{"rawRequestBase64": "<base64>", "flags": [{"key": "-mc", "value": "200"}]}` | `-request <file in the job dir>` (the decoded bytes) and `<key> <value>` for each flag |
-| `masser` | `{"flags": [{"key": "-n", "value": "5"}]}` | `<key> <value>` for each flag |
+**Targets** is what the connector can take from the data file; the routine's `allowedTargets` must not name more. **Result** is what the connector writes as `{jobId}.result`; it sets the routine's `resultContentType`.
+
+| Routine | Shape | Becomes | Targets | Result |
+|---|---|---|---|---|
+| `fuzz` (ffuf) | `{"rawRequestBase64": "<base64>", "flags": [{"key": "-mc", "value": "200"}]}` | `-request <file in the job dir>` (the decoded bytes) and `<key> <value>` for each flag | none: the data file is not read, the one request comes from `rawRequestBase64` | ffuf's `-o` file in its default JSON format (`-of` is not allowed): `JSON` |
+| `masser` | `{"flags": [{"key": "-n", "value": "5"}]}` | `<key> <value>` for each flag | requests: the data file is passed as `-requests` (not checked: host lines, see 3.2) | masser's `-output` file (format not checked here; its source is not part of either repo) |
 
 Always passed by the connector: ffuf `-o <result> -w <the wordlists path> -rate <rate> -noninteractive`, `-b` for cookies, `-H` for headers; masser `-requests <data file> -output <result> -rate <rate>`, `-verbosity`, one `-wordlist` per wordlist, `-C` for cookies, `-H` for headers. The allow-lists are `allowedFlags` in each `builder.go`.
 
