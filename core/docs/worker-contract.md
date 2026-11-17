@@ -5,7 +5,7 @@ What the core (`automata`) and the worker (`automata-worker`: orchestrator, conn
 - **JSON shapes**: the core's tests (`src/test/java/com/automata/contract`) write each payload with the application's own code and Jackson set-up and compare it with the samples in `src/test/resources/contract`. The worker keeps a copy of the same samples in `contract/samples` and parses them with its own types (parser, queue, poller, informer, both connector builders). A renamed field fails one side's test.
 - **State tables** below: `StateTableContractTest` computes them from `JobStateTransitions` and compares them with this file, so edit the tables only together with the code.
 
-The two sample directories must be kept equal by hand (`diff -r src/test/resources/contract ../automata-worker/contract/samples`). Whatever is marked **not checked** is described from reading the code only.
+The two sample directories must be kept equal by hand (`diff -r src/test/resources/contract ../automata-worker/contract/samples`); the worker's `details-file-resolved.json` and `details-file-sqlmap.json` are its own and have no copy here. Whatever is marked **not checked** is described from reading the code only.
 
 ## 1. Flow of a job
 
@@ -28,7 +28,7 @@ The two sample directories must be kept equal by hand (`diff -r src/test/resourc
 
 The core's constants are `HttpJobRabbitMQConfig.QUEUE / ROUTING_KEY / MAX_PRIORITY`; the worker's are `queueDurable` and `queueArguments()` in `orchestrator/internal/queue/consumer.go`. Change both together.
 
-The orchestrator ignores the message properties and reads only the body. `routineKey` selects the connector through the worker's `routine-worker-mapping.json` (`fuzz` → `ffuf-connector`, `masser` → `masser-connector`); an unmapped key makes the orchestrator report `FAILED`.
+The orchestrator ignores the message properties and reads only the body. `routineKey` selects the connector through the worker's `routine-worker-mapping.json` (`fuzz` → `ffuf-connector`, `masser` → `masser-connector`, `sqlmap` → `sqlmap-connector`); an unmapped key makes the orchestrator report `FAILED`.
 
 ## 3. Object storage (S3 API, RustFS)
 
@@ -37,7 +37,7 @@ The core writes with its own credentials. The orchestrator uses `RUSTFS_JOBS_BUC
 | Object | Written by | Read by |
 |---|---|---|
 | `job-configuration/details/{jobId}.json` | core | orchestrator → connector |
-| `job-configuration/data/{jobId}.jsonl` | core | orchestrator downloads it, only masser reads it |
+| `job-configuration/data/{jobId}.jsonl` | core | orchestrator downloads it; masser and sqlmap read it |
 | `job-results/{jobId}.result` | orchestrator | core (`GET /api/jobs/http/{id}/result`) |
 | `wordlists/{wordlistId}` | core (on `POST /api/wordlists`) | orchestrator, see 3.5 |
 
@@ -49,8 +49,8 @@ The core writes it with the application's Jackson mapper (`FAIL_ON_UNKNOWN_PROPE
 |---|---|---|
 | `jobId` | number | |
 | `routineKey` | string | |
-| `rate` | number or `null` | requests per second; the worker reads `null` as 0 |
-| `verbosity` | `SUMMARIZED` \| `NORMAL` \| `VERBOSE` | masser gets it as `-verbosity`; ffuf ignores it |
+| `rate` | number or `null` | requests per second; the worker reads `null` as 0, which ffuf and masser take as no limit and sqlmap refuses (`FAILED`, `INVALID_CONFIG`) |
+| `verbosity` | `SUMMARIZED` \| `NORMAL` \| `VERBOSE` | masser gets it as `-verbosity`; ffuf and sqlmap ignore it |
 | `wordlists` | array of `{id, name, sha256, sizeBytes}` | ordered by `id`; may be empty; `name` may be `null`. The orchestrator downloads each one (3.5) and gives the connectors local paths, see below. ffuf needs exactly one and reports a job with none or more than one as `FAILED` (`INVALID_CONFIG`) (masser takes all of them) |
 | `auth` | object or `null` | only narrow jobs of a tenant with stored authentication; the worker treats `null` as no headers, cookies or query parameters |
 | `auth.data.headers`, `.cookies`, `.queryParameters` | arrays of `{"key", "value"}` | the worker uses headers and cookies; **query parameters are never applied by either connector** |
@@ -74,13 +74,13 @@ JSON Lines, UTF-8, one object per line, written with a plain `ObjectMapper`. Sam
 | Narrow job on requests | `{"requestId": 7, "base64Request": "..."}` | the raw HTTP request (request line, headers, body) encoded as UTF-8 text and then Base64; this re-encoding of the bytes as text is a known deviation of the bytes-only rule |
 | Narrow job on one host, wide job | `{"hostId": 3, "host": "example.com", "scope": "FQDN"}` | `scope` is `FQDN` or `WILDCARD` |
 
-The worker never parses this file: the orchestrator downloads it and the connector passes its path to the tool (`masser -requests <file>`). ffuf does not read it at all; it takes its request from `customConfig.rawRequestBase64`. **Not checked:** that `masser` reads exactly these line shapes (its source is not part of either repo).
+The orchestrator downloads it. masser gets its path (`masser -requests <file>`). ffuf does not read it at all; it takes its request from `customConfig.rawRequestBase64`. The sqlmap connector parses it (`connector/internal/httptargets`): it needs exactly one request line, whose `requestId` goes into the result and whose `Host` (or absolute-form target) is the only host the requests of its `customConfig` may name (3.3); the request of the line itself is not sent. **Not checked:** that `masser` reads exactly these line shapes (its source is not part of either repo).
 
 ### 3.3 `customConfig` per routine
 
-The core checks it when a job is created (narrow, wide and AI jobs): if the routine has a `configSchema` (JSON Schema, draft 2020-12, given when the routine is created or patched) the `customConfig` has to satisfy it, otherwise the creation is answered with 400 and the list of violations. A routine without a `configSchema` is not checked. **The flag enums of the schema of `fuzz` and `masser` have to equal `allowedFlags` of the worker connectors; nothing checks this automatically, so change them together.**
+The core checks it when a job is created (narrow, wide and AI jobs): if the routine has a `configSchema` (JSON Schema, draft 2020-12, given when the routine is created or patched) the `customConfig` has to satisfy it, otherwise the creation is answered with 400 and the list of violations. A routine without a `configSchema` is not checked. **The flag enums of the schema of `fuzz` and `masser` have to equal `allowedFlags` of the worker connectors, and those of `sqlmap` the allowed keys of `newFlagSet` in `connector/cmd/connectors/sqlmap/flags.go`; nothing checks this automatically, so change them together.**
 
-The connector of the routine is still the one that parses it; both ignore unknown fields and reject a flag outside their allow-list (`Unknown flag provided in custom config`). A `customConfig` that can not be used (wrong shape, unknown flag, a request that is not Base64) makes the connector report the job `FAILED` with the reason.
+The connector of the routine is still the one that parses it; all ignore unknown fields and reject a flag outside their allow-list (ffuf and masser: `Unknown flag provided in custom config`; sqlmap names the flag, never its value, and also checks each value). A `customConfig` that can not be used (wrong shape, unknown flag, a request that is not Base64) makes the connector report the job `FAILED` with the reason.
 
 **Targets** is what the connector can take from the data file; the routine's `allowedTargets` must not name more. **Result** is what the connector writes as `{jobId}.result`; it sets the routine's `resultContentType`.
 
@@ -88,12 +88,13 @@ The connector of the routine is still the one that parses it; both ignore unknow
 |---|---|---|---|---|
 | `fuzz` (ffuf) | `{"rawRequestBase64": "<base64>", "flags": [{"key": "-mc", "value": "200"}]}` | `-request <file in the job dir>` (the decoded bytes) and `<key> <value>` for each flag | none: the data file is not read, the one request comes from `rawRequestBase64` | ffuf's `-o` file in its default JSON format (`-of` is not allowed): `JSON` |
 | `masser` | `{"flags": [{"key": "-n", "value": "5"}]}` | `<key> <value>` for each flag | requests: the data file is passed as `-requests` (not checked: host lines, see 3.2) | masser's `-output` file (format not checked here; its source is not part of either repo) |
+| `sqlmap` | `{"scheme": "https", "rawRequestBase64": "<base64>", "secondOrderRequestBase64": "<base64>", "flags": [{"key": "-p", "value": "id"}, {"key": "--banner", "value": ""}]}`; `rawRequestBase64` is required, `secondOrderRequestBase64` optional, `scheme` `http` or `https` (missing: `https`) | `-r <file>` (the decoded bytes, unchanged: a `*` marks an injection point), `--second-req <file>` when given, `--force-ssl` for `https`, `<key>` for a switch (value `""`) and `<key> <value>` otherwise | one request (`SINGLE_REQUEST`): the data file must have exactly one request line; it gives the `requestId` and the host, and both `customConfig` requests must be on that host (`Host` header and absolute-form target, port included, case ignored), otherwise `FAILED` (`INVALID_CONFIG`) | the connector's envelope `{"tool": "sqlmap", "target": {"requestId": 7}, "results": [<sqlmap's report data entries>], "meta": {"exitCode", "success", "errors": [<sqlmap's errors>], "sqlmap": {<report meta>}}}`: `JSON`. "Not injectable" and an unreachable target are a `FINISHED` job without results, the reason in `meta.errors`; a run that stops before the scan (sqlmap refused an option or the request) is `FAILED` (`TOOL_EXIT`) with sqlmap's message |
 
-Always passed by the connector: ffuf `-o <result> -w <the wordlists path> -rate <rate> -noninteractive`, `-b` for cookies, `-H` for headers; masser `-requests <data file> -output <result> -rate <rate>`, `-verbosity`, one `-wordlist` per wordlist, `-C` for cookies, `-H` for headers. The allow-lists are `allowedFlags` in each `builder.go`.
+Always passed by the connector: ffuf `-o <result> -w <the wordlists path> -rate <rate> -noninteractive`, `-b` for cookies, `-H` for headers; masser `-requests <data file> -output <result> -rate <rate>`, `-verbosity`, one `-wordlist` per wordlist, `-C` for cookies, `-H` for headers; sqlmap `-r <file> --batch --non-interactive --output-dir <dir> --report-json <file> -v 1 --disable-coloring --no-logging --risk 1 --threads <N> --delay <D>` with `N` = `rate` capped at 10 (1 when the job passes `--csrf-token`) and `D` = `N`/`rate` seconds, so at most `rate` requests per second; `--technique BEUTQ`, `--time-sec 5` and `--timeout 30` unless the job passes them; `-H "Cookie: <the auth cookies>"`, which replaces the `Cookie` header of the request, and one `-H` per auth header and match-and-replace header, which replaces a header of the same name in the request. The allow-lists are `allowedFlags` in the ffuf and masser `builder.go`, and the typed list of `connector/cmd/connectors/sqlmap/flags.go` (value ranges, enums, the tamper scripts of the image, URLs on the job's host; stacked queries (`S`), `--risk` other than 1, `--time-sec` above 5, `--eval`, out-of-band and data-dumping flags are refused).
 
 ### 3.4 Result
 
-`{jobId}.result` is whatever file the tool wrote, uploaded unchanged. Only a `FINISHED` job has one. A `FAILED`, `CANCELED`, `SELFTERMINATED` or `LOSTCONTACT` job has none; the reason of a failure is stored with the job (`failureMsg`, cut to 500 characters, with its `failureCategory`).
+`{jobId}.result` is whatever file the connector handed over, uploaded unchanged: the tool's own file for ffuf and masser, the connector's JSON envelope for sqlmap (3.3). Only a `FINISHED` job has one. A `FAILED`, `CANCELED`, `SELFTERMINATED` or `LOSTCONTACT` job has none; the reason of a failure is stored with the job (`failureMsg`, cut to 500 characters, with its `failureCategory`).
 
 ### 3.5 Wordlists
 
